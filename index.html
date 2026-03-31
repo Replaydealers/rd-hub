@@ -467,10 +467,17 @@ html, body {
       maxlength="6" autocomplete="off"
       placeholder="PIN eingeben"
       oninput="pinFromInput(this.value)"
+      onchange="pinFromInput(this.value)"
       style="width:100%;font-size:24px;letter-spacing:8px;text-align:center;
              padding:14px;border-radius:12px;border:0.5px solid rgba(255,255,255,0.15);
              background:#1a1a2e;color:white;outline:none;-webkit-appearance:none;"
     />
+    <button type="button" onclick="pinFromInput(document.getElementById('pin-field').value)"
+      style="width:100%;margin-top:12px;padding:14px;border:none;border-radius:12px;
+             background:#E63946;color:white;font-size:17px;font-weight:700;cursor:pointer;
+             touch-action:manipulation;">
+      Entsperren
+    </button>
     <div class="pin-error-msg" id="pin-error" style="margin-top:12px;"></div>
   </div>
 </div>
