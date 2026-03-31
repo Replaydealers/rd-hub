@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#1A1A2E" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-title" content="RD Hub" />
+<link rel="manifest" href="manifest.json" />
+<title>RD Hub</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f0f1a;
+  --card: #1a1a2e;
+  --card2: #222238;
+  --accent: #E63946;
+  --accent2: #ff6b6b;
+  --text: #f0efe8;
+  --muted: #8888aa;
+  --hint: #555570;
+  --border: rgba(255,255,255,0.08);
+  --green: #1D9E75;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ── SCREENS ── */
+.screen { 
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  transition: opacity 0.25s, transform 0.25s;
+}
+.screen.hidden { 
+  opacity: 0; pointer-events: none; transform: scale(0.97);
+}
+
+/* ── LOCK SCREEN ── */
+#screen-lock {
+  background: var(--bg);
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.lock-logo {
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.lock-logo .rd {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.lock-logo .name {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.5px;
+}
+
+.pin-display {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 32px;
+  justify-content: center;
+}
+
+.pin-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  transition: all 0.15s;
+}
+
+.pin-dot.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.1);
+}
+
+.pin-dot.error {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+.numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 80px);
+  grid-template-rows: repeat(4, 80px);
+  gap: 10px;
+}
+
+.numpad-btn {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  border: none;
+  background: var(--card2);
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.numpad-btn:active { background: var(--accent); transform: scale(0.93); }
+.numpad-btn.del { font-size: 20px; background: transparent; color: var(--muted); }
+.numpad-btn.del:active { background: var(--card2); color: var(--text); }
+.numpad-btn.empty { background: transparent; pointer-events: none; }
+
+.pin-error-msg {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--accent);
+  text-align: center;
+  height: 18px;
+}
+
+/* ── HOME SCREEN ── */
+#screen-home {
+  background: var(--bg);
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.home-header {
+  background: var(--card);
+  padding: 16px 20px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+  border-bottom: 0.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.home-header .title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+
+.home-header .subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.lock-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 0.5px solid var(--border);
+  background: var(--card2);
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.menu-grid {
+  padding: 20px 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.menu-tile {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 0.5px solid var(--border);
+  padding: 20px 16px;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.menu-tile:active { transform: scale(0.96); background: var(--card2); }
+
+.menu-tile.active-tile {
+  border-color: var(--accent);
+}
+
+.menu-tile.inactive {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.tile-icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+  line-height: 1;
+}
+
+.tile-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.tile-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.tile-accent {
+  position: absolute;
+  top: 0; right: 0;
+  width: 40px; height: 40px;
+  background: var(--accent);
+  opacity: 0.12;
+  border-radius: 0 var(--radius) 0 40px;
+}
+
+/* ── SUB SCREENS ── */
+#screen-jp, #screen-artikel {
+  background: var(--bg);
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.sub-header {
+  background: var(--card);
+  padding: 14px 16px;
+  padding-top: calc(14px + env(safe-area-inset-top));
+  border-bottom: 0.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.back-btn {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 0.5px solid var(--border);
+  background: var(--card2);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.sub-header-title { font-size: 17px; font-weight: 600; }
+
+.sub-content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ── SHARED CARD COMPONENTS ── */
+.s-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 0.5px solid var(--border);
+  padding: 16px;
+}
+
+.s-card-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--hint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 14px;
+}
+
+.s-field { margin-bottom: 12px; }
+.s-field:last-child { margin-bottom: 0; }
+
+.s-field label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+.s-input-wrap {
+  display: flex;
+  align-items: center;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card2);
+  overflow: hidden;
+}
+
+.s-input-wrap input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  padding: 9px 8px;
+  outline: none;
+  min-width: 0;
+  width: 0;
+  -webkit-appearance: none;
+}
+
+.s-input-wrap input::placeholder { color: var(--hint); }
+.s-input-wrap .unit { font-size: 13px; color: var(--muted); padding: 0 8px 0 2px; white-space: nowrap; }
+
+.s-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.s-sublabel { font-size: 12px; color: var(--hint); margin-bottom: 4px; }
+
+.s-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 15px; color: var(--text);
+}
+.s-toggle-row:last-child { border-bottom: none; }
+
+.switch { position: relative; width: 44px; height: 26px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .knob { position: absolute; inset: 0; background: var(--hint); border-radius: 26px; cursor: pointer; transition: background 0.2s; }
+.switch .knob:before { content: ''; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+.switch input:checked + .knob { background: var(--green); }
+.switch input:checked + .knob:before { transform: translateX(18px); }
+
+.s-results { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.s-metric { background: var(--card2); border-radius: var(--radius-sm); padding: 12px; }
+.s-metric .mlabel { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.s-metric .mval { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.5px; }
+.mval.good { color: #1D9E75; }
+.mval.bad { color: var(--accent); }
+
+.s-breakdown { display: flex; flex-direction: column; }
+.s-brow { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 0.5px solid var(--border); font-size: 14px; }
+.s-brow:last-child { border-bottom: none; }
+.s-brow .bl { color: var(--muted); }
+.s-brow .br { font-weight: 500; color: var(--text); }
+.s-brow.total { padding-top: 10px; }
+.s-brow.total .bl { font-weight: 600; color: var(--text); font-size: 15px; }
+.s-brow.total .br { font-size: 16px; }
+
+.s-verdict { border-radius: var(--radius-sm); padding: 12px 16px; font-size: 15px; font-weight: 600; text-align: center; margin-top: 10px; }
+.s-verdict.yes { background: rgba(29,158,117,0.15); color: #1D9E75; }
+.s-verdict.no { background: rgba(230,57,70,0.15); color: var(--accent); }
+.s-verdict.maybe { background: rgba(133,79,11,0.15); color: #EFA827; }
+
+.s-hint { font-size: 11px; color: var(--hint); text-align: center; margin-top: 8px; }
+
+.s-search-btn {
+  padding: 0 20px; height: 44px;
+  border: none; border-radius: var(--radius-sm);
+  background: var(--accent); color: white;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.s-artikel-result {
+  display: none; margin-top: 10px; padding: 12px;
+  background: var(--card2); border-radius: var(--radius-sm);
+}
+.s-artikel-result .ar-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.s-artikel-result .ar-info { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.s-error { display: none; margin-top: 8px; font-size: 13px; color: var(--accent); }
+.s-loading { display: none; margin-top: 8px; font-size: 13px; color: var(--muted); }
+
+/* JP SCREEN LAYOUT */
+#screen-jp { overflow: hidden; }
+.jp-body { display: flex; flex-direction: column; height: calc(100% - 56px); }
+.jp-prices {
+  display: flex; align-items: stretch;
+  padding: 10px 12px; gap: 0;
+  background: var(--card);
+  margin: 10px 12px;
+  border-radius: var(--radius);
+  border: 0.5px solid var(--border);
+}
+.jp-col { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 4px 8px; }
+.jp-result-col { justify-content: center; }
+.jp-col-label { font-size: 10px; font-weight: 700; color: var(--hint); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+.jp-field { display: flex; flex-direction: column; gap: 3px; }
+.jp-sublabel { font-size: 11px; color: var(--hint); }
+.jp-field .s-input-wrap input { font-size: 14px; padding: 7px 6px; }
+.jp-field .s-input-wrap { background: var(--card2); }
+.jp-divider { width: 0.5px; background: var(--border); margin: 4px 0; }
+.jp-breakdown-wrap { padding: 0 12px; flex-shrink: 0; }
+.jp-breakdown-title { font-size: 10px; font-weight: 700; color: var(--hint); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.jp-breakdown { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.jp-brow { background: var(--card2); border-radius: 6px; padding: 5px 6px; display: flex; flex-direction: column; gap: 1px; }
+.jp-brow span:first-child { font-size: 9px; color: var(--hint); }
+.jp-brow span:last-child { font-size: 12px; font-weight: 600; color: var(--text); }
+.jp-brow-total { background: var(--card); border: 0.5px solid var(--accent); }
+.jp-brow-total span:last-child { color: var(--accent); }
+.jp-settings { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 12px; margin-top: auto; border-top: 0.5px solid var(--border); }
+
+.refresh-btn {
+  padding: 0 14px; height: 44px;
+  border: 0.5px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card2); color: var(--muted);
+  font-size: 18px; cursor: pointer; flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOCK SCREEN ══ -->
+<div class="screen" id="screen-lock">
+  <div class="lock-logo">
+    <div class="rd">Replay Dealers</div>
+    <div class="name">RD Hub</div>
+  </div>
+
+  <div class="pin-display">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+    <div class="pin-dot" id="d4"></div>
+    <div class="pin-dot" id="d5"></div>
+  </div>
+
+  <div class="numpad">
+    <button class="numpad-btn" onclick="pinPress(1)">1</button>
+    <button class="numpad-btn" onclick="pinPress(2)">2</button>
+    <button class="numpad-btn" onclick="pinPress(3)">3</button>
+    <button class="numpad-btn" onclick="pinPress(4)">4</button>
+    <button class="numpad-btn" onclick="pinPress(5)">5</button>
+    <button class="numpad-btn" onclick="pinPress(6)">6</button>
+    <button class="numpad-btn" onclick="pinPress(7)">7</button>
+    <button class="numpad-btn" onclick="pinPress(8)">8</button>
+    <button class="numpad-btn" onclick="pinPress(9)">9</button>
+    <button class="numpad-btn empty"></button>
+    <button class="numpad-btn" onclick="pinPress(0)">0</button>
+    <button class="numpad-btn del" onclick="pinDel()">⌫</button>
+  </div>
+
+  <div class="pin-error-msg" id="pin-error"></div>
+</div>
+
+<!-- ══ HOME SCREEN ══ -->
+<div class="screen hidden" id="screen-home">
+  <div class="home-header">
+    <div>
+      <div class="title">RD Hub</div>
+      <div class="subtitle">Replay Dealers</div>
+    </div>
+    <button class="lock-btn" onclick="lockApp()">🔒</button>
+  </div>
+  <div class="menu-grid">
+    <div class="menu-tile active-tile" onclick="showScreen('screen-jp')">
+      <div class="tile-accent"></div>
+      <div class="tile-icon">🇯🇵</div>
+      <div>
+        <div class="tile-label">JP Import Kalkulator</div>
+        <div class="tile-sub">Mindest-VK & Marge</div>
+      </div>
+    </div>
+    <div class="menu-tile active-tile" onclick="showScreen('screen-artikel')">
+      <div class="tile-accent"></div>
+      <div class="tile-icon">🔍</div>
+      <div>
+        <div class="tile-label">Artikelsuche</div>
+        <div class="tile-sub">EK · VK · Status</div>
+      </div>
+    </div>
+    <div class="menu-tile inactive">
+      <div class="tile-icon">📦</div>
+      <div>
+        <div class="tile-label">Lagerübersicht</div>
+        <div class="tile-sub">Kommt bald</div>
+      </div>
+    </div>
+    <div class="menu-tile inactive">
+      <div class="tile-icon">📊</div>
+      <div>
+        <div class="tile-label">Dashboard</div>
+        <div class="tile-sub">Kommt bald</div>
+      </div>
+    </div>
+    <div class="menu-tile inactive">
+      <div class="tile-icon">🛒</div>
+      <div>
+        <div class="tile-label">Einkauf anlegen</div>
+        <div class="tile-sub">Kommt bald</div>
+      </div>
+    </div>
+    <div class="menu-tile inactive">
+      <div class="tile-icon">⚙️</div>
+      <div>
+        <div class="tile-label">Einstellungen</div>
+        <div class="tile-sub">Kommt bald</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ JP KALKULATOR ══ -->
+<div class="screen hidden" id="screen-jp">
+  <div class="sub-header">
+    <button class="back-btn" onclick="showScreen('screen-home')">←</button>
+    <div class="sub-header-title">JP Import Kalkulator</div>
+    <span id="kurs-status" style="font-size:11px;color:var(--hint);margin-left:auto;">wird geladen…</span>
+    <button class="refresh-btn" style="margin-left:6px;width:32px;height:32px;padding:0;font-size:14px;" onclick="fetchRate()">↻</button>
+  </div>
+
+  <div class="jp-body">
+
+    <!-- Artikelsuche -->
+    <div class="jp-row" style="padding:10px 12px 0;">
+      <div style="display:flex;gap:8px;">
+        <div class="s-input-wrap" style="flex:1;">
+          <input type="text" inputmode="numeric" id="jp-artikel-nr" placeholder="Artikelnummer (optional)" onkeydown="if(event.key==='Enter')jpSearchArtikel()" />
+        </div>
+        <button class="s-search-btn" style="font-size:12px;padding:0 12px;" onclick="jpSearchArtikel()">Laden</button>
+      </div>
+      <div class="s-loading" id="jp-loading">Wird geladen…</div>
+      <div class="s-error" id="jp-error">Nicht gefunden.</div>
+      <div class="s-artikel-result" id="jp-result">
+        <div class="ar-name" id="jp-result-name">—</div>
+        <div class="ar-info" id="jp-result-info">—</div>
+      </div>
+    </div>
+
+    <!-- EK / VK / Marge nebeneinander -->
+    <div class="jp-prices">
+
+      <div class="jp-col">
+        <div class="jp-col-label">EK Japan</div>
+        <div class="jp-field">
+          <div class="jp-sublabel">¥</div>
+          <div class="s-input-wrap">
+            <input type="number" inputmode="numeric" id="ek_jpy" value="3000" min="0" step="100" oninput="onJpyInput()" />
+          </div>
+        </div>
+        <div class="jp-field">
+          <div class="jp-sublabel">€</div>
+          <div class="s-input-wrap">
+            <input type="number" inputmode="decimal" id="ek_eur" placeholder="—" min="0" step="0.01" oninput="onEurInput()" />
+          </div>
+        </div>
+      </div>
+
+      <div class="jp-divider"></div>
+
+      <div class="jp-col">
+        <div class="jp-col-label">VK</div>
+        <div class="jp-field">
+          <div class="jp-sublabel">€</div>
+          <div class="s-input-wrap">
+            <input type="number" inputmode="decimal" id="vk" value="44" min="0" step="0.5" oninput="onVkEurInput()" />
+          </div>
+        </div>
+        <div class="jp-field">
+          <div class="jp-sublabel">£</div>
+          <div class="s-input-wrap">
+            <input type="number" inputmode="decimal" id="vk_gbp" placeholder="—" min="0" step="0.5" oninput="onVkGbpInput()" />
+          </div>
+        </div>
+      </div>
+
+      <div class="jp-divider"></div>
+
+      <div class="jp-col jp-result-col">
+        <div class="jp-col-label">Ergebnis</div>
+        <div style="text-align:center;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">Gesamt-EK</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);" id="ek_val">—</div>
+        </div>
+        <div style="text-align:center;margin-top:8px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">Marge</div>
+          <div style="font-size:20px;font-weight:700;" id="marge_val">—</div>
+        </div>
+        <div class="s-verdict" id="verdict" style="margin-top:8px;padding:6px 8px;font-size:11px;"></div>
+      </div>
+
+    </div>
+
+    <!-- Aufschlüsselung -->
+    <div class="jp-breakdown-wrap">
+      <div class="jp-breakdown-title">Aufschlüsselung</div>
+      <div class="jp-breakdown">
+        <div class="jp-brow"><span>EK</span><span id="b_ek">—</span></div>
+        <div class="jp-brow"><span>Sendico</span><span id="b_sendico">—</span></div>
+        <div class="jp-brow"><span>Versand JP</span><span id="b_versand">—</span></div>
+        <div class="jp-brow"><span>EUSt (19%)</span><span id="b_eust">—</span></div>
+        <div class="jp-brow" id="row_ebay"><span>eBay (12%)</span><span id="b_ebay">—</span></div>
+        <div class="jp-brow" id="row_vk_versand"><span>Versand VK</span><span id="b_vk_versand">—</span></div>
+        <div class="jp-brow"><span>USt Marge</span><span id="b_ust">—</span></div>
+        <div class="jp-brow jp-brow-total"><span>Netto-Marge</span><span id="b_marge">—</span></div>
+      </div>
+    </div>
+
+    <!-- Einstellungen -->
+    <div class="jp-settings">
+      <div style="display:flex;gap:8px;align-items:center;flex:1;">
+        <span style="font-size:12px;color:var(--muted);">Kurs</span>
+        <div class="s-input-wrap" style="flex:1;">
+          <input type="number" inputmode="decimal" id="kurs" value="160" min="1" step="1" oninput="calc()" style="font-size:13px;padding:6px 8px;" />
+          <span style="font-size:11px;color:var(--muted);padding:0 6px;">¥/€</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex:1;">
+        <span style="font-size:12px;color:var(--muted);">Versand</span>
+        <div class="s-input-wrap" style="flex:1;">
+          <input type="number" inputmode="decimal" id="versand" value="3" min="0" step="0.5" oninput="calc()" style="font-size:13px;padding:6px 8px;" />
+          <span style="font-size:11px;color:var(--muted);padding:0 6px;">€</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span style="font-size:11px;color:var(--muted);">eBay</span>
+        <label class="switch" style="transform:scale(0.8);"><input type="checkbox" id="ebay_on" checked onchange="calc()" /><span class="knob"></span></label>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span style="font-size:11px;color:var(--muted);">Versand VK</span>
+        <label class="switch" style="transform:scale(0.8);"><input type="checkbox" id="vk_versand_on" onchange="toggleVkVersand()" /><span class="knob"></span></label>
+      </div>
+    </div>
+    <div id="vk_versand_field" style="display:none;padding:0 12px 8px;">
+      <div class="s-input-wrap">
+        <input type="number" inputmode="decimal" id="vk_versand" value="5" min="0" step="0.5" oninput="calc()" />
+        <span class="unit">€</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ ARTIKELSUCHE ══ -->
+<div class="screen hidden" id="screen-artikel">
+  <div class="sub-header">
+    <button class="back-btn" onclick="showScreen('screen-home')">←</button>
+    <div class="sub-header-title">Artikelsuche</div>
+  </div>
+  <div class="sub-content">
+
+    <div class="s-card">
+      <div class="s-card-title">Suche</div>
+      <div style="display:flex;gap:8px;">
+        <div class="s-input-wrap" style="flex:1;">
+          <input type="text" inputmode="numeric" id="a-nr" placeholder="Artikelnummer eingeben" onkeydown="if(event.key==='Enter')artikelSearch()" />
+        </div>
+        <button class="s-search-btn" onclick="artikelSearch()">Suchen</button>
+      </div>
+      <div class="s-loading" id="a-loading">Wird geladen…</div>
+      <div class="s-error" id="a-error">Artikel nicht gefunden.</div>
+    </div>
+
+    <div class="s-card" id="a-result-card" style="display:none;">
+      <div class="s-card-title" id="a-result-nr">—</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:16px;" id="a-result-name">—</div>
+      <div class="s-breakdown">
+        <div class="s-brow"><span class="bl">EK-Preis</span><span class="br" id="a-ek">—</span></div>
+        <div class="s-brow"><span class="bl">Mindest-VK</span><span class="br" id="a-minvk">—</span></div>
+        <div class="s-brow"><span class="bl">Status</span><span class="br" id="a-status">—</span></div>
+        <div class="s-brow"><span class="bl">Listing-Datum</span><span class="br" id="a-datum">—</span></div>
+      </div>
+      <button onclick="loadIntoKalk()" style="margin-top:14px;width:100%;padding:12px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:white;font-size:14px;font-weight:700;cursor:pointer;">
+        In JP Kalkulator laden →
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──
+var AT_BASE = 'appwhhRzsznu1LTRX';
+var AT_TABLE = 'Artikel_2026';
+var AT_TOKEN = 'patNPI9NMOZC3ZJgh.5815eddd9a34b7821d4eebcd67395c1707f49ac7bc12ecf1910e7f0ba38bd7ec';
+var PIN = '082024';
+var gbpEurRate = 0.85;
+var lastArtikel = null;
+
+// ── PIN ──
+var pinInput = '';
+function pinPress(n) {
+  if (pinInput.length >= 6) return;
+  pinInput += n;
+  updateDots();
+  if (pinInput.length === 6) {
+    setTimeout(checkPin, 100);
+  }
+}
+function pinDel() {
+  pinInput = pinInput.slice(0, -1);
+  updateDots();
+}
+function updateDots() {
+  for (var i = 0; i < 6; i++) {
+    document.getElementById('d'+i).className = 'pin-dot' + (i < pinInput.length ? ' filled' : '');
+  }
+}
+function checkPin() {
+  if (pinInput === PIN) {
+    showScreen('screen-home');
+    fetchRate();
+  } else {
+    for (var i = 0; i < 6; i++) document.getElementById('d'+i).className = 'pin-dot error';
+    document.getElementById('pin-error').textContent = 'Falscher Code';
+    setTimeout(function() {
+      pinInput = '';
+      updateDots();
+      document.getElementById('pin-error').textContent = '';
+    }, 800);
+  }
+}
+function lockApp() { pinInput = ''; updateDots(); showScreen('screen-lock'); }
+
+// ── NAVIGATION ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s) {
+    s.classList.add('hidden');
+  });
+  document.getElementById(id).classList.remove('hidden');
+}
+
+// ── AIRTABLE ──
+function atFetch(nr, cb) {
+  var filter = encodeURIComponent('{ITEM_Artikelnummer}="' + nr + '"');
+  var url = 'https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(AT_TABLE) +
+    '?filterByFormula=' + filter +
+    '&fields[]=ITEM_Artikel&fields[]=ITEM_EK_Preis&fields[]=ITEM_Mindest_VK&fields[]=ITEM_Status&fields[]=ITEM_Listing_Datum&maxRecords=1';
+  fetch(url, { headers: { 'Authorization': 'Bearer ' + AT_TOKEN } })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { cb(null, d); })
+    .catch(function(e) { cb(e, null); });
+}
+
+// ── JP KALKULATOR ARTIKELSUCHE ──
+function jpSearchArtikel() {
+  var nr = document.getElementById('jp-artikel-nr').value.trim();
+  if (!nr) return;
+  document.getElementById('jp-result').style.display = 'none';
+  document.getElementById('jp-error').style.display = 'none';
+  document.getElementById('jp-loading').style.display = '';
+  atFetch(nr, function(err, data) {
+    document.getElementById('jp-loading').style.display = 'none';
+    if (err || !data.records || data.records.length === 0) {
+      document.getElementById('jp-error').style.display = '';
+      return;
+    }
+    var f = data.records[0].fields;
+    document.getElementById('jp-result-name').textContent = f['ITEM_Artikel'] || '—';
+    document.getElementById('jp-result-info').textContent =
+      'EK: ' + (f['ITEM_EK_Preis']||0).toFixed(2) + ' € · Mindest-VK: ' + (f['ITEM_Mindest_VK']||0).toFixed(2) + ' €';
+    document.getElementById('jp-result').style.display = '';
+    if (f['ITEM_EK_Preis']) { document.getElementById('ek_eur').value = f['ITEM_EK_Preis'].toFixed(2); onEurInput(); }
+    if (f['ITEM_Mindest_VK']) { document.getElementById('vk').value = f['ITEM_Mindest_VK'].toFixed(2); onVkEurInput(); }
+  });
+}
+
+// ── ARTIKELSUCHE SCREEN ──
+function artikelSearch() {
+  var nr = document.getElementById('a-nr').value.trim();
+  if (!nr) return;
+  document.getElementById('a-result-card').style.display = 'none';
+  document.getElementById('a-error').style.display = 'none';
+  document.getElementById('a-loading').style.display = '';
+  atFetch(nr, function(err, data) {
+    document.getElementById('a-loading').style.display = 'none';
+    if (err || !data.records || data.records.length === 0) {
+      document.getElementById('a-error').style.display = '';
+      return;
+    }
+    var f = data.records[0].fields;
+    lastArtikel = f;
+    document.getElementById('a-result-nr').textContent = 'Artikel #' + nr;
+    document.getElementById('a-result-name').textContent = f['ITEM_Artikel'] || '—';
+    document.getElementById('a-ek').textContent = f['ITEM_EK_Preis'] ? f['ITEM_EK_Preis'].toFixed(2)+' €' : '—';
+    document.getElementById('a-minvk').textContent = f['ITEM_Mindest_VK'] ? f['ITEM_Mindest_VK'].toFixed(2)+' €' : '—';
+    document.getElementById('a-status').textContent = f['ITEM_Status'] || '—';
+    document.getElementById('a-datum').textContent = f['ITEM_Listing_Datum'] || '—';
+    document.getElementById('a-result-card').style.display = '';
+  });
+}
+
+function loadIntoKalk() {
+  if (!lastArtikel) return;
+  if (lastArtikel['ITEM_EK_Preis']) { document.getElementById('ek_eur').value = lastArtikel['ITEM_EK_Preis'].toFixed(2); onEurInput(); }
+  if (lastArtikel['ITEM_Mindest_VK']) { document.getElementById('vk').value = lastArtikel['ITEM_Mindest_VK'].toFixed(2); onVkEurInput(); }
+  showScreen('screen-jp');
+}
+
+// ── KALKULATOR LOGIC ──
+function v(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function fmtE(n) { return n.toFixed(2)+' €'; }
+function fmtM(n) { return (n>=0?'+':'')+n.toFixed(2)+' €'; }
+
+function onJpyInput() {
+  var kurs = v('kurs') || 160;
+  var jpy = v('ek_jpy');
+  document.getElementById('ek_eur').value = jpy > 0 ? (jpy/kurs).toFixed(2) : '';
+  calc();
+}
+function onEurInput() {
+  var kurs = v('kurs') || 160;
+  var eur = v('ek_eur');
+  document.getElementById('ek_jpy').value = eur > 0 ? Math.round(eur*kurs) : '';
+  calc();
+}
+function onVkEurInput() {
+  var eur = v('vk');
+  document.getElementById('vk_gbp').value = eur > 0 ? (eur*gbpEurRate).toFixed(2) : '';
+  calc();
+}
+function onVkGbpInput() {
+  var gbp = v('vk_gbp');
+  var eur = gbp > 0 ? gbp/gbpEurRate : 0;
+  document.getElementById('vk').value = eur > 0 ? eur.toFixed(2) : '';
+  calc();
+}
+function toggleVkVersand() {
+  var on = document.getElementById('vk_versand_on').checked;
+  document.getElementById('vk_versand_field').style.display = on ? '' : 'none';
+  calc();
+}
+
+function calc() {
+  var kurs = v('kurs') || 160;
+  var ek_eur = v('ek_eur') || v('ek_jpy')/kurs;
+  var sendico_eur = 500/kurs;
+  var versand = v('versand');
+  var vk = v('vk');
+  var ebay_on = document.getElementById('ebay_on').checked;
+  var vk_versand_on = document.getElementById('vk_versand_on').checked;
+  var vk_versand = vk_versand_on ? v('vk_versand') : 0;
+
+  var eust = (ek_eur + sendico_eur + versand) * 0.19;
+  var ebay_cost = ebay_on ? vk * 0.12 : 0;
+  var gesamt = ek_eur + sendico_eur + versand + eust;
+  var marge_brutto = vk - gesamt - ebay_cost - vk_versand;
+  var ust = (vk - gesamt) * 0.19;
+  var marge_netto = marge_brutto - ust;
+
+  document.getElementById('b_ek').textContent = fmtE(ek_eur);
+  document.getElementById('b_sendico').textContent = fmtE(sendico_eur);
+  document.getElementById('b_versand').textContent = fmtE(versand);
+  document.getElementById('b_eust').textContent = fmtE(eust);
+  document.getElementById('b_ebay').textContent = ebay_on ? fmtE(ebay_cost) : '—';
+  document.getElementById('row_ebay').style.opacity = ebay_on?'1':'0.5';
+  document.getElementById('b_vk_versand').textContent = vk_versand_on ? fmtE(vk_versand) : '—';
+  document.getElementById('row_vk_versand').style.opacity = vk_versand_on?'1':'0.5';
+  document.getElementById('b_ust').textContent = fmtE(ust);
+  document.getElementById('b_marge').textContent = fmtM(marge_netto);
+  document.getElementById('ek_val').textContent = fmtE(gesamt);
+
+  var mv = document.getElementById('marge_val');
+  mv.textContent = marge_netto.toFixed(2)+' €';
+  mv.className = 'mval'+(marge_netto>=15?' good':marge_netto<0?' bad':'');
+
+  var vd = document.getElementById('verdict');
+  if (marge_netto >= 15) { vd.textContent = 'Lohnt sich — gute Marge'; vd.className = 's-verdict yes'; }
+  else if (marge_netto >= 8) { vd.textContent = 'Grenzwertig — nur bei sicherem VK'; vd.className = 's-verdict maybe'; }
+  else { vd.textContent = 'Lohnt sich nicht'; vd.className = 's-verdict no'; }
+}
+
+function fetchRate() {
+  var status = document.getElementById('kurs-status');
+  status.textContent = 'wird geladen…';
+  fetch('https://open.er-api.com/v6/latest/EUR')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && data.rates && data.rates.JPY) {
+        document.getElementById('kurs').value = Math.round(data.rates.JPY);
+        if (data.rates.GBP) gbpEurRate = data.rates.GBP;
+        var now = new Date();
+        status.textContent = 'aktuell ' + now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0');
+        onJpyInput();
+        onVkEurInput();
+      } else {
+        status.textContent = 'Fehler';
+      }
+    })
+    .catch(function() { status.textContent = 'kein Internet'; });
+}
+
+onJpyInput();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
