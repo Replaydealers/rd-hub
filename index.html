@@ -131,6 +131,7 @@ html, body {
   justify-content: center;
   user-select: none;
   -webkit-user-select: none;
+  touch-action: manipulation;
 }
 
 .numpad-btn:active { background: var(--accent); transform: scale(0.93); }
@@ -470,19 +471,19 @@ html, body {
     <div class="pin-dot" id="d5"></div>
   </div>
 
-  <div class="numpad" id="numpad">
-    <div class="numpad-btn" data-n="1">1</div>
-    <div class="numpad-btn" data-n="2">2</div>
-    <div class="numpad-btn" data-n="3">3</div>
-    <div class="numpad-btn" data-n="4">4</div>
-    <div class="numpad-btn" data-n="5">5</div>
-    <div class="numpad-btn" data-n="6">6</div>
-    <div class="numpad-btn" data-n="7">7</div>
-    <div class="numpad-btn" data-n="8">8</div>
-    <div class="numpad-btn" data-n="9">9</div>
+  <div class="numpad">
+    <button class="numpad-btn" type="button" onclick="pinPress(1)">1</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(2)">2</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(3)">3</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(4)">4</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(5)">5</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(6)">6</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(7)">7</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(8)">8</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(9)">9</button>
     <div class="numpad-btn empty"></div>
-    <div class="numpad-btn" data-n="0">0</div>
-    <div class="numpad-btn del" data-del="1">⌫</div>
+    <button class="numpad-btn" type="button" onclick="pinPress(0)">0</button>
+    <button class="numpad-btn del" type="button" onclick="pinDel()">⌫</button>
   </div>
 
   <div class="pin-error-msg" id="pin-error"></div>
@@ -1021,26 +1022,6 @@ function skuSave() {
 }
 
 onJpyInput();
-
-// Numpad touch/click handler
-document.addEventListener('DOMContentLoaded', function() {
-  var numpad = document.getElementById('numpad');
-  if (numpad) {
-    numpad.addEventListener('touchstart', function(ev) {
-      var btn = ev.target.closest('.numpad-btn');
-      if (!btn) return;
-      ev.preventDefault();
-      if (btn.dataset.del) { pinDel(); }
-      else if (btn.dataset.n !== undefined && !btn.classList.contains('empty')) { pinPress(parseInt(btn.dataset.n)); }
-    }, { passive: false });
-    numpad.addEventListener('click', function(ev) {
-      var btn = ev.target.closest('.numpad-btn');
-      if (!btn) return;
-      if (btn.dataset.del) { pinDel(); }
-      else if (btn.dataset.n !== undefined && !btn.classList.contains('empty')) { pinPress(parseInt(btn.dataset.n)); }
-    });
-  }
-});
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
