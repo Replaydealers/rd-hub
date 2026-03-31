@@ -466,18 +466,18 @@ html, body {
   </div>
 
   <div class="numpad">
-    <button class="numpad-btn" onclick="pinPress(1)">1</button>
-    <button class="numpad-btn" onclick="pinPress(2)">2</button>
-    <button class="numpad-btn" onclick="pinPress(3)">3</button>
-    <button class="numpad-btn" onclick="pinPress(4)">4</button>
-    <button class="numpad-btn" onclick="pinPress(5)">5</button>
-    <button class="numpad-btn" onclick="pinPress(6)">6</button>
-    <button class="numpad-btn" onclick="pinPress(7)">7</button>
-    <button class="numpad-btn" onclick="pinPress(8)">8</button>
-    <button class="numpad-btn" onclick="pinPress(9)">9</button>
+    <button class="numpad-btn" ontouchend="e(event,1)" onclick="pinPress(1)">1</button>
+    <button class="numpad-btn" ontouchend="e(event,2)" onclick="pinPress(2)">2</button>
+    <button class="numpad-btn" ontouchend="e(event,3)" onclick="pinPress(3)">3</button>
+    <button class="numpad-btn" ontouchend="e(event,4)" onclick="pinPress(4)">4</button>
+    <button class="numpad-btn" ontouchend="e(event,5)" onclick="pinPress(5)">5</button>
+    <button class="numpad-btn" ontouchend="e(event,6)" onclick="pinPress(6)">6</button>
+    <button class="numpad-btn" ontouchend="e(event,7)" onclick="pinPress(7)">7</button>
+    <button class="numpad-btn" ontouchend="e(event,8)" onclick="pinPress(8)">8</button>
+    <button class="numpad-btn" ontouchend="e(event,9)" onclick="pinPress(9)">9</button>
     <button class="numpad-btn empty"></button>
-    <button class="numpad-btn" onclick="pinPress(0)">0</button>
-    <button class="numpad-btn del" onclick="pinDel()">⌫</button>
+    <button class="numpad-btn" ontouchend="e(event,0)" onclick="pinPress(0)">0</button>
+    <button class="numpad-btn del" ontouchend="ed(event)" onclick="pinDel()">⌫</button>
   </div>
 
   <div class="pin-error-msg" id="pin-error"></div>
@@ -704,6 +704,8 @@ var lastArtikel = null;
 
 // ── PIN ──
 var pinInput = '';
+function e(ev,n){ev.preventDefault();pinPress(n);}
+function ed(ev){ev.preventDefault();pinDel();}
 function pinPress(n) {
   if (pinInput.length >= 6) return;
   pinInput += n;
