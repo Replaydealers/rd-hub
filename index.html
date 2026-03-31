@@ -465,19 +465,19 @@ html, body {
     <div class="pin-dot" id="d5"></div>
   </div>
 
-  <div class="numpad">
-    <button class="numpad-btn" ontouchend="e(event,1)" onclick="pinPress(1)">1</button>
-    <button class="numpad-btn" ontouchend="e(event,2)" onclick="pinPress(2)">2</button>
-    <button class="numpad-btn" ontouchend="e(event,3)" onclick="pinPress(3)">3</button>
-    <button class="numpad-btn" ontouchend="e(event,4)" onclick="pinPress(4)">4</button>
-    <button class="numpad-btn" ontouchend="e(event,5)" onclick="pinPress(5)">5</button>
-    <button class="numpad-btn" ontouchend="e(event,6)" onclick="pinPress(6)">6</button>
-    <button class="numpad-btn" ontouchend="e(event,7)" onclick="pinPress(7)">7</button>
-    <button class="numpad-btn" ontouchend="e(event,8)" onclick="pinPress(8)">8</button>
-    <button class="numpad-btn" ontouchend="e(event,9)" onclick="pinPress(9)">9</button>
-    <button class="numpad-btn empty"></button>
-    <button class="numpad-btn" ontouchend="e(event,0)" onclick="pinPress(0)">0</button>
-    <button class="numpad-btn del" ontouchend="ed(event)" onclick="pinDel()">⌫</button>
+  <div class="numpad" id="numpad">
+    <div class="numpad-btn" data-n="1">1</div>
+    <div class="numpad-btn" data-n="2">2</div>
+    <div class="numpad-btn" data-n="3">3</div>
+    <div class="numpad-btn" data-n="4">4</div>
+    <div class="numpad-btn" data-n="5">5</div>
+    <div class="numpad-btn" data-n="6">6</div>
+    <div class="numpad-btn" data-n="7">7</div>
+    <div class="numpad-btn" data-n="8">8</div>
+    <div class="numpad-btn" data-n="9">9</div>
+    <div class="numpad-btn empty"></div>
+    <div class="numpad-btn" data-n="0">0</div>
+    <div class="numpad-btn del" data-del="1">⌫</div>
   </div>
 
   <div class="pin-error-msg" id="pin-error"></div>
@@ -704,8 +704,6 @@ var lastArtikel = null;
 
 // ── PIN ──
 var pinInput = '';
-function e(ev,n){ev.preventDefault();pinPress(n);}
-function ed(ev){ev.preventDefault();pinDel();}
 function pinPress(n) {
   if (pinInput.length >= 6) return;
   pinInput += n;
@@ -1018,6 +1016,27 @@ function skuSave() {
 }
 
 onJpyInput();
+
+// Numpad touch/click handler
+document.addEventListener('DOMContentLoaded', function() {
+  var numpad = document.getElementById('numpad');
+  if (numpad) {
+    numpad.addEventListener('touchstart', function(ev) {
+      var btn = ev.target.closest('.numpad-btn');
+      if (!btn) return;
+      ev.preventDefault();
+      if (btn.dataset.del) { pinDel(); }
+      else if (btn.dataset.n !== undefined && !btn.classList.contains('empty')) { pinPress(parseInt(btn.dataset.n)); }
+    }, { passive: false });
+    numpad.addEventListener('click', function(ev) {
+      var btn = ev.target.closest('.numpad-btn');
+      if (!btn) return;
+      if (btn.dataset.del) { pinDel(); }
+      else if (btn.dataset.n !== undefined && !btn.classList.contains('empty')) { pinPress(parseInt(btn.dataset.n)); }
+    });
+  }
+});
+
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 <!-- ══ SKU EINTRAGUNG ══ -->
