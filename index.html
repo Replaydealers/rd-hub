@@ -462,31 +462,17 @@ html, body {
     <div class="name">RD Hub</div>
   </div>
 
-  <div class="pin-display">
-    <div class="pin-dot" id="d0"></div>
-    <div class="pin-dot" id="d1"></div>
-    <div class="pin-dot" id="d2"></div>
-    <div class="pin-dot" id="d3"></div>
-    <div class="pin-dot" id="d4"></div>
-    <div class="pin-dot" id="d5"></div>
+  <div style="width:260px;text-align:center;">
+    <input type="password" inputmode="numeric" id="pin-field"
+      maxlength="6" autocomplete="off"
+      placeholder="PIN eingeben"
+      oninput="pinFromInput(this.value)"
+      style="width:100%;font-size:24px;letter-spacing:8px;text-align:center;
+             padding:14px;border-radius:12px;border:0.5px solid rgba(255,255,255,0.15);
+             background:#1a1a2e;color:white;outline:none;-webkit-appearance:none;"
+    />
+    <div class="pin-error-msg" id="pin-error" style="margin-top:12px;"></div>
   </div>
-
-  <div class="numpad">
-    <button class="numpad-btn" type="button" onclick="pinPress(1)">1</button>
-    <button class="numpad-btn" type="button" onclick="pinPress(2)">2</button>
-    <button class="numpad-btn" type="button" onclick="pinPress(3)">3</button>
-    <button class="numpad-btn" type="button" onclick="pinPress(4)">4</button>
-    <button class="numpad-btn" type="button" onclick="pinPress(5)">5</button>
-    <button class="numpad-btn" type="button" onclick="pinPress(6)">6</button>
-    <button class="numpad-btn" type="button" onclick="pinPress(7)">7</button>
-    <button class="numpad-btn" type="button" onclick="pinPress(8)">8</button>
-    <button class="numpad-btn" type="button" onclick="pinPress(9)">9</button>
-    <div class="numpad-btn empty"></div>
-    <button class="numpad-btn" type="button" onclick="pinPress(0)">0</button>
-    <button class="numpad-btn del" type="button" onclick="pinDel()">⌫</button>
-  </div>
-
-  <div class="pin-error-msg" id="pin-error"></div>
 </div>
 
 <!-- ══ HOME SCREEN ══ -->
@@ -709,39 +695,29 @@ var gbpEurRate = 0.85;
 var lastArtikel = null;
 
 // ── PIN ──
-var pinInput = '';
-function pinPress(n) {
-  if (pinInput.length >= 6) return;
-  pinInput += n;
-  updateDots();
-  if (pinInput.length === 6) {
-    setTimeout(checkPin, 100);
+function pinFromInput(val) {
+  if (val.length === 6) {
+    if (val === PIN) {
+      document.getElementById('pin-field').value = '';
+      showScreen('screen-home');
+      fetchRate();
+    } else {
+      document.getElementById('pin-error').textContent = 'Falscher Code';
+      document.getElementById('pin-field').style.borderColor = '#E63946';
+      setTimeout(function() {
+        document.getElementById('pin-field').value = '';
+        document.getElementById('pin-error').textContent = '';
+        document.getElementById('pin-field').style.borderColor = 'rgba(255,255,255,0.15)';
+      }, 800);
+    }
   }
 }
-function pinDel() {
-  pinInput = pinInput.slice(0, -1);
-  updateDots();
+function lockApp() {
+  document.getElementById('pin-field').value = '';
+  document.getElementById('pin-error').textContent = '';
+  showScreen('screen-lock');
+  setTimeout(function(){ document.getElementById('pin-field').focus(); }, 300);
 }
-function updateDots() {
-  for (var i = 0; i < 6; i++) {
-    document.getElementById('d'+i).className = 'pin-dot' + (i < pinInput.length ? ' filled' : '');
-  }
-}
-function checkPin() {
-  if (pinInput === PIN) {
-    showScreen('screen-home');
-    fetchRate();
-  } else {
-    for (var i = 0; i < 6; i++) document.getElementById('d'+i).className = 'pin-dot error';
-    document.getElementById('pin-error').textContent = 'Falscher Code';
-    setTimeout(function() {
-      pinInput = '';
-      updateDots();
-      document.getElementById('pin-error').textContent = '';
-    }, 800);
-  }
-}
-function lockApp() { pinInput = ''; updateDots(); showScreen('screen-lock'); }
 
 // ── NAVIGATION ──
 function showScreen(id) {
