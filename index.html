@@ -424,6 +424,21 @@ html, body {
 .jp-brow-total span:last-child { color: var(--accent); }
 .jp-settings { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 12px; margin-top: auto; border-top: 0.5px solid var(--border); }
 
+
+.sku-list-item {
+  padding: 10px 12px;
+  border-bottom: 0.5px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: var(--radius-sm);
+  margin-bottom: 2px;
+}
+.sku-list-item:active { background: var(--card2); }
+.sku-list-item:last-child { border-bottom: none; }
+.sku-item-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+.sku-item-meta { font-size: 12px; color: var(--muted); }
+
 .refresh-btn {
   padding: 0 14px; height: 44px;
   border: 0.5px solid var(--border); border-radius: var(--radius-sm);
@@ -494,11 +509,12 @@ html, body {
         <div class="tile-sub">EK · VK · Status</div>
       </div>
     </div>
-    <div class="menu-tile inactive">
+    <div class="menu-tile active-tile" onclick="showScreen('screen-sku');loadPimp()">
+      <div class="tile-accent"></div>
       <div class="tile-icon">📦</div>
       <div>
-        <div class="tile-label">Lagerübersicht</div>
-        <div class="tile-sub">Kommt bald</div>
+        <div class="tile-label">SKU Eintragung</div>
+        <div class="tile-sub">Packtisch · PIMP</div>
       </div>
     </div>
     <div class="menu-tile inactive">
@@ -535,22 +551,6 @@ html, body {
   </div>
 
   <div class="jp-body">
-
-    <!-- Artikelsuche -->
-    <div class="jp-row" style="padding:10px 12px 0;">
-      <div style="display:flex;gap:8px;">
-        <div class="s-input-wrap" style="flex:1;">
-          <input type="text" inputmode="numeric" id="jp-artikel-nr" placeholder="Artikelnummer (optional)" onkeydown="if(event.key==='Enter')jpSearchArtikel()" />
-        </div>
-        <button class="s-search-btn" style="font-size:12px;padding:0 12px;" onclick="jpSearchArtikel()">Laden</button>
-      </div>
-      <div class="s-loading" id="jp-loading">Wird geladen…</div>
-      <div class="s-error" id="jp-error">Nicht gefunden.</div>
-      <div class="s-artikel-result" id="jp-result">
-        <div class="ar-name" id="jp-result-name">—</div>
-        <div class="ar-info" id="jp-result-info">—</div>
-      </div>
-    </div>
 
     <!-- EK / VK / Marge nebeneinander -->
     <div class="jp-prices">
@@ -757,29 +757,6 @@ function atFetch(nr, cb) {
     .catch(function(e) { cb(e, null); });
 }
 
-// ── JP KALKULATOR ARTIKELSUCHE ──
-function jpSearchArtikel() {
-  var nr = document.getElementById('jp-artikel-nr').value.trim();
-  if (!nr) return;
-  document.getElementById('jp-result').style.display = 'none';
-  document.getElementById('jp-error').style.display = 'none';
-  document.getElementById('jp-loading').style.display = '';
-  atFetch(nr, function(err, data) {
-    document.getElementById('jp-loading').style.display = 'none';
-    if (err || !data.records || data.records.length === 0) {
-      document.getElementById('jp-error').style.display = '';
-      return;
-    }
-    var f = data.records[0].fields;
-    document.getElementById('jp-result-name').textContent = f['ITEM_Artikel'] || '—';
-    document.getElementById('jp-result-info').textContent =
-      'EK: ' + (f['ITEM_EK_Preis']||0).toFixed(2) + ' € · Mindest-VK: ' + (f['ITEM_Mindest_VK']||0).toFixed(2) + ' €';
-    document.getElementById('jp-result').style.display = '';
-    if (f['ITEM_EK_Preis']) { document.getElementById('ek_eur').value = f['ITEM_EK_Preis'].toFixed(2); onEurInput(); }
-    if (f['ITEM_Mindest_VK']) { document.getElementById('vk').value = f['ITEM_Mindest_VK'].toFixed(2); onVkEurInput(); }
-  });
-}
-
 // ── ARTIKELSUCHE SCREEN ──
 function artikelSearch() {
   var nr = document.getElementById('a-nr').value.trim();
@@ -905,8 +882,205 @@ function fetchRate() {
     .catch(function() { status.textContent = 'kein Internet'; });
 }
 
+
+// ── SKU EINTRAGUNG ──
+var skuCurrentRecordId = null;
+var skuCurrentArtikelNr = null;
+
+function loadPimp() {
+  document.getElementById('sku-list').innerHTML = '';
+  document.getElementById('sku-list-error').style.display = 'none';
+  document.getElementById('sku-list-loading').style.display = '';
+  document.getElementById('sku-detail-card').style.display = 'none';
+  document.getElementById('sku-list-card').style.display = '';
+
+  var filter = encodeURIComponent('AND({PIMP_SKU}="",{PIMP_Title}!="")');
+  var fields = 'fields[]=PIMP_Title&fields[]=PIMP_BuyerName&fields[]=PIMP_OrderId&fields[]=PIMP_TransactionDate&fields[]=PIMP_SKU';
+  var url = 'https://api.airtable.com/v0/' + AT_BASE + '/PlattformImport_2026?filterByFormula=' + filter + '&' + fields + '&maxRecords=50&sort[0][field]=PIMP_TransactionDate&sort[0][direction]=desc';
+
+  fetch(url, { headers: { 'Authorization': 'Bearer ' + AT_TOKEN } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('sku-list-loading').style.display = 'none';
+      if (!data.records || data.records.length === 0) {
+        document.getElementById('sku-list-error').textContent = 'Keine offenen Bestellungen ohne SKU.';
+        document.getElementById('sku-list-error').style.display = '';
+        return;
+      }
+      var html = '';
+      data.records.forEach(function(rec) {
+        var f = rec.fields;
+        var date = f['PIMP_TransactionDate'] ? f['PIMP_TransactionDate'].substring(0,10) : '—';
+        var title = (f['PIMP_Title'] || '—').substring(0, 45);
+        html += '<div class="sku-list-item" onclick="skuSelect('' + rec.id + '','' +
+          escStr(f['PIMP_Title']||'') + '','' +
+          escStr(f['PIMP_BuyerName']||'') + '','' +
+          escStr(f['PIMP_OrderId']||'') + '','' +
+          date + '')">' +
+          '<div class="sku-item-title">' + escHtml(title) + (f['PIMP_Title']&&f['PIMP_Title'].length>45?'…':'') + '</div>' +
+          '<div class="sku-item-meta">' + escHtml(f['PIMP_BuyerName']||'—') + ' · ' + date + '</div>' +
+          '</div>';
+      });
+      document.getElementById('sku-list').innerHTML = html;
+    })
+    .catch(function() {
+      document.getElementById('sku-list-loading').style.display = 'none';
+      document.getElementById('sku-list-error').textContent = 'Verbindungsfehler.';
+      document.getElementById('sku-list-error').style.display = '';
+    });
+}
+
+function escStr(s) { return s.replace(/'/g,"&#39;").replace(/"/g,'&quot;'); }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function skuSelect(recId, title, buyer, order, date) {
+  skuCurrentRecordId = recId;
+  skuCurrentArtikelNr = null;
+  document.getElementById('sku-detail-title').textContent = title;
+  document.getElementById('sku-detail-buyer').textContent = buyer;
+  document.getElementById('sku-detail-order').textContent = order;
+  document.getElementById('sku-detail-date').textContent = date;
+  document.getElementById('sku-input').value = '';
+  document.getElementById('sku-confirm-card').style.display = 'none';
+  document.getElementById('sku-check-error').style.display = 'none';
+  document.getElementById('sku-success').style.display = 'none';
+  document.getElementById('sku-list-card').style.display = 'none';
+  document.getElementById('sku-detail-card').style.display = '';
+}
+
+function skuCheck() {
+  var nr = document.getElementById('sku-input').value.trim();
+  if (!nr) return;
+  skuCurrentArtikelNr = nr;
+  document.getElementById('sku-confirm-card').style.display = 'none';
+  document.getElementById('sku-check-error').style.display = 'none';
+  document.getElementById('sku-check-loading').style.display = '';
+
+  var filter = encodeURIComponent('{ITEM_Artikelnummer}="' + nr + '"');
+  var url = 'https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(AT_TABLE) +
+    '?filterByFormula=' + filter + '&fields[]=ITEM_Artikel&maxRecords=1';
+
+  fetch(url, { headers: { 'Authorization': 'Bearer ' + AT_TOKEN } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('sku-check-loading').style.display = 'none';
+      if (!data.records || data.records.length === 0) {
+        document.getElementById('sku-check-error').textContent = 'Artikel ' + nr + ' nicht gefunden.';
+        document.getElementById('sku-check-error').style.display = '';
+        return;
+      }
+      var name = data.records[0].fields['ITEM_Artikel'] || '—';
+      document.getElementById('sku-confirm-name').textContent = name;
+      document.getElementById('sku-confirm-card').style.display = '';
+    })
+    .catch(function() {
+      document.getElementById('sku-check-loading').style.display = 'none';
+      document.getElementById('sku-check-error').textContent = 'Verbindungsfehler.';
+      document.getElementById('sku-check-error').style.display = '';
+    });
+}
+
+function skuSave() {
+  if (!skuCurrentRecordId || !skuCurrentArtikelNr) return;
+  document.getElementById('sku-confirm-card').style.display = 'none';
+
+  var url = 'https://api.airtable.com/v0/' + AT_BASE + '/PlattformImport_2026/' + skuCurrentRecordId;
+  fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': 'Bearer ' + AT_TOKEN,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ fields: { 'PIMP_SKU': skuCurrentArtikelNr } })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.id) {
+      document.getElementById('sku-success').style.display = '';
+      setTimeout(function() {
+        document.getElementById('sku-detail-card').style.display = 'none';
+        document.getElementById('sku-list-card').style.display = '';
+        loadPimp();
+      }, 1500);
+    } else {
+      document.getElementById('sku-check-error').textContent = 'Fehler beim Speichern.';
+      document.getElementById('sku-check-error').style.display = '';
+      document.getElementById('sku-confirm-card').style.display = '';
+    }
+  })
+  .catch(function() {
+    document.getElementById('sku-check-error').textContent = 'Verbindungsfehler beim Speichern.';
+    document.getElementById('sku-check-error').style.display = '';
+    document.getElementById('sku-confirm-card').style.display = '';
+  });
+}
+
 onJpyInput();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
+<!-- ══ SKU EINTRAGUNG ══ -->
+<div class="screen hidden" id="screen-sku">
+  <div class="sub-header">
+    <button class="back-btn" onclick="showScreen('screen-home')">←</button>
+    <div class="sub-header-title">SKU Eintragung</div>
+    <button class="s-search-btn" style="margin-left:auto;font-size:12px;padding:0 12px;height:32px;" onclick="loadPimp()">↻ Neu laden</button>
+  </div>
+  <div class="sub-content" style="padding-bottom:20px;">
+
+    <!-- Offene Bestellungen -->
+    <div class="s-card" id="sku-list-card">
+      <div class="s-card-title">Offene Bestellungen ohne SKU</div>
+      <div class="s-loading" id="sku-list-loading">Wird geladen…</div>
+      <div class="s-error" id="sku-list-error" style="display:none;"></div>
+      <div id="sku-list"></div>
+    </div>
+
+    <!-- Detail + Eintragung -->
+    <div class="s-card" id="sku-detail-card" style="display:none;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <button onclick="document.getElementById('sku-detail-card').style.display='none';document.getElementById('sku-list-card').style.display=''" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0;">←</button>
+        <div class="s-card-title" style="margin:0;">Bestellung</div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;" id="sku-detail-title">—</div>
+        <div class="s-breakdown">
+          <div class="s-brow"><span class="bl">Käufer</span><span class="br" id="sku-detail-buyer">—</span></div>
+          <div class="s-brow"><span class="bl">Bestellnummer</span><span class="br" id="sku-detail-order">—</span></div>
+          <div class="s-brow"><span class="bl">Datum</span><span class="br" id="sku-detail-date">—</span></div>
+        </div>
+      </div>
+
+      <div class="s-field">
+        <label>Artikelnummer eingeben</label>
+        <div style="display:flex;gap:8px;">
+          <div class="s-input-wrap" style="flex:1;">
+            <input type="text" inputmode="numeric" id="sku-input" placeholder="z.B. 3340" onkeydown="if(event.key==='Enter')skuCheck()" />
+          </div>
+          <button class="s-search-btn" onclick="skuCheck()">Prüfen</button>
+        </div>
+        <div class="s-loading" id="sku-check-loading" style="margin-top:8px;">Wird geprüft…</div>
+        <div class="s-error" id="sku-check-error" style="margin-top:8px;"></div>
+      </div>
+
+      <!-- Prüfergebnis -->
+      <div id="sku-confirm-card" style="display:none;margin-top:12px;padding:12px;background:var(--card2);border-radius:var(--radius-sm);">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px;">Gefundener Artikel</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;" id="sku-confirm-name">—</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="skuSave()" style="flex:1;padding:12px;border:none;border-radius:var(--radius-sm);background:var(--green);color:white;font-size:14px;font-weight:700;cursor:pointer;">✓ Bestätigen & Speichern</button>
+          <button onclick="document.getElementById('sku-confirm-card').style.display='none';document.getElementById('sku-input').value=''" style="padding:12px 16px;border:0.5px solid var(--border);border-radius:var(--radius-sm);background:none;color:var(--muted);font-size:14px;cursor:pointer;">✕</button>
+        </div>
+      </div>
+
+      <div id="sku-success" style="display:none;margin-top:12px;padding:12px;background:rgba(29,158,117,0.15);border-radius:var(--radius-sm);text-align:center;font-size:14px;font-weight:600;color:var(--green);">
+        ✓ SKU erfolgreich eingetragen
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
 </body>
 </html>
