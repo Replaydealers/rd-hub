@@ -898,7 +898,7 @@ function loadPimp() {
   document.getElementById('sku-detail-card').style.display = 'none';
   document.getElementById('sku-list-card').style.display = '';
 
-  var filter = encodeURIComponent('AND({PIMP_RowType}="Bestellung",OR({PIMP_Processed}=FALSE(),{PIMP_Processed}=""),{PIMP_SKU}="")');
+  var filter = encodeURIComponent('AND({PIMP_RowType}="Bestellung",OR({PIMP_Processed}="false",{PIMP_Processed}="clearing"),{PIMP_SKU}="")');
   var fields = 'fields[]=PIMP_Title&fields[]=PIMP_BuyerName&fields[]=PIMP_OrderId&fields[]=PIMP_TransactionDate&fields[]=PIMP_SKU';
   var url = 'https://api.airtable.com/v0/' + AT_BASE + '/PlattformImport_2026?filterByFormula=' + filter + '&' + fields + '&maxRecords=50&sort[0][field]=PIMP_TransactionDate&sort[0][direction]=desc';
 
