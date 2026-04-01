@@ -196,6 +196,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ek-artikel-ek { color:var(--muted); white-space:nowrap; }
 .ek-artikel-vk { color:#1D9E75; font-weight:600; white-space:nowrap; }
 .ek-artikel-vk.neg { color:var(--accent); }
+
+.ek-select-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: .5px solid var(--border);
+  padding: 16px;
+  min-width: calc(33.333vw - 20px);
+  max-width: calc(33.333vw - 20px);
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
+@media (max-width: 768px) {
+  .ek-select-card { min-width: calc(85vw); max-width: calc(85vw); }
+}
 </style>
 </head>
 <body>
@@ -445,11 +459,10 @@ function atGet(table, filter, fields, cb) {
   var f = fields.map(function(f){ return 'fields[]=' + encodeURIComponent(f); }).join('&');
   var url = 'https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) +
     '?filterByFormula=' + encodeURIComponent(filter) + '&' + f + '&maxRecords=50';
-  console.log('atGet URL:', url);
   fetch(url, {headers:{'Authorization':'Bearer '+AT_TOKEN}})
     .then(function(r){ return r.json(); })
-    .then(function(d){ console.log('atGet result:', table, d); cb(null,d); })
-    .catch(function(e){ console.log('atGet error:', table, e); cb(e,null); });
+    .then(function(d){ cb(null,d); })
+    .catch(function(e){ cb(e,null); });
 }
 function atPatch(table, recId, fields, cb) {
   fetch('https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) + '/' + recId, {
@@ -601,7 +614,10 @@ function buildSkuCard(rec) {
     '<div class="sku-card-meta"><span class="sku-meta-label">Bestellung</span><span>' + escHtml(order) + '</span></div>' +
     '<div class="sku-card-meta"><span class="sku-meta-label">Datum</span><span>' + date + '</span></div>' +
     '<div class="sku-card-divider"></div>' +
-    '<div class="sku-numpad-display"><span class="sku-numpad-nr">—</span></div>' +
+    '<div class="sku-numpad-display" style="display:flex;align-items:center;gap:10px;justify-content:center">' +
+      '<button class="sku-prefix-btn" type="button" onclick="this.classList.toggle(\"active\")" style="padding:4px 10px;border-radius:6px;border:.5px solid var(--border);background:var(--card);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation">A-</button>' +
+      '<span class="sku-numpad-nr" style="font-size:20px;font-weight:700;letter-spacing:3px">—</span>' +
+    '</div>' +
     '<div class="sku-numpad">' +
       '<button class="sku-np" type="button">1</button><button class="sku-np" type="button">2</button><button class="sku-np" type="button">3</button>' +
       '<button class="sku-np" type="button">4</button><button class="sku-np" type="button">5</button><button class="sku-np" type="button">6</button>' +
@@ -623,6 +639,7 @@ function buildSkuCard(rec) {
 
   // Wire up events
   var nrDisplay = card.querySelector('.sku-numpad-nr');
+  var prefixBtn = card.querySelector('.sku-prefix-btn');
   var saveBtn = card.querySelector('.sku-save-btn');
   var cancelBtn = card.querySelector('.sku-cancel-btn');
   var loading = card.querySelector('.sku-card-loading');
@@ -653,7 +670,7 @@ function buildSkuCard(rec) {
 
   function doCheck() {
     var nr = nrInput.trim(); if (!nr) return;
-    currentNr = nr;
+    currentNr = (prefixBtn && prefixBtn.classList.contains('active') ? 'A-' : '') + nr;
     confirm.style.display = 'none';
     error.style.display = 'none';
     loading.style.display = '';
@@ -722,8 +739,9 @@ function doEkLotSearch() {
   ekShowLoading(true);
   document.getElementById('ek-result').style.display = 'none';
   atGet('Einkauf_2026', '{EK_Lot}="'+lot+'"',
-    ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID'],
+    ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID','EK_Kaufdatum'],
     function(err, data) {
+      ekShowLoading(false);
       if (err || !data.records || !data.records.length) { ekShowError('Einkauf nicht gefunden.'); return; }
       loadEkResult(data.records[0]);
     });
@@ -741,7 +759,6 @@ function doEkPartnerSearch() {
   atGet('Partnerdaten_2026', filter,
     ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'],
     function(err, data) {
-      console.log('partner search result:', err, data);
       ekShowLoading(false);
       if (err || !data.records || !data.records.length) { ekShowError('Partner nicht gefunden.'); return; }
       if (data.records.length === 1) {
@@ -764,26 +781,65 @@ function doEkPartnerSearch() {
     });
 }
 
+
+function buildEkCard(ekRec) {
+  var f = ekRec.fields;
+  var lot = f['EK_Lot'] || '—';
+  var card = document.createElement('div');
+  card.className = 'ek-select-card';
+  card.innerHTML =
+    '<div style="font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Einkauf</div>' +
+    '<div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:10px">' + escHtml(lot) + '</div>' +
+    '<div class="s-breakdown">' +
+      '<div class="s-brow"><span class="bl">Datum</span><span class="br ek-card-datum">—</span></div>' +
+      '<div class="s-brow"><span class="bl">Summe</span><span class="br">€' + (f['EK_Gesamtbetrag']||0).toFixed(2) + '</span></div>' +
+      '<div class="s-brow"><span class="bl">Status</span><span class="br">' + escHtml(f['EK_Status']||'—') + '</span></div>' +
+      '<div class="s-brow"><span class="bl">Partner</span><span class="br ek-card-partner">—</span></div>' +
+      '<div class="s-brow"><span class="bl">Artikel</span><span class="br ek-card-artikel">—</span></div>' +
+    '</div>' +
+    '<button type="button" style="margin-top:14px;width:100%;padding:10px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:white;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation" onclick="void(0)">Auswerten →</button>';
+
+  // Load partner name
+  if (f['EK_PartnerID']) {
+    atGet('Partnerdaten_2026', '{PD_ID}="'+f['EK_PartnerID']+'"', ['PD_Anzeigename'], function(err, pd) {
+      var pname = (!err && pd.records && pd.records.length) ? (pd.records[0].fields['PD_Anzeigename']||f['EK_PartnerID']) : f['EK_PartnerID'];
+      card.querySelector('.ek-card-partner').textContent = pname;
+    });
+  }
+
+  // Load artikel count
+  atGet('Artikel_2026', '{ITEM_EK_Lot}="'+lot+'"', ['ITEM_Artikelnummer'], function(err, art) {
+    var count = (!err && art.records) ? art.records.length : '?';
+    card.querySelector('.ek-card-artikel').textContent = count + ' Artikel';
+  });
+
+  // Load datum from EK_Kaufdatum if available
+  if (f['EK_Kaufdatum']) {
+    card.querySelector('.ek-card-datum').textContent = String(f['EK_Kaufdatum']).substring(0,10);
+  }
+
+  // Wire up button
+  var btn = card.querySelector('button');
+  function go(e){ if(e.cancelable) e.preventDefault(); loadEkResult(ekRec); }
+  btn.addEventListener('click', go);
+  btn.addEventListener('touchend', go, {passive:false});
+
+  return card;
+}
+
 function loadEkByPartner(pdId) {
   ekShowLoading(true);
   document.getElementById('ek-partner-results').innerHTML = '';
   atGet('Einkauf_2026', '{EK_PartnerID}="'+pdId+'"',
-    ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID'],
+    ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID','EK_Kaufdatum'],
     function(err, data) {
       if (err || !data.records || !data.records.length) { ekShowError('Keine Einkäufe gefunden.'); return; }
-      if (data.records.length === 1) { loadEkResult(data.records[0]); return; }
-      // Multiple EKs - show list
+      // Always show as cards
+      // Multiple EKs - show cards
       ekShowLoading(false);
       var wrap = document.getElementById('ek-partner-results');
       data.records.forEach(function(rec) {
-        var f = rec.fields;
-        var div = document.createElement('div');
-        div.className = 'ek-partner-item';
-        div.textContent = (f['EK_Lot']||'—') + ' · ' + (f['EK_Status']||'') + ' · €' + (f['EK_Gesamtbetrag']||0).toFixed(2);
-        function go(e){ if(e.cancelable) e.preventDefault(); loadEkResult(rec); }
-        div.addEventListener('click', go);
-        div.addEventListener('touchend', go, {passive:false});
-        wrap.appendChild(div);
+        wrap.appendChild(buildEkCard(rec));
       });
     });
 }
@@ -898,7 +954,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-partner-input" placeholder="Name eingeben" /></div>
           <button class="s-search-btn" id="btn-ek-partner-search" onclick="doEkPartnerSearch()">Suchen</button>
         </div>
-        <div id="ek-partner-results" style="margin-top:10px"></div>
+        <div id="ek-partner-results" style="margin-top:10px;display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;"></div>
       </div>
       <div class="s-loading" id="ek-search-loading">Wird geladen…</div>
       <div class="s-error" id="ek-search-error"></div>
