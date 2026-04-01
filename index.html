@@ -736,9 +736,11 @@ function doEkPartnerSearch() {
   ekShowLoading(true);
   document.getElementById('ek-partner-results').innerHTML = '';
   // Search by PD_Anzeigename
-  atGet('Partnerdaten_2026', 'SEARCH("'+name+'",{PD_Anzeigename})>0',
+  var filter = 'OR(FIND(LOWER("'+name+'"),LOWER({PD_Anzeigename}))>0,FIND(LOWER("'+name+'"),LOWER({PD_Name}))>0)';
+  atGet('Partnerdaten_2026', filter,
     ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'],
     function(err, data) {
+      console.log('partner search result:', err, data);
       ekShowLoading(false);
       if (err || !data.records || !data.records.length) { ekShowError('Partner nicht gefunden.'); return; }
       if (data.records.length === 1) {
