@@ -124,6 +124,30 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .sku-list-item:last-child{border-bottom:none}
 .sku-item-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:3px}
 .sku-item-meta{font-size:12px;color:var(--muted)}
+
+/* SKU CARDS */
+#sku-cards-wrap { scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+.sku-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: .5px solid var(--border);
+  padding: 16px;
+  min-width: calc(33.333vw - 20px);
+  max-width: calc(33.333vw - 20px);
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+@media (max-width: 768px) {
+  .sku-card { min-width: calc(85vw); max-width: calc(85vw); }
+}
+.sku-card-title { font-size:15px; font-weight:700; color:var(--text); line-height:1.3; margin-bottom:4px; }
+.sku-card-meta { display:flex; justify-content:space-between; font-size:12px; color:var(--text); padding:3px 0; border-bottom:.5px solid var(--border); }
+.sku-card-meta:last-of-type { border-bottom: none; }
+.sku-meta-label { color:var(--muted); flex-shrink:0; margin-right:8px; }
+.sku-card-divider { height:.5px; background:var(--border); margin:10px 0; }
 </style>
 </head>
 <body>
@@ -275,45 +299,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="sub-header-title">SKU Eintragung</div>
     <button class="s-search-btn" id="btn-sku-reload" style="margin-left:auto;font-size:12px;padding:0 12px;height:32px;">↻ Neu laden</button>
   </div>
-  <div class="sub-content">
-    <div class="s-card" id="sku-list-card">
-      <div class="s-card-title">Offene Bestellungen ohne SKU</div>
-      <div class="s-loading" id="sku-list-loading">Wird geladen…</div>
-      <div class="s-error" id="sku-list-error"></div>
-      <div id="sku-list"></div>
-    </div>
-    <div class="s-card" id="sku-detail-card" style="display:none">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-        <button id="btn-sku-back" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0;touch-action:manipulation">←</button>
-        <div class="s-card-title" style="margin:0">Bestellung</div>
-      </div>
-      <div style="margin-bottom:14px">
-        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px" id="sku-detail-title">—</div>
-        <div class="s-breakdown">
-          <div class="s-brow"><span class="bl">Käufer</span><span class="br" id="sku-detail-buyer">—</span></div>
-          <div class="s-brow"><span class="bl">Bestellnummer</span><span class="br" id="sku-detail-order">—</span></div>
-          <div class="s-brow"><span class="bl">Datum</span><span class="br" id="sku-detail-date">—</span></div>
-        </div>
-      </div>
-      <div class="s-field">
-        <label>Artikelnummer eingeben</label>
-        <div style="display:flex;gap:8px">
-          <div class="s-input-wrap" style="flex:1"><input type="text" inputmode="numeric" id="sku-input" placeholder="z.B. 3340" /></div>
-          <button class="s-search-btn" id="btn-sku-check">Prüfen</button>
-        </div>
-        <div class="s-loading" id="sku-check-loading" style="margin-top:8px">Wird geprüft…</div>
-        <div class="s-error" id="sku-check-error" style="margin-top:8px"></div>
-      </div>
-      <div id="sku-confirm-card" style="display:none;margin-top:12px;padding:12px;background:var(--card2);border-radius:var(--radius-sm)">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Gefundener Artikel</div>
-        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px" id="sku-confirm-name">—</div>
-        <div style="display:flex;gap:8px">
-          <button id="btn-sku-save" style="flex:1;padding:12px;border:none;border-radius:var(--radius-sm);background:var(--green);color:white;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">✓ Bestätigen &amp; Speichern</button>
-          <button id="btn-sku-cancel" style="padding:12px 16px;border:.5px solid var(--border);border-radius:var(--radius-sm);background:none;color:var(--muted);font-size:14px;cursor:pointer;touch-action:manipulation">✕</button>
-        </div>
-      </div>
-      <div id="sku-success" style="display:none;margin-top:12px;padding:12px;background:rgba(29,158,117,.15);border-radius:var(--radius-sm);text-align:center;font-size:14px;font-weight:600;color:var(--green)">✓ SKU erfolgreich eingetragen</div>
-    </div>
+  <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+    <div class="s-loading" id="sku-list-loading" style="padding:20px;text-align:center;">Wird geladen…</div>
+    <div class="s-error" id="sku-list-error" style="padding:20px;text-align:center;display:none;"></div>
+    <div id="sku-cards-wrap" style="display:flex;gap:12px;padding:12px;overflow-x:auto;flex:1;align-items:flex-start;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;"></div>
   </div>
 </div>
 
@@ -522,110 +511,111 @@ document.getElementById('btn-load-kalk').addEventListener('click', function(){
 
 // ── SKU EINTRAGUNG ──
 function loadPimp() {
-  document.getElementById('sku-list').innerHTML='';
-  document.getElementById('sku-list-error').style.display='none';
-  document.getElementById('sku-list-loading').style.display='';
-  document.getElementById('sku-detail-card').style.display='none';
-  document.getElementById('sku-list-card').style.display='';
+  var wrap = document.getElementById('sku-cards-wrap');
+  wrap.innerHTML = '';
+  document.getElementById('sku-list-error').style.display = 'none';
+  document.getElementById('sku-list-loading').style.display = '';
   atGet('PlattformImport_2026',
     'AND({PIMP_RowType}="Bestellung",OR({PIMP_Processed}="false",{PIMP_Processed}="clearing"),{PIMP_SKU}="")',
-    ['PIMP_Title','PIMP_BuyerName','PIMP_OrderId','PIMP_TransactionDate','PIMP_SKU'],
-    function(err,data){
-      document.getElementById('sku-list-loading').style.display='none';
-      if(err||!data.records||!data.records.length){
-        document.getElementById('sku-list-error').textContent=err?'Verbindungsfehler.':'Keine offenen Bestellungen ohne SKU.';
-        document.getElementById('sku-list-error').style.display=''; return;
+    ['PIMP_Title','PIMP_BuyerName','PIMP_OrderId','PIMP_TransactionDate'],
+    function(err, data) {
+      document.getElementById('sku-list-loading').style.display = 'none';
+      if (err || !data.records || !data.records.length) {
+        document.getElementById('sku-list-error').textContent = err ? 'Verbindungsfehler.' : 'Keine offenen Bestellungen ohne SKU.';
+        document.getElementById('sku-list-error').style.display = '';
+        return;
       }
-      var list=document.getElementById('sku-list');
-      list.innerHTML='';
-      data.records.forEach(function(rec){
-        var f=rec.fields;
-        var date=f['PIMP_TransactionDate']?String(f['PIMP_TransactionDate']).substring(0,10):'—';
-        var title=(f['PIMP_Title']||'—');
-        var div=document.createElement('div');
-        div.className='sku-list-item';
-        div.innerHTML='<div class="sku-item-title">'+escHtml(title.length>50?title.substring(0,50)+'…':title)+'</div>'+
-          '<div class="sku-item-meta">'+escHtml(f['PIMP_BuyerName']||'—')+' · '+date+'</div>';
-        var recId=rec.id;
-        function openDetail(e){
-          if(e.cancelable) e.preventDefault();
-          skuSelect(recId, f['PIMP_Title']||'', f['PIMP_BuyerName']||'', f['PIMP_OrderId']||'', date);
-        }
-        div.addEventListener('touchend', openDetail, {passive:false});
-        div.addEventListener('click', openDetail);
-        list.appendChild(div);
+      data.records.forEach(function(rec) {
+        wrap.appendChild(buildSkuCard(rec));
       });
     });
 }
 
-function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function buildSkuCard(rec) {
+  var f = rec.fields;
+  var date = f['PIMP_TransactionDate'] ? String(f['PIMP_TransactionDate']).substring(0,10) : '—';
+  var title = f['PIMP_Title'] || '—';
+  var buyer = f['PIMP_BuyerName'] || '—';
+  var order = f['PIMP_OrderId'] || '—';
+  var recId = rec.id;
 
-function skuSelect(recId,title,buyer,order,date){
-  skuRecordId=recId; skuArtikelNr=null;
-  document.getElementById('sku-detail-title').textContent=title;
-  document.getElementById('sku-detail-buyer').textContent=buyer;
-  document.getElementById('sku-detail-order').textContent=order;
-  document.getElementById('sku-detail-date').textContent=date;
-  document.getElementById('sku-input').value='';
-  document.getElementById('sku-confirm-card').style.display='none';
-  document.getElementById('sku-check-error').style.display='none';
-  document.getElementById('sku-success').style.display='none';
-  document.getElementById('sku-list-card').style.display='none';
-  document.getElementById('sku-detail-card').style.display='';
+  var card = document.createElement('div');
+  card.className = 'sku-card';
+  card.innerHTML =
+    '<div class="sku-card-title">' + escHtml(title) + '</div>' +
+    '<div class="sku-card-meta"><span class="sku-meta-label">Käufer</span><span>' + escHtml(buyer) + '</span></div>' +
+    '<div class="sku-card-meta"><span class="sku-meta-label">Bestellung</span><span>' + escHtml(order) + '</span></div>' +
+    '<div class="sku-card-meta"><span class="sku-meta-label">Datum</span><span>' + date + '</span></div>' +
+    '<div class="sku-card-divider"></div>' +
+    '<div style="display:flex;gap:8px;margin-bottom:8px">' +
+      '<div class="s-input-wrap" style="flex:1"><input type="text" inputmode="numeric" class="sku-nr-input" placeholder="Artikelnummer" /></div>' +
+      '<button class="sku-check-btn s-search-btn" style="height:40px;padding:0 14px;font-size:13px">Prüfen</button>' +
+    '</div>' +
+    '<div class="sku-card-loading s-loading">Wird geprüft…</div>' +
+    '<div class="sku-card-error s-error"></div>' +
+    '<div class="sku-card-confirm" style="display:none">' +
+      '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">Gefundener Artikel</div>' +
+      '<div class="sku-card-found-name" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:10px">—</div>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button class="sku-save-btn" style="flex:1;padding:10px;border:none;border-radius:var(--radius-sm);background:var(--green);color:white;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation">✓ Speichern</button>' +
+        '<button class="sku-cancel-btn" style="padding:10px 14px;border:.5px solid var(--border);border-radius:var(--radius-sm);background:none;color:var(--muted);font-size:13px;cursor:pointer;touch-action:manipulation">✕</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="sku-card-success" style="display:none;padding:10px;background:rgba(29,158,117,.15);border-radius:var(--radius-sm);text-align:center;font-size:13px;font-weight:600;color:var(--green)">✓ Gespeichert</div>';
+
+  // Wire up events
+  var input = card.querySelector('.sku-nr-input');
+  var checkBtn = card.querySelector('.sku-check-btn');
+  var saveBtn = card.querySelector('.sku-save-btn');
+  var cancelBtn = card.querySelector('.sku-cancel-btn');
+  var loading = card.querySelector('.sku-card-loading');
+  var error = card.querySelector('.sku-card-error');
+  var confirm = card.querySelector('.sku-card-confirm');
+  var foundName = card.querySelector('.sku-card-found-name');
+  var success = card.querySelector('.sku-card-success');
+  var currentNr = null;
+
+  function doCheck() {
+    var nr = input.value.trim(); if (!nr) return;
+    currentNr = nr;
+    confirm.style.display = 'none';
+    error.style.display = 'none';
+    loading.style.display = '';
+    atGet(AT_TABLE, '{ITEM_Artikelnummer}="'+nr+'"', ['ITEM_Artikel'], function(err, data) {
+      loading.style.display = 'none';
+      if (err || !data.records || !data.records.length) {
+        error.textContent = 'Artikel ' + nr + ' nicht gefunden.';
+        error.style.display = ''; return;
+      }
+      foundName.textContent = data.records[0].fields['ITEM_Artikel'] || '—';
+      confirm.style.display = '';
+    });
+  }
+
+  function doSave() {
+    if (!currentNr) return;
+    confirm.style.display = 'none';
+    atPatch('PlattformImport_2026', recId, {'PIMP_SKU': currentNr}, function(err, data) {
+      if (!err && data.id) {
+        success.style.display = '';
+        setTimeout(function() { card.style.opacity='0.4'; card.style.pointerEvents='none'; }, 1500);
+      } else {
+        error.textContent = 'Fehler beim Speichern.';
+        error.style.display = '';
+        confirm.style.display = '';
+      }
+    });
+  }
+
+  checkBtn.addEventListener('click', doCheck);
+  checkBtn.addEventListener('touchend', function(e){ e.preventDefault(); doCheck(); }, {passive:false});
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter') doCheck(); });
+  saveBtn.addEventListener('click', doSave);
+  saveBtn.addEventListener('touchend', function(e){ e.preventDefault(); doSave(); }, {passive:false});
+  cancelBtn.addEventListener('click', function(){ confirm.style.display='none'; input.value=''; });
+
+  return card;
 }
-
-document.getElementById('btn-sku-back').addEventListener('click', function(){
-  document.getElementById('sku-detail-card').style.display='none';
-  document.getElementById('sku-list-card').style.display='';
-});
-document.getElementById('btn-sku-back').addEventListener('touchend', function(e){
-  e.preventDefault();
-  document.getElementById('sku-detail-card').style.display='none';
-  document.getElementById('sku-list-card').style.display='';
-},{passive:false});
-
-function doSkuCheck(){
-  var nr=document.getElementById('sku-input').value.trim(); if(!nr) return;
-  skuArtikelNr=nr;
-  document.getElementById('sku-confirm-card').style.display='none';
-  document.getElementById('sku-check-error').style.display='none';
-  document.getElementById('sku-check-loading').style.display='';
-  atGet(AT_TABLE,'{ITEM_Artikelnummer}="'+nr+'"',['ITEM_Artikel'],function(err,data){
-    document.getElementById('sku-check-loading').style.display='none';
-    if(err||!data.records||!data.records.length){
-      document.getElementById('sku-check-error').textContent='Artikel '+nr+' nicht gefunden.';
-      document.getElementById('sku-check-error').style.display=''; return;
-    }
-    document.getElementById('sku-confirm-name').textContent=data.records[0].fields['ITEM_Artikel']||'—';
-    document.getElementById('sku-confirm-card').style.display='';
-  });
-}
-document.getElementById('btn-sku-check').addEventListener('click', doSkuCheck);
-document.getElementById('btn-sku-check').addEventListener('touchend', function(e){ e.preventDefault(); doSkuCheck(); },{passive:false});
-document.getElementById('sku-input').addEventListener('keydown', function(e){ if(e.key==='Enter') doSkuCheck(); });
-
-document.getElementById('btn-sku-save').addEventListener('click', doSkuSave);
-document.getElementById('btn-sku-save').addEventListener('touchend', function(e){ e.preventDefault(); doSkuSave(); },{passive:false});
-
-function doSkuSave(){
-  if(!skuRecordId||!skuArtikelNr) return;
-  document.getElementById('sku-confirm-card').style.display='none';
-  atPatch('PlattformImport_2026',skuRecordId,{'PIMP_SKU':skuArtikelNr},function(err,data){
-    if(!err&&data.id){
-      document.getElementById('sku-success').style.display='';
-      setTimeout(function(){ document.getElementById('sku-detail-card').style.display='none'; document.getElementById('sku-list-card').style.display=''; loadPimp(); },1500);
-    } else {
-      document.getElementById('sku-check-error').textContent='Fehler beim Speichern.';
-      document.getElementById('sku-check-error').style.display='';
-      document.getElementById('sku-confirm-card').style.display='';
-    }
-  });
-}
-
-document.getElementById('btn-sku-cancel').addEventListener('click', function(){
-  document.getElementById('sku-confirm-card').style.display='none';
-  document.getElementById('sku-input').value='';
-});
 
 calc();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
