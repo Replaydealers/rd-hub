@@ -863,7 +863,7 @@ function loadEkResult(ekRec) {
   // Load all Artikel for this lot
   atGet('Artikel_2026',
     '{ITEM_EK_Lot}="'+lot+'"',
-    ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_Status','ITEM_EK_Preis','ITEM_VK_Preis'],
+    ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_Status','ITEM_EK_Preis','ITEM_VK_Preis','ITEM_VK_Lot'],
     function(err, artData) {
       ekShowLoading(false);
       if (err) { ekShowError('Fehler beim Laden der Artikel.'); return; }
@@ -908,21 +908,53 @@ function loadEkResult(ekRec) {
         document.getElementById('ek-offen-card').style.display = offen.length ? '' : 'none';
 
         // Verkauft list
-        var verkauftHtml = '<div class="ek-artikel-row" style="opacity:.5"><div style="font-size:10px;color:var(--hint)">Artikel</div><div style="font-size:10px;color:var(--hint);text-align:right">EK</div><div style="font-size:10px;color:var(--hint);text-align:right">VK</div><div style="font-size:10px;color:var(--hint);text-align:right">Gew.</div></div>';
-        verkauft.forEach(function(r){
-          var af = r.fields;
-          var vk = af['ITEM_VK_Preis'] || 0;
-          var ek = af['ITEM_EK_Preis'] || 0;
-          var diff = vk - ek;
-          verkauftHtml += '<div class="ek-artikel-row">' +
-            '<div><div class="ek-artikel-name">' + escHtml(af['ITEM_Artikel']||'—') + '</div>' +
-            '<div class="ek-artikel-sub">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</div></div>' +
-            '<div class="ek-artikel-ek">€' + ek.toFixed(2) + '</div>' +
-            '<div class="ek-artikel-vk' + (diff < 0 ? ' neg' : '') + '">€' + vk.toFixed(2) + '</div>' +
-            '<div class="ek-artikel-gewinn ' + (diff >= 0 ? 'pos' : 'neg') + '">€' + diff.toFixed(2) + '</div>' +
-            '</div>';
-        });
-        document.getElementById('ek-verkauft-list').innerHTML = verkauftHtml || '<div style="font-size:13px;color:var(--muted)">Noch keine Verkäufe</div>';
+        // Load VK_Reingewinn for each verkauft artikel
+        var headerHtml = '<div class="ek-artikel-row" style="opacity:.5"><div style="font-size:10px;color:var(--hint)">Artikel</div><div style="font-size:10px;color:var(--hint);text-align:right">EK</div><div style="font-size:10px;color:var(--hint);text-align:right">VK</div><div style="font-size:10px;color:var(--hint);text-align:right">Gew.</div></div>';
+        var vkLots = verkauft.map(function(r){ return r.fields['ITEM_VK_Lot']; }).filter(Boolean);
+        var gewinnMap = {};
+        var vkPreisMap = {};
+        function renderVerkauftList() {
+          var verkauftHtml = headerHtml;
+          var totalGewinn = 0;
+          verkauft.forEach(function(r){
+            var af = r.fields;
+            var ek = af['ITEM_EK_Preis'] || 0;
+            var vk = af['ITEM_VK_Preis'] || vkPreisMap[af['ITEM_VK_Lot']] || 0;
+            var gewinn = gewinnMap[af['ITEM_VK_Lot']] !== undefined ? gewinnMap[af['ITEM_VK_Lot']] : (vk - ek);
+            totalGewinn += gewinn;
+            verkauftHtml += '<div class="ek-artikel-row">' +
+              '<div><div class="ek-artikel-name">' + escHtml(af['ITEM_Artikel']||'—') + '</div>' +
+              '<div class="ek-artikel-sub">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</div></div>' +
+              '<div class="ek-artikel-ek">€' + ek.toFixed(2) + '</div>' +
+              '<div class="ek-artikel-vk">€' + vk.toFixed(2) + '</div>' +
+              '<div class="ek-artikel-gewinn ' + (gewinn >= 0 ? 'pos' : 'neg') + '">€' + gewinn.toFixed(2) + '</div>' +
+              '</div>';
+          });
+          document.getElementById('ek-verkauft-list').innerHTML = verkauftHtml;
+          document.getElementById('ek-verkauft-card').style.display = '';
+          // Update gewinn metric with real data
+          var gEl = document.getElementById('ek-kz-gewinn');
+          gEl.textContent = '€' + totalGewinn.toFixed(2);
+          gEl.className = 'mval' + (totalGewinn >= 0 ? ' good' : ' bad');
+        }
+        if (vkLots.length === 0) {
+          renderVerkauftList();
+        } else {
+          // Load VK records for all lots
+          var filter = 'OR(' + vkLots.map(function(l){ return '{VK_Lot}="'+l+'"'; }).join(',') + ')';
+          atGet('Verkauf_2026', filter, ['VK_Lot','VK_Reingewinn','VK_Preis'], function(err, vkData) {
+            if (!err && vkData.records) {
+              vkData.records.forEach(function(vr){
+                var vf = vr.fields;
+                if (vf['VK_Lot']) {
+                  gewinnMap[vf['VK_Lot']] = vf['VK_Reingewinn'] || 0;
+                  vkPreisMap[vf['VK_Lot']] = vf['VK_Preis'] || 0;
+                }
+              });
+            }
+            renderVerkauftList();
+          });
+        }
         document.getElementById('ek-verkauft-card').style.display = verkauft.length ? '' : 'none';
 
         document.getElementById('ek-result').style.display = '';
