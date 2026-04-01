@@ -439,6 +439,9 @@ html, body {
   -webkit-tap-highlight-color: transparent;
   border-radius: var(--radius-sm);
   margin-bottom: 2px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .sku-list-item:active { background: var(--card2); }
 .sku-list-item:last-child { border-bottom: none; }
@@ -918,12 +921,19 @@ function loadPimp() {
         var title = (f['PIMP_Title'] || '—').substring(0, 45);
         var args = [rec.id, f['PIMP_Title']||'', f['PIMP_BuyerName']||'', f['PIMP_OrderId']||'', date];
         var argsJson = JSON.stringify(args);
-        html += '<div class="sku-list-item" onclick="skuSelectJson(' + escAttr(argsJson) + ')">' +
+        html += '<div class="sku-list-item" data-args='' + argsJson.replace(/'/g,"&#39;") + '' onclick="skuSelectJson(this.dataset.args)">' +
           '<div class="sku-item-title">' + escHtml(title) + (f['PIMP_Title']&&f['PIMP_Title'].length>45?'…':'') + '</div>' +
           '<div class="sku-item-meta">' + escHtml(f['PIMP_BuyerName']||'—') + ' · ' + date + '</div>' +
           '</div>';
       });
       document.getElementById('sku-list').innerHTML = html;
+      // Touch support for iOS
+      document.querySelectorAll('.sku-list-item').forEach(function(el) {
+        el.addEventListener('touchend', function(ev) {
+          ev.preventDefault();
+          skuSelectJson(this.dataset.args);
+        }, {passive: false});
+      });
     })
     .catch(function() {
       document.getElementById('sku-list-loading').style.display = 'none';
