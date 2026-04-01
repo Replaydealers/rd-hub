@@ -14,7 +14,7 @@
 :root{
   --bg:#0f0f1a;--card:#1a1a2e;--card2:#222238;--accent:#E63946;
   --text:#f0efe8;--muted:#8888aa;--hint:#555570;--border:rgba(255,255,255,0.08);
-  --green:#1D9E75;--radius:16px;--radius-sm:10px;
+  --green:#1D9E75;--amber:#EFA827;--radius:16px;--radius-sm:10px;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
 .screen{position:fixed;inset:0;display:flex;flex-direction:column;transition:opacity .25s,transform .25s}
@@ -117,7 +117,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .jp-brow span:last-child{font-size:12px;font-weight:600;color:var(--text)}
 .jp-brow-total{background:var(--card);border:.5px solid var(--accent)}
 .jp-brow-total span:last-child{color:var(--accent)}
-.jp-settings{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;margin-top:auto;border-top:.5px solid var(--border)}
+.jp-settings{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;margin-top:auto;border-top:.5px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch}
 
 /* SKU */
 .sku-list-item{padding:12px;border-bottom:.5px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;-webkit-user-select:none}
@@ -304,25 +304,25 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
       </div>
     </div>
     <div class="jp-settings">
-      <div style="display:flex;gap:8px;align-items:center;flex:1">
-        <span style="font-size:12px;color:var(--muted)">Kurs</span>
+      <div style="display:flex;gap:8px;align-items:center;flex:1;min-width:110px">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap">Kurs</span>
         <div class="s-input-wrap" style="flex:1"><input type="number" inputmode="decimal" id="kurs" value="160" min="1" step="1" style="font-size:13px;padding:6px 8px" /><span style="font-size:11px;color:var(--muted);padding:0 6px">¥/€</span></div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex:1">
-        <span style="font-size:12px;color:var(--muted)">Versand</span>
+      <div style="display:flex;gap:8px;align-items:center;flex:1;min-width:110px">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap">Versand JP</span>
         <div class="s-input-wrap" style="flex:1"><input type="number" inputmode="decimal" id="versand" value="3" min="0" step="0.5" style="font-size:13px;padding:6px 8px" /><span style="font-size:11px;color:var(--muted);padding:0 6px">€</span></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
         <span style="font-size:11px;color:var(--muted)">eBay</span>
-        <label class="switch"><input type="checkbox" id="ebay_on" checked /><span class="knob"></span></label>
+        <label class="switch" style="transform:scale(0.8);"><input type="checkbox" id="ebay_on" checked /><span class="knob"></span></label>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
-        <span style="font-size:11px;color:var(--muted)">Versand VK</span>
-        <label class="switch"><input type="checkbox" id="vk_versand_on" /><span class="knob"></span></label>
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap">Versand VK</span>
+        <label class="switch" style="transform:scale(0.8);"><input type="checkbox" id="vk_versand_on" /><span class="knob"></span></label>
+        <div id="vk_versand_field" style="display:none">
+          <div class="s-input-wrap" style="width:72px"><input type="number" inputmode="decimal" id="vk_versand" value="5" min="0" step="0.5" style="font-size:13px;padding:6px 4px" /><span style="font-size:11px;color:var(--muted);padding:0 4px">€</span></div>
+        </div>
       </div>
-    </div>
-    <div id="vk_versand_field" style="display:none;padding:0 12px 8px">
-      <div class="s-input-wrap"><input type="number" inputmode="decimal" id="vk_versand" value="5" min="0" step="0.5" /><span class="unit">€</span></div>
     </div>
   </div>
 </div>
@@ -863,7 +863,7 @@ function loadEkResult(ekRec) {
   // Load all Artikel for this lot
   atGet('Artikel_2026',
     '{ITEM_EK_Lot}="'+lot+'"',
-    ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_Status','ITEM_EK_Preis','ITEM_VK_Preis','ITEM_VK_Lot'],
+    ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_Status','ITEM_EK_Preis','ITEM_VK_Preis','ITEM_VK_Lot','ITEM_EK_Lot'],
     function(err, artData) {
       ekShowLoading(false);
       if (err) { ekShowError('Fehler beim Laden der Artikel.'); return; }
@@ -920,7 +920,7 @@ function loadEkResult(ekRec) {
         var gewinnMap = {}; // keyed by record ID
         var vkPreisMap = {};
         var vkLotMap = {}; // record ID -> VK_Lot text
-        function renderVerkauftGrouped(vkInfoMap) {
+        function renderVerkauftGrouped(vkInfoMap, currentLot) {
           // Group artikel by VK record ID
           var groups = {}; // recId -> {info, artikel:[]}
           var einzeln = []; // no VK lot
@@ -944,13 +944,19 @@ function loadEkResult(ekRec) {
             var g = groups[recId];
             var gewinn = g.info.gewinn;
             totalGewinn += gewinn;
+            // Check if VK contains artikel from other EKs
+            var hasOtherEk = g.artikel.some(function(r){
+              var itemLot = r.fields['ITEM_EK_Lot'];
+              return itemLot && itemLot !== currentLot;
+            });
             // Group header row
             html += '<div style="background:var(--card2);border-radius:6px;padding:6px 8px;margin:4px 0;">' +
-              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
-                '<span style="font-size:11px;font-weight:700;color:var(--muted)">' + escHtml(g.info.lot) + '</span>' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:6px;">' +
+                '<span style="font-size:11px;font-weight:700;color:var(--muted)">' + escHtml(g.info.lot) + (hasOtherEk ? ' ⚠️' : '') + '</span>' +
                 '<span style="font-size:11px;color:var(--muted)">VK €' + g.info.preis.toFixed(2) + '</span>' +
-                '<span style="font-size:12px;font-weight:700;' + (gewinn>=0?'color:#1D9E75':'color:var(--accent)') + '">€' + gewinn.toFixed(2) + '</span>' +
-              '</div>';
+                '<span style="font-size:12px;font-weight:700;' + (gewinn>=0?'color:#1D9E75':'color:var(--accent)') + '">€' + gewinn.toFixed(2) + (hasOtherEk ? '*' : '') + '</span>' +
+              '</div>' +
+              (hasOtherEk ? '<div style="font-size:10px;color:var(--amber,#EFA827);margin-bottom:4px;">* VK enthält Artikel aus anderem EK – Reingewinn nicht aufgeteilt</div>' : '');
             // Sub-artikel
             g.artikel.forEach(function(r){
               var af = r.fields;
@@ -988,7 +994,7 @@ function loadEkResult(ekRec) {
           gEl.textContent = '€' + totalGewinn.toFixed(2);
           gEl.className = 'mval' + (totalGewinn >= 0 ? ' good' : ' bad');
         }
-        function renderVerkauftList() { renderVerkauftGrouped({}); }
+        function renderVerkauftList() { renderVerkauftGrouped({}, lot); }
         if (vkRecordIds.length === 0) {
           renderVerkauftList();
         } else {
@@ -1005,7 +1011,7 @@ function loadEkResult(ekRec) {
                 };
               });
             }
-            renderVerkauftGrouped(vkInfoMap);
+            renderVerkauftGrouped(vkInfoMap, lot);
           });
         }
         document.getElementById('ek-verkauft-card').style.display = verkauft.length ? '' : 'none';
