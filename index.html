@@ -436,16 +436,6 @@ addNav('btn-back-sku', 'screen-home');
 addNav('btn-sku-reload', 'screen-sku', loadPimp);
 addNav('tile-ek', 'screen-ek');
 addNav('btn-back-ek', 'screen-home');
-document.getElementById('ek-tab-lot').addEventListener('click', function(){ ekSetTab('lot'); });
-document.getElementById('ek-tab-lot').addEventListener('touchend', function(e){ e.preventDefault(); ekSetTab('lot'); }, {passive:false});
-document.getElementById('ek-tab-partner').addEventListener('click', function(){ ekSetTab('partner'); });
-document.getElementById('ek-tab-partner').addEventListener('touchend', function(e){ e.preventDefault(); ekSetTab('partner'); }, {passive:false});
-document.getElementById('btn-ek-lot-search').addEventListener('click', doEkLotSearch);
-document.getElementById('btn-ek-lot-search').addEventListener('touchend', function(e){ e.preventDefault(); doEkLotSearch(); }, {passive:false});
-document.getElementById('btn-ek-partner-search').addEventListener('click', doEkPartnerSearch);
-document.getElementById('btn-ek-partner-search').addEventListener('touchend', function(e){ e.preventDefault(); doEkPartnerSearch(); }, {passive:false});
-document.getElementById('ek-lot-input').addEventListener('keydown', function(e){ if(e.key==='Enter') doEkLotSearch(); });
-document.getElementById('ek-partner-input').addEventListener('keydown', function(e){ if(e.key==='Enter') doEkPartnerSearch(); });
 addNav('btn-fetchrate', null, fetchRate);
 
 document.getElementById('btn-fetchrate').addEventListener('click', fetchRate);
@@ -707,7 +697,6 @@ function buildSkuCard(rec) {
 var ekSearchMode = 'lot';
 
 function ekSetTab(mode) {
-  console.log('ekSetTab called:', mode);
   ekSearchMode = mode;
   document.getElementById('ek-tab-lot').classList.toggle('active', mode==='lot');
   document.getElementById('ek-tab-partner').classList.toggle('active', mode==='partner');
@@ -880,7 +869,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 <!-- EK AUSWERTUNG -->
 <div class="screen hidden" id="screen-ek">
   <div class="sub-header">
-    <button class="back-btn" id="btn-back-ek">←</button>
+    <button class="back-btn" id="btn-back-ek" onclick="showScreen('screen-home')">←</button>
     <div class="sub-header-title">Einkauf Auswertung</div>
   </div>
   <div class="sub-content" id="ek-content">
