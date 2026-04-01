@@ -299,10 +299,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="sub-header-title">SKU Eintragung</div>
     <button class="s-search-btn" id="btn-sku-reload" style="margin-left:auto;font-size:12px;padding:0 12px;height:32px;">↻ Neu laden</button>
   </div>
-  <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+  <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;">
     <div class="s-loading" id="sku-list-loading" style="padding:20px;text-align:center;">Wird geladen…</div>
     <div class="s-error" id="sku-list-error" style="padding:20px;text-align:center;display:none;"></div>
-    <div id="sku-cards-wrap" style="display:flex;gap:12px;padding:12px;overflow-x:auto;flex:1;align-items:flex-start;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;"></div>
+    <div id="sku-cards-wrap" style="display:flex;gap:12px;padding:12px;overflow-x:auto;flex:1;align-items:stretch;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;min-height:0;"></div>
   </div>
 </div>
 
@@ -511,14 +511,17 @@ document.getElementById('btn-load-kalk').addEventListener('click', function(){
 
 // ── SKU EINTRAGUNG ──
 function loadPimp() {
+  console.log('loadPimp called');
   var wrap = document.getElementById('sku-cards-wrap');
   wrap.innerHTML = '';
   document.getElementById('sku-list-error').style.display = 'none';
   document.getElementById('sku-list-loading').style.display = '';
+  console.log('loading shown, calling atGet');
   atGet('PlattformImport_2026',
     'AND({PIMP_RowType}="Bestellung",OR({PIMP_Processed}="false",{PIMP_Processed}="clearing"),{PIMP_SKU}="")',
     ['PIMP_Title','PIMP_BuyerName','PIMP_OrderId','PIMP_TransactionDate'],
     function(err, data) {
+      console.log('atGet callback', err, data);
       document.getElementById('sku-list-loading').style.display = 'none';
       if (err || !data.records || !data.records.length) {
         document.getElementById('sku-list-error').textContent = err ? 'Verbindungsfehler.' : 'Keine offenen Bestellungen ohne SKU.';
