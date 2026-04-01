@@ -445,10 +445,11 @@ function atGet(table, filter, fields, cb) {
   var f = fields.map(function(f){ return 'fields[]=' + encodeURIComponent(f); }).join('&');
   var url = 'https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) +
     '?filterByFormula=' + encodeURIComponent(filter) + '&' + f + '&maxRecords=50';
+  console.log('atGet URL:', url);
   fetch(url, {headers:{'Authorization':'Bearer '+AT_TOKEN}})
     .then(function(r){ return r.json(); })
-    .then(function(d){ cb(null,d); })
-    .catch(function(e){ cb(e,null); });
+    .then(function(d){ console.log('atGet result:', table, d); cb(null,d); })
+    .catch(function(e){ console.log('atGet error:', table, e); cb(e,null); });
 }
 function atPatch(table, recId, fields, cb) {
   fetch('https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) + '/' + recId, {
