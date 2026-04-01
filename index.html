@@ -148,6 +148,42 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .sku-card-meta:last-of-type { border-bottom: none; }
 .sku-meta-label { color:var(--muted); flex-shrink:0; margin-right:8px; }
 .sku-card-divider { height:.5px; background:var(--border); margin:10px 0; }
+
+.sku-numpad-display {
+  background: var(--card2);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+.sku-numpad-nr {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 3px;
+}
+.sku-numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.sku-np {
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--card2);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sku-np-del { font-size: 16px; color: var(--muted); }
+.sku-np-check { background: var(--accent); color: white; font-size: 18px; }
 </style>
 </head>
 <body>
@@ -549,9 +585,12 @@ function buildSkuCard(rec) {
     '<div class="sku-card-meta"><span class="sku-meta-label">Bestellung</span><span>' + escHtml(order) + '</span></div>' +
     '<div class="sku-card-meta"><span class="sku-meta-label">Datum</span><span>' + date + '</span></div>' +
     '<div class="sku-card-divider"></div>' +
-    '<div style="display:flex;gap:8px;margin-bottom:8px">' +
-      '<div class="s-input-wrap" style="flex:1"><input type="text" inputmode="numeric" class="sku-nr-input" placeholder="Artikelnummer" /></div>' +
-      '<button class="sku-check-btn s-search-btn" style="height:40px;padding:0 14px;font-size:13px">Prüfen</button>' +
+    '<div class="sku-numpad-display"><span class="sku-numpad-nr">—</span></div>' +
+    '<div class="sku-numpad">' +
+      '<button class="sku-np" type="button">1</button><button class="sku-np" type="button">2</button><button class="sku-np" type="button">3</button>' +
+      '<button class="sku-np" type="button">4</button><button class="sku-np" type="button">5</button><button class="sku-np" type="button">6</button>' +
+      '<button class="sku-np" type="button">7</button><button class="sku-np" type="button">8</button><button class="sku-np" type="button">9</button>' +
+      '<button class="sku-np sku-np-del" type="button">⌫</button><button class="sku-np" type="button">0</button><button class="sku-np sku-np-check" type="button">✓</button>' +
     '</div>' +
     '<div class="sku-card-loading s-loading">Wird geprüft…</div>' +
     '<div class="sku-card-error s-error"></div>' +
@@ -567,8 +606,7 @@ function buildSkuCard(rec) {
     '<div class="sku-card-success" style="display:none;padding:10px;background:rgba(29,158,117,.15);border-radius:var(--radius-sm);text-align:center;font-size:13px;font-weight:600;color:var(--green)">✓ Gespeichert</div>';
 
   // Wire up events
-  var input = card.querySelector('.sku-nr-input');
-  var checkBtn = card.querySelector('.sku-check-btn');
+  var nrDisplay = card.querySelector('.sku-numpad-nr');
   var saveBtn = card.querySelector('.sku-save-btn');
   var cancelBtn = card.querySelector('.sku-cancel-btn');
   var loading = card.querySelector('.sku-card-loading');
@@ -577,9 +615,28 @@ function buildSkuCard(rec) {
   var foundName = card.querySelector('.sku-card-found-name');
   var success = card.querySelector('.sku-card-success');
   var currentNr = null;
+  var nrInput = '';
+
+  // Numpad logic
+  card.querySelectorAll('.sku-np').forEach(function(btn) {
+    function handler(e) {
+      e.preventDefault(); e.stopPropagation();
+      if (btn.classList.contains('sku-np-del')) {
+        nrInput = nrInput.slice(0,-1);
+        nrDisplay.textContent = nrInput || '—';
+      } else if (btn.classList.contains('sku-np-check')) {
+        doCheck();
+      } else {
+        nrInput += btn.textContent;
+        nrDisplay.textContent = nrInput;
+      }
+    }
+    btn.addEventListener('touchend', handler, {passive:false});
+    btn.addEventListener('click', handler);
+  });
 
   function doCheck() {
-    var nr = input.value.trim(); if (!nr) return;
+    var nr = nrInput.trim(); if (!nr) return;
     currentNr = nr;
     confirm.style.display = 'none';
     error.style.display = 'none';
@@ -613,12 +670,9 @@ function buildSkuCard(rec) {
     });
   }
 
-  checkBtn.addEventListener('click', doCheck);
-  checkBtn.addEventListener('touchend', function(e){ e.preventDefault(); doCheck(); }, {passive:false});
-  input.addEventListener('keydown', function(e){ if(e.key==='Enter') doCheck(); });
   saveBtn.addEventListener('click', doSave);
   saveBtn.addEventListener('touchend', function(e){ e.preventDefault(); doSave(); }, {passive:false});
-  cancelBtn.addEventListener('click', function(){ confirm.style.display='none'; input.value=''; });
+  cancelBtn.addEventListener('click', function(){ confirm.style.display='none'; nrInput=''; nrDisplay.textContent='—'; });
 
   return card;
 }
