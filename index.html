@@ -705,6 +705,7 @@ function ekSetTab(mode) {
 }
 
 function ekShowLoading(show) {
+  console.log('ekShowLoading:', show);
   document.getElementById('ek-search-loading').style.display = show?'':'none';
   document.getElementById('ek-search-error').style.display = 'none';
 }
@@ -728,7 +729,9 @@ function doEkLotSearch() {
 }
 
 function doEkPartnerSearch() {
+  console.log('doEkPartnerSearch called');
   var name = document.getElementById('ek-partner-input').value.trim();
+  console.log('name:', name);
   if (!name) return;
   ekShowLoading(true);
   document.getElementById('ek-partner-results').innerHTML = '';
