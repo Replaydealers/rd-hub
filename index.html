@@ -458,7 +458,7 @@ document.getElementById('btn-fetchrate').addEventListener('click', fetchRate);
 function atGet(table, filter, fields, cb) {
   var f = fields.map(function(f){ return 'fields[]=' + encodeURIComponent(f); }).join('&');
   var url = 'https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) +
-    '?filterByFormula=' + encodeURIComponent(filter) + '&' + f + '&maxRecords=50';
+    '?filterByFormula=' + encodeURIComponent(filter) + '&' + f + '&maxRecords=500';
   fetch(url, {headers:{'Authorization':'Bearer '+AT_TOKEN}})
     .then(function(r){ return r.json(); })
     .then(function(d){ cb(null,d); })
@@ -799,11 +799,20 @@ function buildEkCard(ekRec) {
     '</div>' +
     '<button type="button" style="margin-top:14px;width:100%;padding:10px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:white;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation" onclick="void(0)">Auswerten →</button>';
 
-  // Load partner name
+  // Load partner name - EK_PartnerID may be linked record array or text
   if (f['EK_PartnerID']) {
-    atGet('Partnerdaten_2026', '{PD_ID}="'+f['EK_PartnerID']+'"', ['PD_Anzeigename'], function(err, pd) {
-      var pname = (!err && pd.records && pd.records.length) ? (pd.records[0].fields['PD_Anzeigename']||f['EK_PartnerID']) : f['EK_PartnerID'];
-      card.querySelector('.ek-card-partner').textContent = pname;
+    var pid = Array.isArray(f['EK_PartnerID']) ? f['EK_PartnerID'][0] : f['EK_PartnerID'];
+    // Try searching by PD_ID field value first
+    atGet('Partnerdaten_2026', '{PD_ID}="'+pid+'"', ['PD_Anzeigename'], function(err, pd) {
+      if (!err && pd.records && pd.records.length) {
+        card.querySelector('.ek-card-partner').textContent = pd.records[0].fields['PD_Anzeigename'] || pid;
+      } else {
+        // Fallback: search by record ID using Airtable RECORD_ID()
+        atGet('Partnerdaten_2026', 'RECORD_ID()="'+pid+'"', ['PD_Anzeigename'], function(err2, pd2) {
+          var pname = (!err2 && pd2.records && pd2.records.length) ? (pd2.records[0].fields['PD_Anzeigename']||pid) : pid;
+          card.querySelector('.ek-card-partner').textContent = pname;
+        });
+      }
     });
   }
 
