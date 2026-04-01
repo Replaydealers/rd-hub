@@ -916,11 +916,9 @@ function loadPimp() {
         var f = rec.fields;
         var date = f['PIMP_TransactionDate'] ? f['PIMP_TransactionDate'].substring(0,10) : '—';
         var title = (f['PIMP_Title'] || '—').substring(0, 45);
-        html += '<div class="sku-list-item" onclick="skuSelect('' + rec.id + '','' +
-          escStr(f['PIMP_Title']||'') + '','' +
-          escStr(f['PIMP_BuyerName']||'') + '','' +
-          escStr(f['PIMP_OrderId']||'') + '','' +
-          date + '')">' +
+        var args = [rec.id, f['PIMP_Title']||'', f['PIMP_BuyerName']||'', f['PIMP_OrderId']||'', date];
+        var argsJson = JSON.stringify(args);
+        html += '<div class="sku-list-item" onclick="skuSelectJson(' + escAttr(argsJson) + ')">' +
           '<div class="sku-item-title">' + escHtml(title) + (f['PIMP_Title']&&f['PIMP_Title'].length>45?'…':'') + '</div>' +
           '<div class="sku-item-meta">' + escHtml(f['PIMP_BuyerName']||'—') + ' · ' + date + '</div>' +
           '</div>';
@@ -935,6 +933,8 @@ function loadPimp() {
 }
 
 function escStr(s) { return s.replace(/'/g,"&#39;").replace(/"/g,'&quot;'); }
+function escAttr(s) { return "'" + s.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + "'"; }
+function skuSelectJson(json) { var a=JSON.parse(json); skuSelect(a[0],a[1],a[2],a[3],a[4]); }
 function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function skuSelect(recId, title, buyer, order, date) {
