@@ -920,44 +920,92 @@ function loadEkResult(ekRec) {
         var gewinnMap = {}; // keyed by record ID
         var vkPreisMap = {};
         var vkLotMap = {}; // record ID -> VK_Lot text
-        function renderVerkauftList() {
-          var verkauftHtml = headerHtml;
-          var totalGewinn = 0;
+        function renderVerkauftGrouped(vkInfoMap) {
+          // Group artikel by VK record ID
+          var groups = {}; // recId -> {info, artikel:[]}
+          var einzeln = []; // no VK lot
           verkauft.forEach(function(r){
             var af = r.fields;
-            var ek = af['ITEM_EK_Preis'] || 0;
             var vkLotRaw = af['ITEM_VK_Lot'];
-            var recId = Array.isArray(vkLotRaw) ? vkLotRaw[0] : (vkLotRaw||'');
-            var vk = vkPreisMap[recId] || af['ITEM_VK_Preis'] || 0;
-            var gewinn = gewinnMap[recId] !== undefined ? gewinnMap[recId] : (vk - ek);
+            var recId = Array.isArray(vkLotRaw) ? vkLotRaw[0] : (typeof vkLotRaw==='string' ? vkLotRaw : '');
+            if (recId && vkInfoMap && vkInfoMap[recId]) {
+              if (!groups[recId]) groups[recId] = {info: vkInfoMap[recId], artikel: []};
+              groups[recId].artikel.push(r);
+            } else {
+              einzeln.push(r);
+            }
+          });
+
+          var html = headerHtml;
+          var totalGewinn = 0;
+
+          // Render grouped
+          Object.keys(groups).forEach(function(recId){
+            var g = groups[recId];
+            var gewinn = g.info.gewinn;
             totalGewinn += gewinn;
-            verkauftHtml += '<div class="ek-artikel-row">' +
+            // Group header row
+            html += '<div style="background:var(--card2);border-radius:6px;padding:6px 8px;margin:4px 0;">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+                '<span style="font-size:11px;font-weight:700;color:var(--muted)">' + escHtml(g.info.lot) + '</span>' +
+                '<span style="font-size:11px;color:var(--muted)">VK €' + g.info.preis.toFixed(2) + '</span>' +
+                '<span style="font-size:12px;font-weight:700;' + (gewinn>=0?'color:#1D9E75':'color:var(--accent)') + '">€' + gewinn.toFixed(2) + '</span>' +
+              '</div>';
+            // Sub-artikel
+            g.artikel.forEach(function(r){
+              var af = r.fields;
+              var ek = af['ITEM_EK_Preis'] || 0;
+              var vk = af['ITEM_VK_Preis'] || 0;
+              html += '<div style="display:grid;grid-template-columns:1fr 52px 52px;gap:4px;padding:3px 0 3px 8px;border-top:.5px solid var(--border);font-size:11px;">' +
+                '<div><span style="color:var(--text)">' + escHtml(af['ITEM_Artikel']||'—') + '</span>' +
+                '<span style="color:var(--hint);margin-left:4px">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</span></div>' +
+                '<div style="text-align:right;color:var(--muted)">€' + ek.toFixed(2) + '</div>' +
+                '<div style="text-align:right;color:#1D9E75">' + (vk ? '€'+vk.toFixed(2) : '—') + '</div>' +
+              '</div>';
+            });
+            html += '</div>';
+          });
+
+          // Render einzeln (no VK lot)
+          einzeln.forEach(function(r){
+            var af = r.fields;
+            var ek = af['ITEM_EK_Preis'] || 0;
+            var vk = af['ITEM_VK_Preis'] || 0;
+            var gewinn = vk - ek;
+            totalGewinn += gewinn;
+            html += '<div class="ek-artikel-row">' +
               '<div><div class="ek-artikel-name">' + escHtml(af['ITEM_Artikel']||'—') + '</div>' +
               '<div class="ek-artikel-sub">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</div></div>' +
               '<div class="ek-artikel-ek">€' + ek.toFixed(2) + '</div>' +
-              '<div class="ek-artikel-vk">€' + vk.toFixed(2) + '</div>' +
-              '<div class="ek-artikel-gewinn ' + (gewinn >= 0 ? 'pos' : 'neg') + '">€' + gewinn.toFixed(2) + '</div>' +
-              '</div>';
+              '<div class="ek-artikel-vk">' + (vk?'€'+vk.toFixed(2):'—') + '</div>' +
+              '<div class="ek-artikel-gewinn ' + (gewinn>=0?'pos':'neg') + '">' + (vk?'€'+gewinn.toFixed(2):'—') + '</div>' +
+            '</div>';
           });
-          document.getElementById('ek-verkauft-list').innerHTML = verkauftHtml;
+
+          document.getElementById('ek-verkauft-list').innerHTML = html || '<div style="font-size:13px;color:var(--muted)">Noch keine Verkäufe</div>';
           document.getElementById('ek-verkauft-card').style.display = '';
           var gEl = document.getElementById('ek-kz-gewinn');
           gEl.textContent = '€' + totalGewinn.toFixed(2);
           gEl.className = 'mval' + (totalGewinn >= 0 ? ' good' : ' bad');
         }
+        function renderVerkauftList() { renderVerkauftGrouped({}); }
         if (vkRecordIds.length === 0) {
           renderVerkauftList();
         } else {
-          // Fetch each VK record by RECORD_ID()
-          var filter = 'OR(' + vkRecordIds.map(function(id){ return 'RECORD_ID()="'+id+'"'; }).join(',') + ')';
+          var uniqueIds = vkRecordIds.filter(function(id,i){ return vkRecordIds.indexOf(id)===i; });
+          var filter = 'OR(' + uniqueIds.map(function(id){ return 'RECORD_ID()="'+id+'"'; }).join(',') + ')';
           atGet('Verkauf_2026', filter, ['VK_Lot','VK_Reingewinn','VK_Preis'], function(err, vkData) {
+            var vkInfoMap = {}; // recId -> {lot, gewinn, preis}
             if (!err && vkData.records) {
               vkData.records.forEach(function(vr){
-                gewinnMap[vr.id] = vr.fields['VK_Reingewinn'] || 0;
-                vkPreisMap[vr.id] = vr.fields['VK_Preis'] || 0;
+                vkInfoMap[vr.id] = {
+                  lot: vr.fields['VK_Lot'] || vr.id,
+                  gewinn: vr.fields['VK_Reingewinn'] || 0,
+                  preis: vr.fields['VK_Preis'] || 0
+                };
               });
             }
-            renderVerkauftList();
+            renderVerkauftGrouped(vkInfoMap);
           });
         }
         document.getElementById('ek-verkauft-card').style.display = verkauft.length ? '' : 'none';
