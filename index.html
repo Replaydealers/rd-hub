@@ -189,13 +189,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ek-tab.active { background:var(--accent); color:white; border-color:var(--accent); font-weight:600; }
 .ek-partner-item { padding:10px 12px; border-bottom:.5px solid var(--border); cursor:pointer; touch-action:manipulation; font-size:14px; color:var(--text); }
 .ek-partner-item:last-child { border-bottom:none; }
-.ek-artikel-row { display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:center; padding:7px 0; border-bottom:.5px solid var(--border); font-size:13px; }
+.ek-artikel-row { display:grid; grid-template-columns:1fr 52px 52px 58px; gap:4px; align-items:center; padding:5px 0; border-bottom:.5px solid var(--border); font-size:12px; }
 .ek-artikel-row:last-child { border-bottom:none; }
-.ek-artikel-name { color:var(--text); }
-.ek-artikel-sub { font-size:11px; color:var(--muted); }
-.ek-artikel-ek { color:var(--muted); white-space:nowrap; }
-.ek-artikel-vk { color:#1D9E75; font-weight:600; white-space:nowrap; }
+.ek-artikel-name { color:var(--text); font-size:12px; line-height:1.2; }
+.ek-artikel-sub { font-size:10px; color:var(--muted); }
+.ek-artikel-ek { color:var(--muted); white-space:nowrap; text-align:right; font-size:11px; }
+.ek-artikel-vk { color:#1D9E75; font-weight:600; white-space:nowrap; text-align:right; font-size:11px; }
 .ek-artikel-vk.neg { color:var(--accent); }
+.ek-artikel-gewinn { font-weight:600; white-space:nowrap; text-align:right; font-size:11px; }
+.ek-artikel-gewinn.pos { color:#1D9E75; }
+.ek-artikel-gewinn.neg { color:var(--accent); }
 
 .ek-select-card {
   background: var(--card);
@@ -890,7 +893,7 @@ function loadEkResult(ekRec) {
         document.getElementById('ek-kz-offen').textContent = offen.length;
 
         // Offen list
-        var offenHtml = '';
+        var offenHtml = '<div class="ek-artikel-row" style="opacity:.5"><div style="font-size:10px;color:var(--hint)">Artikel</div><div style="font-size:10px;color:var(--hint);text-align:right">EK</div><div style="font-size:10px;color:var(--hint);text-align:right">VK</div><div style="font-size:10px;color:var(--hint);text-align:right">Gew.</div></div>';
         offen.forEach(function(r){
           var af = r.fields;
           offenHtml += '<div class="ek-artikel-row">' +
@@ -898,13 +901,14 @@ function loadEkResult(ekRec) {
             '<div class="ek-artikel-sub">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</div></div>' +
             '<div class="ek-artikel-ek">€' + (af['ITEM_EK_Preis']||0).toFixed(2) + '</div>' +
             '<div class="ek-artikel-ek">—</div>' +
+            '<div class="ek-artikel-ek">—</div>' +
             '</div>';
         });
         document.getElementById('ek-offen-list').innerHTML = offenHtml || '<div style="font-size:13px;color:var(--muted)">Keine offenen Artikel</div>';
         document.getElementById('ek-offen-card').style.display = offen.length ? '' : 'none';
 
         // Verkauft list
-        var verkauftHtml = '';
+        var verkauftHtml = '<div class="ek-artikel-row" style="opacity:.5"><div style="font-size:10px;color:var(--hint)">Artikel</div><div style="font-size:10px;color:var(--hint);text-align:right">EK</div><div style="font-size:10px;color:var(--hint);text-align:right">VK</div><div style="font-size:10px;color:var(--hint);text-align:right">Gew.</div></div>';
         verkauft.forEach(function(r){
           var af = r.fields;
           var vk = af['ITEM_VK_Preis'] || 0;
@@ -915,6 +919,7 @@ function loadEkResult(ekRec) {
             '<div class="ek-artikel-sub">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</div></div>' +
             '<div class="ek-artikel-ek">€' + ek.toFixed(2) + '</div>' +
             '<div class="ek-artikel-vk' + (diff < 0 ? ' neg' : '') + '">€' + vk.toFixed(2) + '</div>' +
+            '<div class="ek-artikel-gewinn ' + (diff >= 0 ? 'pos' : 'neg') + '">€' + diff.toFixed(2) + '</div>' +
             '</div>';
         });
         document.getElementById('ek-verkauft-list').innerHTML = verkauftHtml || '<div style="font-size:13px;color:var(--muted)">Noch keine Verkäufe</div>';
