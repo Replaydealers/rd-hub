@@ -911,6 +911,7 @@ function loadEkResult(ekRec) {
         // Load VK_Reingewinn for each verkauft artikel
         var headerHtml = '<div class="ek-artikel-row" style="opacity:.5"><div style="font-size:10px;color:var(--hint)">Artikel</div><div style="font-size:10px;color:var(--hint);text-align:right">EK</div><div style="font-size:10px;color:var(--hint);text-align:right">VK</div><div style="font-size:10px;color:var(--hint);text-align:right">Gew.</div></div>';
         var vkLots = verkauft.map(function(r){ return r.fields['ITEM_VK_Lot']; }).filter(Boolean);
+        console.log('vkLots:', vkLots, 'sample artikel fields:', verkauft[0] && verkauft[0].fields);
         var gewinnMap = {};
         var vkPreisMap = {};
         function renderVerkauftList() {
