@@ -184,6 +184,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 }
 .sku-np-del { font-size: 16px; color: var(--muted); }
 .sku-np-check { background: var(--accent); color: white; font-size: 18px; }
+
+.ek-tab { padding:6px 14px; border-radius:var(--radius-sm); border:.5px solid var(--border); background:var(--card2); color:var(--muted); font-size:13px; cursor:pointer; touch-action:manipulation; }
+.ek-tab.active { background:var(--accent); color:white; border-color:var(--accent); font-weight:600; }
+.ek-partner-item { padding:10px 12px; border-bottom:.5px solid var(--border); cursor:pointer; touch-action:manipulation; font-size:14px; color:var(--text); }
+.ek-partner-item:last-child { border-bottom:none; }
+.ek-artikel-row { display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:center; padding:7px 0; border-bottom:.5px solid var(--border); font-size:13px; }
+.ek-artikel-row:last-child { border-bottom:none; }
+.ek-artikel-name { color:var(--text); }
+.ek-artikel-sub { font-size:11px; color:var(--muted); }
+.ek-artikel-ek { color:var(--muted); white-space:nowrap; }
+.ek-artikel-vk { color:#1D9E75; font-weight:600; white-space:nowrap; }
+.ek-artikel-vk.neg { color:var(--accent); }
 </style>
 </head>
 <body>
@@ -226,7 +238,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="menu-tile active-tile" id="tile-jp"><div class="tile-accent"></div><div class="tile-icon">🇯🇵</div><div><div class="tile-label">JP Import Kalkulator</div><div class="tile-sub">Mindest-VK &amp; Marge</div></div></div>
     <div class="menu-tile active-tile" id="tile-artikel"><div class="tile-accent"></div><div class="tile-icon">🔍</div><div><div class="tile-label">Artikelsuche</div><div class="tile-sub">EK · VK · Status</div></div></div>
     <div class="menu-tile active-tile" id="tile-sku"><div class="tile-accent"></div><div class="tile-icon">📦</div><div><div class="tile-label">SKU Eintragung</div><div class="tile-sub">Packtisch · PIMP</div></div></div>
-    <div class="menu-tile inactive"><div class="tile-icon">📊</div><div><div class="tile-label">Dashboard</div><div class="tile-sub">Kommt bald</div></div></div>
+    <div class="menu-tile active-tile" id="tile-ek"><div class="tile-accent"></div><div class="tile-icon">📊</div><div><div class="tile-label">Einkauf Auswertung</div><div class="tile-sub">Profit · Artikel · Status</div></div></div>
     <div class="menu-tile inactive"><div class="tile-icon">🛒</div><div><div class="tile-label">Einkauf anlegen</div><div class="tile-sub">Kommt bald</div></div></div>
     <div class="menu-tile inactive"><div class="tile-icon">⚙️</div><div><div class="tile-label">Einstellungen</div><div class="tile-sub">Kommt bald</div></div></div>
   </div>
@@ -421,6 +433,18 @@ addNav('btn-back-jp', 'screen-home');
 addNav('btn-back-artikel', 'screen-home');
 addNav('btn-back-sku', 'screen-home');
 addNav('btn-sku-reload', 'screen-sku', loadPimp);
+addNav('tile-ek', 'screen-ek');
+addNav('btn-back-ek', 'screen-home');
+document.getElementById('ek-tab-lot').addEventListener('click', function(){ ekSetTab('lot'); });
+document.getElementById('ek-tab-lot').addEventListener('touchend', function(e){ e.preventDefault(); ekSetTab('lot'); }, {passive:false});
+document.getElementById('ek-tab-partner').addEventListener('click', function(){ ekSetTab('partner'); });
+document.getElementById('ek-tab-partner').addEventListener('touchend', function(e){ e.preventDefault(); ekSetTab('partner'); }, {passive:false});
+document.getElementById('btn-ek-lot-search').addEventListener('click', doEkLotSearch);
+document.getElementById('btn-ek-lot-search').addEventListener('touchend', function(e){ e.preventDefault(); doEkLotSearch(); }, {passive:false});
+document.getElementById('btn-ek-partner-search').addEventListener('click', doEkPartnerSearch);
+document.getElementById('btn-ek-partner-search').addEventListener('touchend', function(e){ e.preventDefault(); doEkPartnerSearch(); }, {passive:false});
+document.getElementById('ek-lot-input').addEventListener('keydown', function(e){ if(e.key==='Enter') doEkLotSearch(); });
+document.getElementById('ek-partner-input').addEventListener('keydown', function(e){ if(e.key==='Enter') doEkPartnerSearch(); });
 addNav('btn-fetchrate', null, fetchRate);
 
 document.getElementById('btn-fetchrate').addEventListener('click', fetchRate);
@@ -677,8 +701,257 @@ function buildSkuCard(rec) {
   return card;
 }
 
+
+// ── EK AUSWERTUNG ──
+var ekSearchMode = 'lot';
+
+function ekSetTab(mode) {
+  console.log('ekSetTab called:', mode);
+  ekSearchMode = mode;
+  document.getElementById('ek-tab-lot').classList.toggle('active', mode==='lot');
+  document.getElementById('ek-tab-partner').classList.toggle('active', mode==='partner');
+  document.getElementById('ek-search-lot').style.display = mode==='lot'?'':'none';
+  document.getElementById('ek-search-partner').style.display = mode==='partner'?'':'none';
+}
+
+function ekShowLoading(show) {
+  document.getElementById('ek-search-loading').style.display = show?'':'none';
+  document.getElementById('ek-search-error').style.display = 'none';
+}
+function ekShowError(msg) {
+  document.getElementById('ek-search-loading').style.display = 'none';
+  document.getElementById('ek-search-error').textContent = msg;
+  document.getElementById('ek-search-error').style.display = '';
+}
+
+function doEkLotSearch() {
+  var lot = document.getElementById('ek-lot-input').value.trim();
+  if (!lot) return;
+  ekShowLoading(true);
+  document.getElementById('ek-result').style.display = 'none';
+  atGet('Einkauf_2026', '{EK_Lot}="'+lot+'"',
+    ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID'],
+    function(err, data) {
+      if (err || !data.records || !data.records.length) { ekShowError('Einkauf nicht gefunden.'); return; }
+      loadEkResult(data.records[0]);
+    });
+}
+
+function doEkPartnerSearch() {
+  var name = document.getElementById('ek-partner-input').value.trim();
+  if (!name) return;
+  ekShowLoading(true);
+  document.getElementById('ek-partner-results').innerHTML = '';
+  // Search by PD_Anzeigename
+  atGet('Partnerdaten_2026', 'SEARCH("'+name+'",{PD_Anzeigename})>0',
+    ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'],
+    function(err, data) {
+      ekShowLoading(false);
+      if (err || !data.records || !data.records.length) { ekShowError('Partner nicht gefunden.'); return; }
+      if (data.records.length === 1) {
+        loadEkByPartner(data.records[0].fields['PD_ID']);
+        return;
+      }
+      // Show partner list
+      var html = '';
+      data.records.forEach(function(rec) {
+        var f = rec.fields;
+        var div = document.createElement('div');
+        div.className = 'ek-partner-item';
+        div.textContent = f['PD_Anzeigename'] || (f['PD_Vorname']+' '+f['PD_Name']);
+        var pdId = f['PD_ID'];
+        function go(e){ if(e.cancelable) e.preventDefault(); loadEkByPartner(pdId); }
+        div.addEventListener('click', go);
+        div.addEventListener('touchend', go, {passive:false});
+        document.getElementById('ek-partner-results').appendChild(div);
+      });
+    });
+}
+
+function loadEkByPartner(pdId) {
+  ekShowLoading(true);
+  document.getElementById('ek-partner-results').innerHTML = '';
+  atGet('Einkauf_2026', '{EK_PartnerID}="'+pdId+'"',
+    ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID'],
+    function(err, data) {
+      if (err || !data.records || !data.records.length) { ekShowError('Keine Einkäufe gefunden.'); return; }
+      if (data.records.length === 1) { loadEkResult(data.records[0]); return; }
+      // Multiple EKs - show list
+      ekShowLoading(false);
+      var wrap = document.getElementById('ek-partner-results');
+      data.records.forEach(function(rec) {
+        var f = rec.fields;
+        var div = document.createElement('div');
+        div.className = 'ek-partner-item';
+        div.textContent = (f['EK_Lot']||'—') + ' · ' + (f['EK_Status']||'') + ' · €' + (f['EK_Gesamtbetrag']||0).toFixed(2);
+        function go(e){ if(e.cancelable) e.preventDefault(); loadEkResult(rec); }
+        div.addEventListener('click', go);
+        div.addEventListener('touchend', go, {passive:false});
+        wrap.appendChild(div);
+      });
+    });
+}
+
+function loadEkResult(ekRec) {
+  var f = ekRec.fields;
+  var lot = f['EK_Lot'] || '—';
+  ekShowLoading(true);
+  // Load all Artikel for this lot
+  atGet('Artikel_2026',
+    '{ITEM_EK_Lot}="'+lot+'"',
+    ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_Status','ITEM_EK_Preis','ITEM_VK_Preis'],
+    function(err, artData) {
+      ekShowLoading(false);
+      if (err) { ekShowError('Fehler beim Laden der Artikel.'); return; }
+      var artikel = artData.records || [];
+
+      // Load partner name
+      var partnerId = f['EK_PartnerID'] || '';
+      function renderResult(partnerName) {
+        document.getElementById('ek-res-lot').textContent = lot;
+        document.getElementById('ek-res-betrag').textContent = '€' + (f['EK_Gesamtbetrag']||0).toFixed(2);
+        document.getElementById('ek-res-partner').textContent = partnerName || partnerId;
+        document.getElementById('ek-res-status').textContent = f['EK_Status'] || '—';
+
+        var verkauft = artikel.filter(function(r){ return r.fields['ITEM_Status'] === 'verkauft'; });
+        var offen = artikel.filter(function(r){ return r.fields['ITEM_Status'] !== 'verkauft'; });
+        var gewinn = verkauft.reduce(function(sum, r){
+          var vk = r.fields['ITEM_VK_Preis'] || 0;
+          var ek = r.fields['ITEM_EK_Preis'] || 0;
+          return sum + (vk - ek);
+        }, 0);
+
+        document.getElementById('ek-kz-gesamt').textContent = artikel.length;
+        document.getElementById('ek-kz-verkauft').textContent = verkauft.length + ' (' + Math.round(verkauft.length/Math.max(artikel.length,1)*100) + '%)';
+        var gEl = document.getElementById('ek-kz-gewinn');
+        gEl.textContent = '€' + gewinn.toFixed(2);
+        gEl.className = 'mval' + (gewinn >= 0 ? ' good' : ' bad');
+        document.getElementById('ek-kz-offen').textContent = offen.length;
+
+        // Offen list
+        var offenHtml = '';
+        offen.forEach(function(r){
+          var af = r.fields;
+          offenHtml += '<div class="ek-artikel-row">' +
+            '<div><div class="ek-artikel-name">' + escHtml(af['ITEM_Artikel']||'—') + '</div>' +
+            '<div class="ek-artikel-sub">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</div></div>' +
+            '<div class="ek-artikel-ek">€' + (af['ITEM_EK_Preis']||0).toFixed(2) + '</div>' +
+            '<div class="ek-artikel-ek">—</div>' +
+            '</div>';
+        });
+        document.getElementById('ek-offen-list').innerHTML = offenHtml || '<div style="font-size:13px;color:var(--muted)">Keine offenen Artikel</div>';
+        document.getElementById('ek-offen-card').style.display = offen.length ? '' : 'none';
+
+        // Verkauft list
+        var verkauftHtml = '';
+        verkauft.forEach(function(r){
+          var af = r.fields;
+          var vk = af['ITEM_VK_Preis'] || 0;
+          var ek = af['ITEM_EK_Preis'] || 0;
+          var diff = vk - ek;
+          verkauftHtml += '<div class="ek-artikel-row">' +
+            '<div><div class="ek-artikel-name">' + escHtml(af['ITEM_Artikel']||'—') + '</div>' +
+            '<div class="ek-artikel-sub">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</div></div>' +
+            '<div class="ek-artikel-ek">€' + ek.toFixed(2) + '</div>' +
+            '<div class="ek-artikel-vk' + (diff < 0 ? ' neg' : '') + '">€' + vk.toFixed(2) + '</div>' +
+            '</div>';
+        });
+        document.getElementById('ek-verkauft-list').innerHTML = verkauftHtml || '<div style="font-size:13px;color:var(--muted)">Noch keine Verkäufe</div>';
+        document.getElementById('ek-verkauft-card').style.display = verkauft.length ? '' : 'none';
+
+        document.getElementById('ek-result').style.display = '';
+      }
+
+      if (partnerId) {
+        atGet('Partnerdaten_2026', '{PD_ID}="'+partnerId+'"', ['PD_Anzeigename'], function(err2, pd) {
+          var pname = (!err2 && pd.records && pd.records.length) ? (pd.records[0].fields['PD_Anzeigename']||partnerId) : partnerId;
+          renderResult(pname);
+        });
+      } else {
+        renderResult('—');
+      }
+    });
+}
+
 calc();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
+<!-- EK AUSWERTUNG -->
+<div class="screen hidden" id="screen-ek">
+  <div class="sub-header">
+    <button class="back-btn" id="btn-back-ek">←</button>
+    <div class="sub-header-title">Einkauf Auswertung</div>
+  </div>
+  <div class="sub-content" id="ek-content">
+
+    <!-- Suche -->
+    <div class="s-card" id="ek-search-card">
+      <div class="s-card-title">Suche</div>
+      <div style="display:flex;gap:6px;margin-bottom:12px">
+        <button class="ek-tab active" id="ek-tab-lot" type="button">EK-Nummer</button>
+        <button class="ek-tab" id="ek-tab-partner" type="button">Partner</button>
+      </div>
+      <div id="ek-search-lot">
+        <div style="display:flex;gap:8px">
+          <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-lot-input" placeholder="z.B. EK15174" /></div>
+          <button class="s-search-btn" id="btn-ek-lot-search">Suchen</button>
+        </div>
+      </div>
+      <div id="ek-search-partner" style="display:none">
+        <div style="display:flex;gap:8px">
+          <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-partner-input" placeholder="Name eingeben" /></div>
+          <button class="s-search-btn" id="btn-ek-partner-search">Suchen</button>
+        </div>
+        <div id="ek-partner-results" style="margin-top:10px"></div>
+      </div>
+      <div class="s-loading" id="ek-search-loading">Wird geladen…</div>
+      <div class="s-error" id="ek-search-error"></div>
+    </div>
+
+    <!-- Ergebnis -->
+    <div id="ek-result" style="display:none">
+
+      <!-- Header -->
+      <div class="s-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <div>
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Einkauf</div>
+            <div style="font-size:20px;font-weight:700;color:var(--text)" id="ek-res-lot">—</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:var(--muted)">Gesamt-EK</div>
+            <div style="font-size:20px;font-weight:700;color:var(--text)" id="ek-res-betrag">—</div>
+          </div>
+        </div>
+        <div class="s-breakdown">
+          <div class="s-brow"><span class="bl">Partner</span><span class="br" id="ek-res-partner">—</span></div>
+          <div class="s-brow"><span class="bl">Status</span><span class="br" id="ek-res-status">—</span></div>
+        </div>
+      </div>
+
+      <!-- Kennzahlen -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
+        <div class="s-metric"><div class="mlabel">Artikel gesamt</div><div class="mval" id="ek-kz-gesamt">—</div></div>
+        <div class="s-metric"><div class="mlabel">Verkauft</div><div class="mval good" id="ek-kz-verkauft">—</div></div>
+        <div class="s-metric"><div class="mlabel">Reingewinn</div><div class="mval" id="ek-kz-gewinn">—</div></div>
+        <div class="s-metric"><div class="mlabel">Noch offen</div><div class="mval" id="ek-kz-offen">—</div></div>
+      </div>
+
+      <!-- Offene Artikel -->
+      <div class="s-card" id="ek-offen-card">
+        <div class="s-card-title">Offene Artikel</div>
+        <div id="ek-offen-list"></div>
+      </div>
+
+      <!-- Verkaufte Artikel -->
+      <div class="s-card" id="ek-verkauft-card">
+        <div class="s-card-title">Verkaufte Artikel</div>
+        <div id="ek-verkauft-list"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
