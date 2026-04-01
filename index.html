@@ -920,7 +920,7 @@ function loadEkResult(ekRec) {
         var gewinnMap = {}; // keyed by record ID
         var vkPreisMap = {};
         var vkLotMap = {}; // record ID -> VK_Lot text
-        function renderVerkauftGrouped(vkInfoMap, currentLot) {
+        function renderVerkauftGrouped(vkInfoMap, currentLot, currentEkId) {
           // Group artikel by VK record ID
           var groups = {}; // recId -> {info, artikel:[]}
           var einzeln = []; // no VK lot
@@ -947,7 +947,9 @@ function loadEkResult(ekRec) {
             // Check if VK contains artikel from other EKs
             var hasOtherEk = g.artikel.some(function(r){
               var itemLot = r.fields['ITEM_EK_Lot'];
-              return itemLot && itemLot !== currentLot;
+              if (!itemLot) return false;
+              var itemLotId = Array.isArray(itemLot) ? itemLot[0] : itemLot;
+              return itemLotId && itemLotId !== currentEkId;
             });
             // Group header row
             html += '<div style="background:var(--card2);border-radius:6px;padding:6px 8px;margin:4px 0;">' +
@@ -994,7 +996,7 @@ function loadEkResult(ekRec) {
           gEl.textContent = '€' + totalGewinn.toFixed(2);
           gEl.className = 'mval' + (totalGewinn >= 0 ? ' good' : ' bad');
         }
-        function renderVerkauftList() { renderVerkauftGrouped({}, lot); }
+        function renderVerkauftList() { renderVerkauftGrouped({}, lot, ekRec.id); }
         if (vkRecordIds.length === 0) {
           renderVerkauftList();
         } else {
@@ -1011,7 +1013,7 @@ function loadEkResult(ekRec) {
                 };
               });
             }
-            renderVerkauftGrouped(vkInfoMap, lot);
+            renderVerkauftGrouped(vkInfoMap, lot, ekRec.id);
           });
         }
         document.getElementById('ek-verkauft-card').style.display = verkauft.length ? '' : 'none';
