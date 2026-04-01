@@ -422,9 +422,10 @@ document.getElementById('btn-lock').addEventListener('touchend', function(e){ e.
 
 function addNav(btnId, screenId, onShow) {
   var btn = document.getElementById(btnId);
-  function go(e){ e.preventDefault(); showScreen(screenId); if(onShow) onShow(); }
+  if (!btn) return;
+  function go(e){ e.preventDefault(); if(screenId) showScreen(screenId); if(onShow) onShow(); }
   btn.addEventListener('touchend', go, {passive:false});
-  btn.addEventListener('click', function(){ showScreen(screenId); if(onShow) onShow(); });
+  btn.addEventListener('click', function(){ if(screenId) showScreen(screenId); if(onShow) onShow(); });
 }
 addNav('tile-jp', 'screen-jp');
 addNav('tile-artikel', 'screen-artikel');
@@ -888,19 +889,19 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div class="s-card" id="ek-search-card">
       <div class="s-card-title">Suche</div>
       <div style="display:flex;gap:6px;margin-bottom:12px">
-        <button class="ek-tab active" id="ek-tab-lot" type="button">EK-Nummer</button>
-        <button class="ek-tab" id="ek-tab-partner" type="button">Partner</button>
+        <button class="ek-tab active" id="ek-tab-lot" type="button" onclick="ekSetTab('lot')">EK-Nummer</button>
+        <button class="ek-tab" id="ek-tab-partner" type="button" onclick="ekSetTab('partner')">Partner</button>
       </div>
       <div id="ek-search-lot">
         <div style="display:flex;gap:8px">
           <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-lot-input" placeholder="z.B. EK15174" /></div>
-          <button class="s-search-btn" id="btn-ek-lot-search">Suchen</button>
+          <button class="s-search-btn" id="btn-ek-lot-search" onclick="doEkLotSearch()">Suchen</button>
         </div>
       </div>
       <div id="ek-search-partner" style="display:none">
         <div style="display:flex;gap:8px">
           <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-partner-input" placeholder="Name eingeben" /></div>
-          <button class="s-search-btn" id="btn-ek-partner-search">Suchen</button>
+          <button class="s-search-btn" id="btn-ek-partner-search" onclick="doEkPartnerSearch()">Suchen</button>
         </div>
         <div id="ek-partner-results" style="margin-top:10px"></div>
       </div>
