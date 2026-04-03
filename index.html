@@ -249,6 +249,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 <div class="screen hidden" id="screen-home">
   <div class="home-header">
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
+    <div style="margin-left:auto;margin-right:12px;text-align:right">
+      <div style="font-size:10px;color:var(--hint)">Version</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">1.0.5</div>
+    </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
   <div class="menu-grid">
@@ -280,7 +284,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
       <div class="jp-col">
         <div class="jp-col-label">VK</div>
         <div class="jp-field"><div class="jp-sublabel">€</div><div class="s-input-wrap"><input type="number" inputmode="decimal" id="vk" value="44" min="0" step="0.5" /></div></div>
-        <div class="jp-field"><div class="jp-sublabel">£</div><div class="s-input-wrap"><input type="number" inputmode="decimal" id="vk_gbp" placeholder="—" min="0" step="0.5" /></div></div>
+        
       </div>
       <div class="jp-divider"></div>
       <div class="jp-col jp-result-col">
@@ -311,6 +315,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
       <div style="display:flex;gap:8px;align-items:center;flex:1;min-width:110px">
         <span style="font-size:12px;color:var(--muted);white-space:nowrap">Versand JP</span>
         <div class="s-input-wrap" style="flex:1"><input type="number" inputmode="decimal" id="versand" value="3" min="0" step="0.5" style="font-size:13px;padding:6px 8px" /><span style="font-size:11px;color:var(--muted);padding:0 6px">€</span></div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap">EK inkl. Kosten</span>
+        <label class="switch" style="transform:scale(0.8);"><input type="checkbox" id="ek_inkl_kosten" onchange="calc()" /><span class="knob"></span></label>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
         <span style="font-size:11px;color:var(--muted)">eBay</span>
@@ -345,14 +353,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     </div>
     <div class="s-card" id="a-result-card" style="display:none">
       <div class="s-card-title" id="a-result-nr">—</div>
-      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:16px" id="a-result-name">—</div>
-      <div class="s-breakdown">
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px" id="a-result-name">—</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px" id="a-konsole">—</div>
+      <div class="s-card-title">Einkauf</div>
+      <div class="s-breakdown" style="margin-bottom:14px">
         <div class="s-brow"><span class="bl">EK-Preis</span><span class="br" id="a-ek">—</span></div>
+        <div class="s-brow"><span class="bl">EK-Lot</span><span class="br" id="a-ek-lot">—</span></div>
         <div class="s-brow"><span class="bl">Mindest-VK</span><span class="br" id="a-minvk">—</span></div>
+      </div>
+      <div class="s-card-title">Status & Verkauf</div>
+      <div class="s-breakdown" style="margin-bottom:14px">
         <div class="s-brow"><span class="bl">Status</span><span class="br" id="a-status">—</span></div>
         <div class="s-brow"><span class="bl">Listing-Datum</span><span class="br" id="a-datum">—</span></div>
+        <div class="s-brow"><span class="bl">VK-Lot</span><span class="br" id="a-vk-lot">—</span></div>
+        <div class="s-brow"><span class="bl">VK-Preis</span><span class="br" id="a-vk-preis">—</span></div>
+        <div class="s-brow"><span class="bl">Reingewinn</span><span class="br" id="a-vk-gewinn">—</span></div>
       </div>
-      <button id="btn-load-kalk" style="margin-top:14px;width:100%;padding:12px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:white;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">In JP Kalkulator laden →</button>
+      <button id="btn-load-kalk" style="width:100%;padding:12px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:white;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">In JP Kalkulator laden →</button>
     </div>
   </div>
 </div>
@@ -376,7 +393,6 @@ var AT_BASE = 'appwhhRzsznu1LTRX';
 var AT_TABLE = 'Artikel_2026';
 var AT_TOKEN = 'patNPI9NMOZC3ZJgh.5815eddd9a34b7821d4eebcd67395c1707f49ac7bc12ecf1910e7f0ba38bd7ec';
 var PIN = '082024';
-var gbpEurRate = 0.85;
 var lastArtikel = null;
 var skuRecordId = null;
 var skuArtikelNr = null;
@@ -486,10 +502,7 @@ document.getElementById('ek_jpy').addEventListener('input', function(){
 document.getElementById('ek_eur').addEventListener('input', function(){
   var kurs=v('kurs')||160; var eur=v('ek_eur');
   document.getElementById('ek_jpy').value = eur>0?Math.round(eur*kurs):''; calc(); });
-document.getElementById('vk').addEventListener('input', function(){
-  var eur=v('vk'); document.getElementById('vk_gbp').value=eur>0?(eur*gbpEurRate).toFixed(2):''; calc(); });
-document.getElementById('vk_gbp').addEventListener('input', function(){
-  var gbp=v('vk_gbp'); document.getElementById('vk').value=gbp>0?(gbp/gbpEurRate).toFixed(2):''; calc(); });
+document.getElementById('vk').addEventListener('input', calc);
 document.getElementById('kurs').addEventListener('input', calc);
 document.getElementById('versand').addEventListener('input', calc);
 document.getElementById('ebay_on').addEventListener('change', calc);
@@ -500,10 +513,11 @@ document.getElementById('vk_versand').addEventListener('input', calc);
 function calc() {
   var kurs=v('kurs')||160;
   var ek_eur=v('ek_eur')||v('ek_jpy')/kurs;
-  var sendico=500/kurs; var versand=v('versand'); var vk=v('vk');
+  var inklKosten=document.getElementById('ek_inkl_kosten') && document.getElementById('ek_inkl_kosten').checked;
+  var sendico=inklKosten?0:500/kurs; var versand=inklKosten?0:v('versand'); var vk=v('vk');
   var ebay=document.getElementById('ebay_on').checked;
   var vkv=document.getElementById('vk_versand_on').checked?v('vk_versand'):0;
-  var eust=(ek_eur+sendico+versand)*0.19;
+  var eust=inklKosten?0:(ek_eur+sendico+versand)*0.19;
   var ebay_cost=ebay?vk*0.12:0;
   var gesamt=ek_eur+sendico+versand+eust;
   var marge_b=vk-gesamt-ebay_cost-vkv;
@@ -536,7 +550,6 @@ function fetchRate() {
     .then(function(d){
       if(d&&d.rates&&d.rates.JPY){
         document.getElementById('kurs').value=Math.round(d.rates.JPY);
-        if(d.rates.GBP) gbpEurRate=d.rates.GBP;
         var now=new Date();
         document.getElementById('kurs-status').textContent='aktuell '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
         calc();
@@ -551,7 +564,7 @@ function doArtikelSearch() {
   document.getElementById('a-error').style.display='none';
   document.getElementById('a-loading').style.display='';
   atGet(AT_TABLE, '{ITEM_Artikelnummer}="'+nr+'"',
-    ['ITEM_Artikel','ITEM_EK_Preis','ITEM_Mindest_VK','ITEM_Status','ITEM_Listing_Datum'],
+    ['ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_EK_Preis','ITEM_Mindest_VK','ITEM_Status','ITEM_Listing_Datum','ITEM_EK_Lot','ITEM_VK_Lot','ITEM_VK_Preis'],
     function(err,data){
       document.getElementById('a-loading').style.display='none';
       if(err||!data.records||!data.records.length){ document.getElementById('a-error').style.display=''; return; }
@@ -563,7 +576,28 @@ function doArtikelSearch() {
       document.getElementById('a-minvk').textContent=f['ITEM_Mindest_VK']?f['ITEM_Mindest_VK'].toFixed(2)+' €':'—';
       document.getElementById('a-status').textContent=f['ITEM_Status']||'—';
       document.getElementById('a-datum').textContent=f['ITEM_Listing_Datum']||'—';
+      document.getElementById('a-konsole').textContent=[f['ITEM_Konsole'],f['ITEM_Komponente']].filter(Boolean).join(' · ')||'—';
+      // EK Lot
+      var ekLot = f['ITEM_EK_Lot'];
+      document.getElementById('a-ek-lot').textContent = Array.isArray(ekLot)?ekLot[0]:(ekLot||'—');
+      // VK info
+      var vkLotRaw = f['ITEM_VK_Lot'];
+      var vkRecId = Array.isArray(vkLotRaw)?vkLotRaw[0]:(typeof vkLotRaw==='string'?vkLotRaw:'');
+      document.getElementById('a-vk-preis').textContent = f['ITEM_VK_Preis']?f['ITEM_VK_Preis'].toFixed(2)+' €':'—';
+      document.getElementById('a-vk-lot').textContent = '—';
+      document.getElementById('a-vk-gewinn').textContent = '—';
       document.getElementById('a-result-card').style.display='';
+      // Load VK details if sold
+      if (vkRecId) {
+        var vkFilter = 'RECORD_ID()="'+vkRecId+'"';
+        atGet('Verkauf_2026', vkFilter, ['VK_Lot','VK_Reingewinn','VK_Datum'], function(err, vkData) {
+          if (!err && vkData.records && vkData.records.length) {
+            var vf = vkData.records[0].fields;
+            document.getElementById('a-vk-lot').textContent = vf['VK_Lot']||'—';
+            document.getElementById('a-vk-gewinn').textContent = vf['VK_Reingewinn']!==undefined?vf['VK_Reingewinn'].toFixed(2)+' €':'—';
+          }
+        });
+      }
     });
 }
 document.getElementById('btn-a-search').addEventListener('click', doArtikelSearch);
@@ -585,7 +619,7 @@ function loadPimp() {
   document.getElementById('sku-list-loading').style.display = '';
   atGet('PlattformImport_2026',
     'AND({PIMP_RowType}="Bestellung",OR({PIMP_Processed}="false",{PIMP_Processed}="clearing"),{PIMP_SKU}="")',
-    ['PIMP_Title','PIMP_BuyerName','PIMP_OrderId','PIMP_TransactionDate'],
+    ['PIMP_Title','PIMP_BuyerName','PIMP_OrderId','PIMP_TransactionDate','PIMP_Quantity'],
     function(err, data) {
       document.getElementById('sku-list-loading').style.display = 'none';
       if (err || !data.records || !data.records.length) {
@@ -607,6 +641,7 @@ function buildSkuCard(rec) {
   var title = f['PIMP_Title'] || '—';
   var buyer = f['PIMP_BuyerName'] || '—';
   var order = f['PIMP_OrderId'] || '—';
+  var qty = parseInt(f['PIMP_Quantity']) || 1;
   var recId = rec.id;
 
   var card = document.createElement('div');
@@ -616,10 +651,12 @@ function buildSkuCard(rec) {
     '<div class="sku-card-meta"><span class="sku-meta-label">Käufer</span><span>' + escHtml(buyer) + '</span></div>' +
     '<div class="sku-card-meta"><span class="sku-meta-label">Bestellung</span><span>' + escHtml(order) + '</span></div>' +
     '<div class="sku-card-meta"><span class="sku-meta-label">Datum</span><span>' + date + '</span></div>' +
+    '<div class="sku-card-meta"><span class="sku-meta-label">Artikel</span><span style="font-weight:700;color:' + (qty>1 ? '\"var(--accent)\"' : '\"var(--text)\"') + '">' + qty + ' Stück</span></div>' +
     '<div class="sku-card-divider"></div>' +
     '<div class="sku-numpad-display" style="display:flex;align-items:center;gap:10px;justify-content:center">' +
       '<button class="sku-prefix-btn" type="button" onclick="this.classList.toggle(\"active\")" style="padding:4px 10px;border-radius:6px;border:.5px solid var(--border);background:var(--card);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation">A-</button>' +
       '<span class="sku-numpad-nr" style="font-size:20px;font-weight:700;letter-spacing:3px">—</span>' +
+      (qty > 1 ? '<span class="sku-slot-indicator" style="font-size:11px;color:var(--muted)">1/' + qty + '</span>' : '') +
     '</div>' +
     '<div class="sku-numpad">' +
       '<button class="sku-np" type="button">1</button><button class="sku-np" type="button">2</button><button class="sku-np" type="button">3</button>' +
@@ -643,6 +680,9 @@ function buildSkuCard(rec) {
   // Wire up events
   var nrDisplay = card.querySelector('.sku-numpad-nr');
   var prefixBtn = card.querySelector('.sku-prefix-btn');
+  var slotIndicator = card.querySelector('.sku-slot-indicator');
+  var skuSlots = new Array(qty).fill('');
+  var currentSlot = 0;
   var saveBtn = card.querySelector('.sku-save-btn');
   var cancelBtn = card.querySelector('.sku-cancel-btn');
   var loading = card.querySelector('.sku-card-loading');
@@ -660,11 +700,13 @@ function buildSkuCard(rec) {
       if (btn.classList.contains('sku-np-del')) {
         nrInput = nrInput.slice(0,-1);
         nrDisplay.textContent = nrInput || '—';
+        skuSlots[currentSlot] = nrInput;
       } else if (btn.classList.contains('sku-np-check')) {
         doCheck();
       } else {
         nrInput += btn.textContent;
         nrDisplay.textContent = nrInput;
+        skuSlots[currentSlot] = nrInput;
       }
     }
     btn.addEventListener('touchend', handler, {passive:false});
@@ -674,6 +716,7 @@ function buildSkuCard(rec) {
   function doCheck() {
     var nr = nrInput.trim(); if (!nr) return;
     currentNr = (prefixBtn && prefixBtn.classList.contains('active') ? 'A-' : '') + nr;
+    skuSlots[currentSlot] = currentNr;
     confirm.style.display = 'none';
     error.style.display = 'none';
     loading.style.display = '';
@@ -694,7 +737,24 @@ function buildSkuCard(rec) {
   function doSave() {
     if (!currentNr) return;
     confirm.style.display = 'none';
-    atPatch('PlattformImport_2026', recId, {'PIMP_SKU': currentNr}, function(err, data) {
+    if (qty > 1 && currentSlot < qty - 1) {
+      currentSlot++;
+      nrInput = '';
+      nrDisplay.textContent = '—';
+      if (slotIndicator) slotIndicator.textContent = (currentSlot+1) + '/' + qty;
+      var savedEl = card.querySelector('.sku-saved-list');
+      if (!savedEl) {
+        savedEl = document.createElement('div');
+        savedEl.className = 'sku-saved-list';
+        savedEl.style.cssText = 'margin-bottom:6px;font-size:11px;color:var(--green)';
+        nrDisplay.parentNode.insertAdjacentElement('afterend', savedEl);
+      }
+      savedEl.innerHTML += '<div>✓ ' + escHtml(currentNr) + '</div>';
+      currentNr = null;
+      return;
+    }
+    var allSkus = skuSlots.filter(Boolean).join(',');
+    atPatch('PlattformImport_2026', recId, {'PIMP_SKU': allSkus}, function(err, data) {
       if (!err && data.id) {
         success.style.display = '';
         setTimeout(function() { card.style.opacity='0.4'; card.style.pointerEvents='none'; }, 1500);
@@ -713,6 +773,22 @@ function buildSkuCard(rec) {
   return card;
 }
 
+
+
+// ── FUZZY SEARCH ──
+function fuzzyMatch(needle, haystack, threshold) {
+  needle = needle.toLowerCase();
+  haystack = haystack.toLowerCase();
+  if (haystack.includes(needle)) return 1.0;
+  if (needle.length < 2) return 0;
+  var matches = 0;
+  var i = 0, j = 0;
+  while (i < needle.length && j < haystack.length) {
+    if (needle[i] === haystack[j]) { matches++; i++; }
+    j++;
+  }
+  return matches / needle.length;
+}
 
 // ── EK AUSWERTUNG ──
 var ekSearchMode = 'lot';
@@ -741,102 +817,63 @@ function doEkLotSearch() {
   if (!lot) return;
   ekShowLoading(true);
   document.getElementById('ek-result').style.display = 'none';
-  atGet('Einkauf_2026', '{EK_Lot}="'+lot+'"',
+  // Load all EKs and fuzzy match
+  atGet('Einkauf_2026', '{EK_Lot}!=""',
     ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID','EK_Kaufdatum'],
     function(err, data) {
       ekShowLoading(false);
-      if (err || !data.records || !data.records.length) { ekShowError('Einkauf nicht gefunden.'); return; }
-      loadEkResult(data.records[0]);
-    });
-}
+      if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
+      var scored = data.records.map(function(rec) {
+        var ekLot = rec.fields['EK_Lot'] || '';
+        var score = fuzzyMatch(lot, ekLot, 0.75);
+        return {rec: rec, lot: ekLot, score: score};
+      }).filter(function(x){ return x.score >= 0.75; })
+        .sort(function(a,b){ return b.score - a.score; });
 
-function doEkPartnerSearch() {
-  console.log('doEkPartnerSearch called');
-  var name = document.getElementById('ek-partner-input').value.trim();
-  console.log('name:', name);
-  if (!name) return;
-  ekShowLoading(true);
-  document.getElementById('ek-partner-results').innerHTML = '';
-  // Search by PD_Anzeigename
-  var filter = 'OR(FIND(LOWER("'+name+'"),LOWER({PD_Anzeigename}))>0,FIND(LOWER("'+name+'"),LOWER({PD_Name}))>0)';
-  atGet('Partnerdaten_2026', filter,
-    ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'],
-    function(err, data) {
-      ekShowLoading(false);
-      if (err || !data.records || !data.records.length) { ekShowError('Partner nicht gefunden.'); return; }
-      if (data.records.length === 1) {
-        loadEkByPartner(data.records[0].fields['PD_ID']);
-        return;
-      }
-      // Show partner list
-      var html = '';
-      data.records.forEach(function(rec) {
-        var f = rec.fields;
-        var div = document.createElement('div');
-        div.className = 'ek-partner-item';
-        div.textContent = f['PD_Anzeigename'] || (f['PD_Vorname']+' '+f['PD_Name']);
-        var pdId = f['PD_ID'];
-        function go(e){ if(e.cancelable) e.preventDefault(); loadEkByPartner(pdId); }
-        div.addEventListener('click', go);
-        div.addEventListener('touchend', go, {passive:false});
-        document.getElementById('ek-partner-results').appendChild(div);
+      if (!scored.length) { ekShowError('Kein Einkauf gefunden (75% Übereinstimmung).'); return; }
+      if (scored.length === 1) { loadEkResult(scored[0].rec); return; }
+
+      // Show multiple results as cards
+      var wrap = document.getElementById('ek-partner-results');
+      wrap.style.display = 'flex';
+      wrap.innerHTML = '';
+      scored.slice(0,5).forEach(function(x) {
+        wrap.appendChild(buildEkCard(x.rec));
       });
     });
 }
 
-
-function buildEkCard(ekRec) {
-  var f = ekRec.fields;
-  var lot = f['EK_Lot'] || '—';
-  var card = document.createElement('div');
-  card.className = 'ek-select-card';
-  card.innerHTML =
-    '<div style="font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Einkauf</div>' +
-    '<div style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:10px">' + escHtml(lot) + '</div>' +
-    '<div class="s-breakdown">' +
-      '<div class="s-brow"><span class="bl">Datum</span><span class="br ek-card-datum">—</span></div>' +
-      '<div class="s-brow"><span class="bl">Summe</span><span class="br">€' + (f['EK_Gesamtbetrag']||0).toFixed(2) + '</span></div>' +
-      '<div class="s-brow"><span class="bl">Status</span><span class="br">' + escHtml(f['EK_Status']||'—') + '</span></div>' +
-      '<div class="s-brow"><span class="bl">Partner</span><span class="br ek-card-partner">—</span></div>' +
-      '<div class="s-brow"><span class="bl">Artikel</span><span class="br ek-card-artikel">—</span></div>' +
-    '</div>' +
-    '<button type="button" style="margin-top:14px;width:100%;padding:10px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:white;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation" onclick="void(0)">Auswerten →</button>';
-
-  // Load partner name - EK_PartnerID may be linked record array or text
-  if (f['EK_PartnerID']) {
-    var pid = Array.isArray(f['EK_PartnerID']) ? f['EK_PartnerID'][0] : f['EK_PartnerID'];
-    // Try searching by PD_ID field value first
-    atGet('Partnerdaten_2026', '{PD_ID}="'+pid+'"', ['PD_Anzeigename'], function(err, pd) {
-      if (!err && pd.records && pd.records.length) {
-        card.querySelector('.ek-card-partner').textContent = pd.records[0].fields['PD_Anzeigename'] || pid;
-      } else {
-        // Fallback: search by record ID using Airtable RECORD_ID()
-        atGet('Partnerdaten_2026', 'RECORD_ID()="'+pid+'"', ['PD_Anzeigename'], function(err2, pd2) {
-          var pname = (!err2 && pd2.records && pd2.records.length) ? (pd2.records[0].fields['PD_Anzeigename']||pid) : pid;
-          card.querySelector('.ek-card-partner').textContent = pname;
-        });
-      }
+function doEkPartnerSearch() {
+  var name = document.getElementById('ek-partner-input').value.trim();
+  if (!name) return;
+  ekShowLoading(true);
+  document.getElementById('ek-partner-results').innerHTML = '';
+  atGet('Partnerdaten_2026', '{PD_Anzeigename}!=""',
+    ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'],
+    function(err, data) {
+      ekShowLoading(false);
+      if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
+      var scored = data.records.map(function(rec) {
+        var f = rec.fields;
+        var display = f['PD_Anzeigename'] || ((f['PD_Vorname']||'') + ' ' + (f['PD_Name']||'')).trim();
+        var score = Math.max(fuzzyMatch(name, display, 0.75), fuzzyMatch(name, f['PD_Name']||'', 0.75));
+        return {rec: rec, display: display, score: score};
+      }).filter(function(x){ return x.score >= 0.75; })
+        .sort(function(a,b){ return b.score - a.score; });
+      if (!scored.length) { ekShowError('Kein Partner gefunden.'); return; }
+      if (scored.length === 1) { loadEkByPartner(scored[0].rec.fields['PD_ID']); return; }
+      var wrap = document.getElementById('ek-partner-results');
+      scored.forEach(function(x) {
+        var div = document.createElement('div');
+        div.className = 'ek-partner-item';
+        div.textContent = x.display + ' (' + Math.round(x.score*100) + '%)';
+        var pdId = x.rec.fields['PD_ID'];
+        function go(e){ if(e.cancelable) e.preventDefault(); loadEkByPartner(pdId); }
+        div.addEventListener('click', go);
+        div.addEventListener('touchend', go, {passive:false});
+        wrap.appendChild(div);
+      });
     });
-  }
-
-  // Load artikel count
-  atGet('Artikel_2026', '{ITEM_EK_Lot}="'+lot+'"', ['ITEM_Artikelnummer'], function(err, art) {
-    var count = (!err && art.records) ? art.records.length : '?';
-    card.querySelector('.ek-card-artikel').textContent = count + ' Artikel';
-  });
-
-  // Load datum from EK_Kaufdatum if available
-  if (f['EK_Kaufdatum']) {
-    card.querySelector('.ek-card-datum').textContent = String(f['EK_Kaufdatum']).substring(0,10);
-  }
-
-  // Wire up button
-  var btn = card.querySelector('button');
-  function go(e){ if(e.cancelable) e.preventDefault(); loadEkResult(ekRec); }
-  btn.addEventListener('click', go);
-  btn.addEventListener('touchend', go, {passive:false});
-
-  return card;
 }
 
 function loadEkByPartner(pdId) {
