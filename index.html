@@ -475,13 +475,26 @@ document.getElementById('btn-fetchrate').addEventListener('click', fetchRate);
 
 // ── AIRTABLE ──
 function atGet(table, filter, fields, cb) {
-  var f = fields.map(function(f){ return 'fields[]=' + encodeURIComponent(f); }).join('&');
-  var url = 'https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) +
-    '?filterByFormula=' + encodeURIComponent(filter) + '&' + f + '&maxRecords=500';
-  fetch(url, {headers:{'Authorization':'Bearer '+AT_TOKEN}})
-    .then(function(r){ return r.json(); })
-    .then(function(d){ cb(null,d); })
-    .catch(function(e){ cb(e,null); });
+  var f = fields.map(function(field){ return 'fields[]=' + encodeURIComponent(field); }).join('&');
+  var allRecords = [];
+  function fetchPage(offset) {
+    var url = 'https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) +
+      '?filterByFormula=' + encodeURIComponent(filter) + '&' + f + '&pageSize=100' +
+      (offset ? '&offset=' + encodeURIComponent(offset) : '');
+    fetch(url, {headers:{'Authorization':'Bearer '+AT_TOKEN}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.error) { cb(new Error(d.error.message), null); return; }
+        allRecords = allRecords.concat(d.records || []);
+        if (d.offset) {
+          fetchPage(d.offset);
+        } else {
+          cb(null, {records: allRecords});
+        }
+      })
+      .catch(function(e){ cb(e, null); });
+  }
+  fetchPage(null);
 }
 function atPatch(table, recId, fields, cb) {
   fetch('https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) + '/' + recId, {
@@ -643,6 +656,10 @@ document.getElementById('a-nr').addEventListener('keydown', function(e){ if(e.ke
 
 function showArtikelDetail(f, nr) {
   lastArtikel = f;
+  if (!document.getElementById('a-result-nr')) {
+    document.getElementById('a-result-card').innerHTML = window._artikelCardHtml || '';
+    attachLoadKalkBtn();
+  }
   document.getElementById('a-result-nr').textContent='Artikel #'+nr;
   document.getElementById('a-result-name').textContent=f['ITEM_Artikel']||'—';
   document.getElementById('a-konsole').textContent=[f['ITEM_Konsole'],f['ITEM_Komponente']].filter(Boolean).join(' · ')||'—';
@@ -660,6 +677,27 @@ function showArtikelDetail(f, nr) {
   // restore full card if it was list view
   doArtikelSearch._restoreCard && doArtikelSearch._restoreCard();
 }
+
+// Store original card HTML for restoration
+window._artikelCardHtml = document.getElementById('a-result-card').innerHTML;
+function attachLoadKalkBtn() {
+  var btn = document.getElementById('btn-load-kalk');
+  if (btn) {
+    btn.addEventListener('click', function(){
+      if(!lastArtikel) return;
+      if(lastArtikel['ITEM_EK_Preis']){ document.getElementById('ek_eur').value=lastArtikel['ITEM_EK_Preis'].toFixed(2); document.getElementById('ek_eur').dispatchEvent(new Event('input')); }
+      if(lastArtikel['ITEM_Mindest_VK']){ document.getElementById('vk').value=lastArtikel['ITEM_Mindest_VK'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
+      showScreen('screen-jp');
+    });
+    btn.addEventListener('touchend', function(e){ e.preventDefault();
+      if(!lastArtikel) return;
+      if(lastArtikel['ITEM_EK_Preis']){ document.getElementById('ek_eur').value=lastArtikel['ITEM_EK_Preis'].toFixed(2); document.getElementById('ek_eur').dispatchEvent(new Event('input')); }
+      if(lastArtikel['ITEM_Mindest_VK']){ document.getElementById('vk').value=lastArtikel['ITEM_Mindest_VK'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
+      showScreen('screen-jp');
+    }, {passive:false});
+  }
+}
+attachLoadKalkBtn();
 
 document.getElementById('btn-load-kalk').addEventListener('click', function(){
   if(!lastArtikel) return;
