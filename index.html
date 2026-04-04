@@ -229,18 +229,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="pin-dot" id="d4"></div><div class="pin-dot" id="d5"></div>
   </div>
   <div class="numpad" id="numpad">
-    <button class="numpad-btn" type="button">1</button>
-    <button class="numpad-btn" type="button">2</button>
-    <button class="numpad-btn" type="button">3</button>
-    <button class="numpad-btn" type="button">4</button>
-    <button class="numpad-btn" type="button">5</button>
-    <button class="numpad-btn" type="button">6</button>
-    <button class="numpad-btn" type="button">7</button>
-    <button class="numpad-btn" type="button">8</button>
-    <button class="numpad-btn" type="button">9</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(1)">1</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(2)">2</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(3)">3</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(4)">4</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(5)">5</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(6)">6</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(7)">7</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(8)">8</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(9)">9</button>
     <div class="numpad-btn empty"></div>
-    <button class="numpad-btn" type="button">0</button>
-    <button class="numpad-btn del" type="button">⌫</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(0)">0</button>
+    <button class="numpad-btn del" type="button" onclick="pinDel()">⌫</button>
   </div>
   <div class="pin-error-msg" id="pin-error"></div>
 </div>
@@ -584,14 +584,22 @@ function doArtikelSearch() {
         if (scored.length > 1) {
           var wrap = document.getElementById('a-result-card');
           wrap.style.display='';
-          var listHtml = '<div class="s-card-title">'+scored.length+' Treffer</div>';
+          var listHtml = '<div class="s-card-title">'+scored.length+' Treffer</div><div id="a-fuzzy-list"></div>';
+          document.getElementById('a-result-card').innerHTML = listHtml;
+          var fuzzyList = document.getElementById('a-fuzzy-list');
           scored.slice(0,10).forEach(function(x){
             var f = x.r.fields;
-            listHtml += '<div class="s-brow" style="cursor:pointer;touch-action:manipulation" onclick="showArtikelDetail('+JSON.stringify(x.r.fields).replace(/</g,"&lt;")+',''+x.r.fields['ITEM_Artikelnummer']+'')">' +
-              '<span class="bl">#'+escHtml(String(f['ITEM_Artikelnummer']||''))+ ' ' +escHtml(f['ITEM_Artikel']||'—')+'</span>' +
-              '<span class="br" style="color:var(--muted)">'+Math.round(x.score*100)+'%</span></div>';
+            var div = document.createElement('div');
+            div.className = 's-brow';
+            div.style.cssText = 'cursor:pointer;touch-action:manipulation';
+            div.innerHTML = '<span class="bl">#' + escHtml(String(f['ITEM_Artikelnummer']||'')) + ' ' + escHtml(f['ITEM_Artikel']||'—') + '</span><span class="br" style="color:var(--muted)">' + Math.round(x.score*100) + '%</span>';
+            var fields = x.r.fields;
+            var nr = String(f['ITEM_Artikelnummer']||'');
+            function go(e){ if(e.cancelable) e.preventDefault(); showArtikelDetail(fields, nr); }
+            div.addEventListener('click', go);
+            div.addEventListener('touchend', go, {passive:false});
+            fuzzyList.appendChild(div);
           });
-          document.getElementById('a-result-card').innerHTML = listHtml;
           return;
         }
         records = [scored[0].r];
@@ -1130,6 +1138,7 @@ function loadEkResult(ekRec) {
 }
 
 calc();
+
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 <!-- EK AUSWERTUNG -->
