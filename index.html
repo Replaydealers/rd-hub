@@ -222,7 +222,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   <div class="lock-logo">
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
-    <div style="font-size:10px;color:var(--hint);margin-top:4px">v1.1.0</div>
+    <div style="font-size:26px;font-weight:700;color:var(--hint);letter-spacing:-.5px;margin-top:4px">v1.1.0</div>
   </div>
   <div class="pin-display">
     <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
@@ -641,9 +641,12 @@ function doArtikelSearch() {
       document.getElementById('a-vk-gewinn').textContent = '—';
       document.getElementById('a-result-card').style.display='';
       // Load VK details if sold
+      console.log('vkLotRaw:', vkLotRaw, 'vkRecId:', vkRecId);
       if (vkRecId) {
         var vkFilter = 'RECORD_ID()="'+vkRecId+'"';
+        console.log('VK filter:', vkFilter);
         atGet('Verkauf_2026', vkFilter, ['VK_Lot','VK_Reingewinn','VK_Datum'], function(err, vkData) {
+          console.log('VK result:', err, vkData);
           if (!err && vkData.records && vkData.records.length) {
             var vf = vkData.records[0].fields;
             document.getElementById('a-vk-lot').textContent = vf['VK_Lot']||'—';
