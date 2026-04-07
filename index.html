@@ -229,18 +229,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="pin-dot" id="d4"></div><div class="pin-dot" id="d5"></div>
   </div>
   <div class="numpad" id="numpad">
-    <button class="numpad-btn" type="button">1</button>
-    <button class="numpad-btn" type="button">2</button>
-    <button class="numpad-btn" type="button">3</button>
-    <button class="numpad-btn" type="button">4</button>
-    <button class="numpad-btn" type="button">5</button>
-    <button class="numpad-btn" type="button">6</button>
-    <button class="numpad-btn" type="button">7</button>
-    <button class="numpad-btn" type="button">8</button>
-    <button class="numpad-btn" type="button">9</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(1)">1</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(2)">2</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(3)">3</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(4)">4</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(5)">5</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(6)">6</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(7)">7</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(8)">8</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(9)">9</button>
     <div class="numpad-btn empty"></div>
-    <button class="numpad-btn" type="button">0</button>
-    <button class="numpad-btn del" type="button">⌫</button>
+    <button class="numpad-btn" type="button" onclick="pinPress(0)">0</button>
+    <button class="numpad-btn del" type="button" onclick="pinDel()">⌫</button>
   </div>
   <div class="pin-error-msg" id="pin-error"></div>
 </div>
@@ -405,7 +405,11 @@ function showScreen(id) {
 
 // ── PIN ──
 var pinInput = '';
+var _pinLastPress = 0;
 function pinPress(n) {
+  var now = Date.now();
+  if (now - _pinLastPress < 200) return;
+  _pinLastPress = now;
   if (pinInput.length >= 6) return;
   pinInput += String(n);
   updateDots();
@@ -1023,26 +1027,7 @@ function loadEkResult(ekRec) {
 
 calc();
 
-(function(){
-  var numpad = document.getElementById('numpad');
-  if (!numpad) return;
-  var btns = numpad.querySelectorAll('.numpad-btn');
-  var nums = ['1','2','3','4','5','6','7','8','9',null,'0','del'];
-  btns.forEach(function(btn, i){
-    var val = nums[i];
-    if (val === null) return;
-    var lastFired = 0;
-    function fire() {
-      var now = Date.now();
-      if (now - lastFired < 300) return;
-      lastFired = now;
-      if (val === 'del') pinDel();
-      else pinPress(parseInt(val));
-    }
-    btn.addEventListener('touchend', function(e){ e.preventDefault(); fire(); }, {passive:false});
-    btn.addEventListener('click', fire);
-  });
-})();
+
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
