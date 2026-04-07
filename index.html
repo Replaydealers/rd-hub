@@ -222,7 +222,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   <div class="lock-logo">
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
-    <div class="name" style="font-size:20px;color:var(--hint)">v1.2.0</div>
+    <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.1</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" id="sw-version-display" style="font-size:20px;color:var(--hint)">…</div></div>
+    </div>
   </div>
   <div class="pin-display">
     <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
@@ -252,7 +255,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">1.2.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">1.2.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -390,6 +393,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 </div>
 
 <script>
+var SW_VERSION = 'rd-hub-v16';
 var AT_BASE = 'appwhhRzsznu1LTRX';
 var AT_TABLE = 'Artikel_2026';
 var AT_TOKEN = 'patNPI9NMOZC3ZJgh.5815eddd9a34b7821d4eebcd67395c1707f49ac7bc12ecf1910e7f0ba38bd7ec';
@@ -1192,6 +1196,16 @@ function loadEkResult(ekRec) {
 }
 
 calc();
+
+// Show SW version on PIN screen
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistration().then(function(reg) {
+    if (reg && reg.active) {
+      var swEl = document.getElementById('sw-version-display');
+      if (swEl) swEl.textContent = SW_VERSION;
+    }
+  });
+}
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
