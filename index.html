@@ -222,7 +222,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   <div class="lock-logo">
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
-    <div style="font-size:26px;font-weight:700;color:var(--hint);letter-spacing:-.5px;margin-top:4px">v1.1.0</div>
+    <div class="name" style="font-size:20px;color:var(--hint)">v1.2.0</div>
   </div>
   <div class="pin-display">
     <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
@@ -252,7 +252,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">1.1.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">1.2.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -408,7 +408,7 @@ function showScreen(id) {
 var pinInput = '';
 var _pt=0;
 function pinPress(n) {
-  var t=Date.now();if(t-_pt<250)return;_pt=t;
+  var _t=Date.now();if(_t-_pt<250)return;_pt=_t;
   if (pinInput.length >= 6) return;
   pinInput += String(n);
   updateDots();
@@ -641,12 +641,9 @@ function doArtikelSearch() {
       document.getElementById('a-vk-gewinn').textContent = '—';
       document.getElementById('a-result-card').style.display='';
       // Load VK details if sold
-      console.log('vkLotRaw:', vkLotRaw, 'vkRecId:', vkRecId);
       if (vkRecId) {
         var vkFilter = 'RECORD_ID()="'+vkRecId+'"';
-        console.log('VK filter:', vkFilter);
         atGet('Verkauf_2026', vkFilter, ['VK_Lot','VK_Reingewinn','VK_Datum'], function(err, vkData) {
-          console.log('VK result:', err, vkData);
           if (!err && vkData.records && vkData.records.length) {
             var vf = vkData.records[0].fields;
             document.getElementById('a-vk-lot').textContent = vf['VK_Lot']||'—';
@@ -905,23 +902,19 @@ function fuzzyMatch(needle, haystack, threshold) {
 // ── EK AUSWERTUNG ──
 var ekSearchMode = 'lot';
 
-
 function doEkUnifiedSearch() {
-  var query = document.getElementById('ek-unified-input').value.trim();
-  if (!query) return;
-  document.getElementById('ek-result').style.display = 'none';
-  document.getElementById('ek-partner-results').innerHTML = '';
-  if (/^EK/i.test(query)) {
-    document.getElementById('ek-lot-input').value = query;
+  var q = document.getElementById('ek-unified-input').value.trim();
+  if (!q) return;
+  if (/^EK/i.test(q)) {
+    document.getElementById('ek-lot-input').value = q;
     ekSetTab('lot');
     doEkLotSearch();
   } else {
-    document.getElementById('ek-partner-input').value = query;
+    document.getElementById('ek-partner-input').value = q;
     ekSetTab('partner');
     doEkPartnerSearch();
   }
 }
-
 function ekSetTab(mode) {
   ekSearchMode = mode;
   document.getElementById('ek-tab-lot').classList.toggle('active', mode==='lot');
@@ -1214,14 +1207,9 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div class="s-card" id="ek-search-card">
       <div class="s-card-title">Suche</div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <div class="s-input-wrap" style="flex:1">
-          <input type="text" id="ek-unified-input" placeholder="EK-Nummer oder Partnername" onkeydown="if(event.key==='Enter')doEkUnifiedSearch()" />
-        </div>
+        <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-unified-input" placeholder="EK-Nummer oder Partnername" onkeydown="if(event.key==='Enter')doEkUnifiedSearch()" /></div>
         <button class="s-search-btn" onclick="doEkUnifiedSearch()">Suchen</button>
       </div>
-    </div>
-    <div class="s-card" id="ek-search-card-hidden" style="display:none">
-      <div class="s-card-title">Suche</div>
       <div style="display:flex;gap:6px;margin-bottom:12px">
         <button class="ek-tab active" id="ek-tab-lot" type="button" onclick="ekSetTab('lot')">EK-Nummer</button>
         <button class="ek-tab" id="ek-tab-partner" type="button" onclick="ekSetTab('partner')">Partner</button>
@@ -1243,7 +1231,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
       <div class="s-error" id="ek-search-error"></div>
     </div>
 
-    </div>
     <!-- Ergebnis -->
     <div id="ek-result" style="display:none">
 
