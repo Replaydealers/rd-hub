@@ -638,6 +638,17 @@ function doArtikelSearch() {
       document.getElementById('a-vk-preis').textContent = f['ITEM_VK_Preis']?f['ITEM_VK_Preis'].toFixed(2)+' €':'—';
       document.getElementById('a-vk-lot').textContent = '—';
       document.getElementById('a-vk-gewinn').textContent = '—';
+      var vkLotRaw = f['ITEM_VK_Lot'];
+      var vkRecId = Array.isArray(vkLotRaw) ? vkLotRaw[0] : (typeof vkLotRaw==='string' ? vkLotRaw : '');
+      if (vkRecId) {
+        atGet('Verkauf_2026', 'RECORD_ID()="'+vkRecId+'"', ['VK_Lot','VK_Reingewinn','VK_Preis'], function(err, vkData) {
+          if (!err && vkData.records && vkData.records.length) {
+            var vf = vkData.records[0].fields;
+            document.getElementById('a-vk-lot').textContent = vf['VK_Lot']||'—';
+            document.getElementById('a-vk-gewinn').textContent = vf['VK_Reingewinn']!==undefined ? vf['VK_Reingewinn'].toFixed(2)+' €' : '—';
+          }
+        });
+      }
       document.getElementById('a-result-card').style.display='';
       // Load VK details if sold
       if (vkRecId) {
@@ -930,8 +941,8 @@ function doEkSearch() {
         scored.slice(0,5).forEach(function(x){ wrap.appendChild(buildEkCard(x.rec)); });
       });
   } else {
-    atGet('Partnerdaten_2026', '{PD_Anzeigename}!=""',
-      ['PD_ID','PD_Anzeigename','PD_Name'],
+    atGet('Partnerdaten_2026', '{PD_Name}!=""',
+      ['PD_ID','PD_Anzeigename','PD_Name','PD_Vorname'],
       function(err, data) {
         document.getElementById('ek-search-loading').style.display = 'none';
         if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
@@ -943,7 +954,7 @@ function doEkSearch() {
           return {rec:rec,score:score,name:f['PD_Anzeigename']||f['PD_Name']||''};
         }).filter(function(x){return x.score>=0.75;}).sort(function(a,b){return b.score-a.score;});
         if (!scored.length) { ekShowError('Kein Partner gefunden.'); return; }
-        if (scored.length === 1) { loadEkByPartner(scored[0].rec.fields['PD_ID']); return; }
+        if (scored.length === 1) { loadEksByPartner(scored[0].rec.fields['PD_ID']); return; }
         var wrap = document.getElementById('ek-partner-results');
         wrap.style.flexDirection = 'column';
         scored.forEach(function(x){
@@ -951,7 +962,7 @@ function doEkSearch() {
           div.className = 'ek-partner-item';
           div.textContent = x.name + ' (' + Math.round(x.score*100) + '%)';
           var pid = x.rec.fields['PD_ID'];
-          function go(e){if(e.cancelable)e.preventDefault();loadEkByPartner(pid);}
+          function go(e){if(e.cancelable)e.preventDefault();loadEksByPartner(pid);}
           div.addEventListener('click',go);
           div.addEventListener('touchend',go,{passive:false});
           wrap.appendChild(div);
@@ -1040,6 +1051,20 @@ function doEkPartnerSearch() {
         div.addEventListener('touchend', go, {passive:false});
         wrap.appendChild(div);
       });
+    });
+}
+
+function loadEksByPartner(pdId) {
+  document.getElementById('ek-search-loading').style.display = '';
+  document.getElementById('ek-partner-results').innerHTML = '';
+  atGet('Einkauf_2026', '{EK_PartnerID}="'+pdId+'"',
+    ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID','EK_Kaufdatum'],
+    function(err, data) {
+      document.getElementById('ek-search-loading').style.display = 'none';
+      if (err || !data.records || !data.records.length) { ekShowError('Keine Einkäufe gefunden.'); return; }
+      if (data.records.length === 1) { loadEkResult(data.records[0]); return; }
+      var wrap = document.getElementById('ek-partner-results');
+      data.records.forEach(function(rec){ wrap.appendChild(buildEkCard(rec)); });
     });
 }
 
