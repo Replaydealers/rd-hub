@@ -345,8 +345,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="s-card">
       <div class="s-card-title">Suche</div>
       <div style="display:flex;gap:8px">
-        <div class="s-input-wrap" style="flex:1"><input type="text" inputmode="numeric" id="a-nr" placeholder="Artikelnummer oder Name" onkeydown="if(event.key==='Enter')doArtikelSearch()" /></div>
-        <button class="s-search-btn" id="btn-a-search" onclick="doArtikelSearch()">Suchen</button>
+        <div class="s-input-wrap" style="flex:1"><input type="text" inputmode="numeric" id="a-nr" placeholder="Artikelnummer oder Name" /></div>
+        <button class="s-search-btn" id="btn-a-search">Suchen</button>
       </div>
       <div class="s-loading" id="a-loading">Wird geladen…</div>
       <div class="s-error" id="a-error">Artikel nicht gefunden.</div>
@@ -405,11 +405,9 @@ function showScreen(id) {
 
 // ── PIN ──
 var pinInput = '';
-var _pinLastPress = 0;
+var _pinT = 0;
 function pinPress(n) {
-  var now = Date.now();
-  if (now - _pinLastPress < 200) return;
-  _pinLastPress = now;
+  var t = Date.now(); if (t - _pinT < 250) return; _pinT = t;
   if (pinInput.length >= 6) return;
   pinInput += String(n);
   updateDots();
@@ -438,58 +436,277 @@ function lockApp() { pinInput=''; updateDots(); showScreen('screen-lock'); }
 
 // Numpad events
 (function(){
+  var btns = document.querySelectorAll('#numpad .numpad-btn');
+  var nums = ['1','2','3','4','5','6','7','8','9','','0','del'];
+  btns.forEach(function(btn, i){
+    var val = nums[i];
+    if (!val && val !== '0') return;
+    function handler(e) {
+      e.preventDefault();
+      if (val === 'del') pinDel();
+      else pinPress(parseInt(val));
+    }
+    btn.addEventListener('touchend', handler, {passive:false});
+    btn.addEventListener('click', handler);
+  });
+})();
 
+// Home buttons
+document.getElementById('btn-lock').addEventListener('click', lockApp);
+document.getElementById('btn-lock').addEventListener('touchend', function(e){ e.preventDefault(); lockApp(); }, {passive:false});
 
+function addNav(btnId, screenId, onShow) {
+  var btn = document.getElementById(btnId);
+  if (!btn) return;
+  function go(e){ e.preventDefault(); if(screenId) showScreen(screenId); if(onShow) onShow(); }
+  btn.addEventListener('touchend', go, {passive:false});
+  btn.addEventListener('click', function(){ if(screenId) showScreen(screenId); if(onShow) onShow(); });
+}
+addNav('tile-jp', 'screen-jp');
+addNav('tile-artikel', 'screen-artikel');
+addNav('tile-sku', 'screen-sku', loadPimp);
+addNav('btn-back-jp', 'screen-home');
+addNav('btn-back-artikel', 'screen-home');
+addNav('btn-back-sku', 'screen-home');
+addNav('btn-sku-reload', 'screen-sku', loadPimp);
+addNav('tile-ek', 'screen-ek');
+addNav('btn-back-ek', 'screen-home');
+addNav('btn-fetchrate', null, fetchRate);
+
+document.getElementById('btn-fetchrate').addEventListener('click', fetchRate);
+
+// ── AIRTABLE ──
+function atGet(table, filter, fields, cb) {
+  var f = fields.map(function(field){ return 'fields[]=' + encodeURIComponent(field); }).join('&');
+  var allRecords = [];
+  function fetchPage(offset) {
+    var url = 'https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) +
+      '?filterByFormula=' + encodeURIComponent(filter) + '&' + f + '&pageSize=100' +
+      (offset ? '&offset=' + encodeURIComponent(offset) : '');
+    fetch(url, {headers:{'Authorization':'Bearer '+AT_TOKEN}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.error) { cb(new Error(d.error.message), null); return; }
+        allRecords = allRecords.concat(d.records || []);
+        if (d.offset) {
+          fetchPage(d.offset);
+        } else {
+          cb(null, {records: allRecords});
+        }
+      })
+      .catch(function(e){ cb(e, null); });
+  }
+  fetchPage(null);
+}
+function atPatch(table, recId, fields, cb) {
+  fetch('https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) + '/' + recId, {
+    method:'PATCH',
+    headers:{'Authorization':'Bearer '+AT_TOKEN,'Content-Type':'application/json'},
+    body:JSON.stringify({fields:fields})
+  }).then(function(r){ return r.json(); }).then(function(d){ cb(null,d); }).catch(function(e){ cb(e,null); });
+}
+
+// ── JP KALKULATOR ──
+function v(id){ return parseFloat(document.getElementById(id).value)||0; }
+function fmtE(n){ return n.toFixed(2)+' €'; }
+function fmtM(n){ return (n>=0?'+':'')+n.toFixed(2)+' €'; }
+
+document.getElementById('ek_jpy').addEventListener('input', function(){ 
+  var kurs=v('kurs')||160; var jpy=v('ek_jpy');
+  document.getElementById('ek_eur').value = jpy>0?(jpy/kurs).toFixed(2):''; calc(); });
+document.getElementById('ek_eur').addEventListener('input', function(){
+  var kurs=v('kurs')||160; var eur=v('ek_eur');
+  document.getElementById('ek_jpy').value = eur>0?Math.round(eur*kurs):''; calc(); });
+document.getElementById('vk').addEventListener('input', calc);
+document.getElementById('kurs').addEventListener('input', calc);
+document.getElementById('versand').addEventListener('input', calc);
+document.getElementById('ebay_on').addEventListener('change', calc);
+document.getElementById('vk_versand_on').addEventListener('change', function(){
+  document.getElementById('vk_versand_field').style.display = this.checked?'':'none'; calc(); });
+document.getElementById('vk_versand').addEventListener('input', calc);
+
+function calc() {
+  var kurs=v('kurs')||160;
+  var ek_eur=v('ek_eur')||v('ek_jpy')/kurs;
+  var inklKosten=document.getElementById('ek_inkl_kosten') && document.getElementById('ek_inkl_kosten').checked;
+  var sendico=inklKosten?0:500/kurs; var versand=inklKosten?0:v('versand'); var vk=v('vk');
+  var ebay=document.getElementById('ebay_on').checked;
+  var vkv=document.getElementById('vk_versand_on').checked?v('vk_versand'):0;
+  var eust=inklKosten?0:(ek_eur+sendico+versand)*0.19;
+  var ebay_cost=ebay?vk*0.12:0;
+  var gesamt=ek_eur+sendico+versand+eust;
+  var marge_b=vk-gesamt-ebay_cost-vkv;
+  var ust=(vk-gesamt)*0.19;
+  var marge=marge_b-ust;
+  document.getElementById('b_ek').textContent=fmtE(ek_eur);
+  document.getElementById('b_sendico').textContent=fmtE(sendico);
+  document.getElementById('b_versand').textContent=fmtE(versand);
+  document.getElementById('b_eust').textContent=fmtE(eust);
+  document.getElementById('b_ebay').textContent=ebay?fmtE(ebay_cost):'—';
+  document.getElementById('row_ebay').style.opacity=ebay?'1':'.5';
+  document.getElementById('b_vk_versand').textContent=vkv?fmtE(vkv):'—';
+  document.getElementById('row_vk_versand').style.opacity=vkv?'1':'.5';
+  document.getElementById('b_ust').textContent=fmtE(ust);
+  document.getElementById('b_marge').textContent=fmtM(marge);
+  document.getElementById('ek_val').textContent=fmtE(gesamt);
+  var mv=document.getElementById('marge_val');
+  mv.textContent=marge.toFixed(2)+' €';
+  mv.className='mval'+(marge>=15?' good':marge<0?' bad':'');
+  var vd=document.getElementById('verdict');
+  if(marge>=15){vd.textContent='Lohnt sich';vd.className='s-verdict yes';}
+  else if(marge>=8){vd.textContent='Grenzwertig';vd.className='s-verdict maybe';}
+  else{vd.textContent='Lohnt sich nicht';vd.className='s-verdict no';}
+}
+
+function fetchRate() {
+  document.getElementById('kurs-status').textContent='wird geladen…';
+  fetch('https://open.er-api.com/v6/latest/EUR')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(d&&d.rates&&d.rates.JPY){
+        document.getElementById('kurs').value=Math.round(d.rates.JPY);
+        var now=new Date();
+        document.getElementById('kurs-status').textContent='aktuell '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
+        calc();
+      } else { document.getElementById('kurs-status').textContent='Fehler'; }
+    }).catch(function(){ document.getElementById('kurs-status').textContent='kein Internet'; });
+}
 
 // ── ARTIKELSUCHE ──
 function doArtikelSearch() {
-  var query = document.getElementById('a-nr').value.trim();
-  if (!query) return;
-  document.getElementById('a-result-card').style.display = 'none';
-  document.getElementById('a-error').style.display = 'none';
-  document.getElementById('a-loading').style.display = '';
-  var isNumber = /^[0-9]+$/.test(query) || /^A-[0-9]+$/i.test(query);
+  var query=document.getElementById('a-nr').value.trim(); if(!query) return;
+  document.getElementById('a-result-card').style.display='none';
+  document.getElementById('a-error').style.display='none';
+  document.getElementById('a-loading').style.display='';
+  var isNumber = /^\d+$/.test(query) || /^A-\d+$/i.test(query);
   var filter = isNumber ? '{ITEM_Artikelnummer}="'+query+'"' : '{ITEM_Artikel}!=""';
   atGet(AT_TABLE, filter,
     ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_EK_Preis','ITEM_Mindest_VK','ITEM_Status','ITEM_Listing_Datum','ITEM_EK_Lot','ITEM_VK_Lot','ITEM_VK_Preis'],
-    function(err, data) {
-      document.getElementById('a-loading').style.display = 'none';
-      if (err || !data.records || !data.records.length) {
-        document.getElementById('a-error').style.display = ''; return;
-      }
+    function(err,data){
+      document.getElementById('a-loading').style.display='none';
+      if(err||!data.records||!data.records.length){ document.getElementById('a-error').style.display=''; return; }
       var records = data.records;
+      // Fuzzy filter for name search
       if (!isNumber) {
         var scored = records.map(function(r){
-          var score = fuzzyMatch(query, r.fields['ITEM_Artikel']||'', 0.75);
+          var name = r.fields['ITEM_Artikel']||'';
+          var score = fuzzyMatch(query, name, 0.75);
           return {r:r, score:score};
         }).filter(function(x){ return x.score >= 0.75; })
-          .sort(function(a,b){ return b.score - a.score; });
-        if (!scored.length) { document.getElementById('a-error').style.display = ''; return; }
+          .sort(function(a,b){ return b.score-a.score; });
+        if (!scored.length) { document.getElementById('a-error').style.display=''; return; }
+        // Show list if multiple results
         if (scored.length > 1) {
-          var card = document.getElementById('a-result-card');
-          card.style.display = '';
-          card.innerHTML = '<div class="s-card-title">'+scored.length+' Treffer</div><div id="a-fuzzy-list"></div>';
-          var list = document.getElementById('a-fuzzy-list');
-          scored.slice(0,20).forEach(function(x){
+          var wrap = document.getElementById('a-result-card');
+          wrap.style.display='';
+          var listHtml = '<div class="s-card-title">'+scored.length+' Treffer</div><div id="a-fuzzy-list"></div>';
+          document.getElementById('a-result-card').innerHTML = listHtml;
+          var fuzzyList = document.getElementById('a-fuzzy-list');
+          scored.slice(0,10).forEach(function(x){
             var f = x.r.fields;
             var div = document.createElement('div');
             div.className = 's-brow';
-            div.style.cssText = 'cursor:pointer;touch-action:manipulation;padding:8px 0';
-            div.innerHTML = '<span class="bl">#'+escHtml(String(f['ITEM_Artikelnummer']||''))+' '+escHtml(f['ITEM_Artikel']||'—')+'</span><span class="br" style="color:var(--muted)">'+Math.round(x.score*100)+'%</span>';
-            var fields = f; var nr = String(f['ITEM_Artikelnummer']||'');
+            div.style.cssText = 'cursor:pointer;touch-action:manipulation';
+            div.innerHTML = '<span class="bl">#' + escHtml(String(f['ITEM_Artikelnummer']||'')) + ' ' + escHtml(f['ITEM_Artikel']||'—') + '</span><span class="br" style="color:var(--muted)">' + Math.round(x.score*100) + '%</span>';
+            var fields = x.r.fields;
+            var nr = String(f['ITEM_Artikelnummer']||'');
             function go(e){ if(e.cancelable) e.preventDefault(); showArtikelDetail(fields, nr); }
             div.addEventListener('click', go);
             div.addEventListener('touchend', go, {passive:false});
-            list.appendChild(div);
+            fuzzyList.appendChild(div);
           });
           return;
         }
         records = [scored[0].r];
       }
-      var f = records[0].fields;
-      showArtikelDetail(f, String(f['ITEM_Artikelnummer']||query));
+      var f=records[0].fields;
+      var nr=f['ITEM_Artikelnummer']||query;
+      lastArtikel=f;
+      document.getElementById('a-result-nr').textContent='Artikel #'+nr;
+      document.getElementById('a-result-name').textContent=f['ITEM_Artikel']||'—';
+      document.getElementById('a-ek').textContent=f['ITEM_EK_Preis']?f['ITEM_EK_Preis'].toFixed(2)+' €':'—';
+      document.getElementById('a-minvk').textContent=f['ITEM_Mindest_VK']?f['ITEM_Mindest_VK'].toFixed(2)+' €':'—';
+      document.getElementById('a-status').textContent=f['ITEM_Status']||'—';
+      document.getElementById('a-datum').textContent=f['ITEM_Listing_Datum']||'—';
+      document.getElementById('a-konsole').textContent=[f['ITEM_Konsole'],f['ITEM_Komponente']].filter(Boolean).join(' · ')||'—';
+      // EK Lot
+      var ekLot = f['ITEM_EK_Lot'];
+      document.getElementById('a-ek-lot').textContent = Array.isArray(ekLot)?ekLot[0]:(ekLot||'—');
+      // VK info
+      var vkLotRaw = f['ITEM_VK_Lot'];
+      var vkRecId = Array.isArray(vkLotRaw)?vkLotRaw[0]:(typeof vkLotRaw==='string'?vkLotRaw:'');
+      document.getElementById('a-vk-preis').textContent = f['ITEM_VK_Preis']?f['ITEM_VK_Preis'].toFixed(2)+' €':'—';
+      document.getElementById('a-vk-lot').textContent = '—';
+      document.getElementById('a-vk-gewinn').textContent = '—';
+      document.getElementById('a-result-card').style.display='';
+      // Load VK details if sold
+      if (vkRecId) {
+        var vkFilter = 'RECORD_ID()="'+vkRecId+'"';
+        atGet('Verkauf_2026', vkFilter, ['VK_Lot','VK_Reingewinn','VK_Datum'], function(err, vkData) {
+          if (!err && vkData.records && vkData.records.length) {
+            var vf = vkData.records[0].fields;
+            document.getElementById('a-vk-lot').textContent = vf['VK_Lot']||'—';
+            document.getElementById('a-vk-gewinn').textContent = vf['VK_Reingewinn']!==undefined?vf['VK_Reingewinn'].toFixed(2)+' €':'—';
+          }
+        });
+      }
     });
 }
+document.getElementById('btn-a-search').addEventListener('click', doArtikelSearch);
+document.getElementById('btn-a-search').addEventListener('touchend', function(e){ e.preventDefault(); doArtikelSearch(); }, {passive:false});
+document.getElementById('a-nr').addEventListener('keydown', function(e){ if(e.key==='Enter') doArtikelSearch(); });
+
+function showArtikelDetail(f, nr) {
+  lastArtikel = f;
+  if (!document.getElementById('a-result-nr')) {
+    document.getElementById('a-result-card').innerHTML = window._artikelCardHtml || '';
+    attachLoadKalkBtn();
+  }
+  document.getElementById('a-result-nr').textContent='Artikel #'+nr;
+  document.getElementById('a-result-name').textContent=f['ITEM_Artikel']||'—';
+  document.getElementById('a-konsole').textContent=[f['ITEM_Konsole'],f['ITEM_Komponente']].filter(Boolean).join(' · ')||'—';
+  var ekLot = f['ITEM_EK_Lot'];
+  document.getElementById('a-ek-lot').textContent = Array.isArray(ekLot)?ekLot[0]:(ekLot||'—');
+  document.getElementById('a-ek').textContent=f['ITEM_EK_Preis']?f['ITEM_EK_Preis'].toFixed(2)+' €':'—';
+  document.getElementById('a-minvk').textContent=f['ITEM_Mindest_VK']?f['ITEM_Mindest_VK'].toFixed(2)+' €':'—';
+  document.getElementById('a-status').textContent=f['ITEM_Status']||'—';
+  document.getElementById('a-datum').textContent=f['ITEM_Listing_Datum']||'—';
+  document.getElementById('a-vk-preis').textContent=f['ITEM_VK_Preis']?f['ITEM_VK_Preis'].toFixed(2)+' €':'—';
+  document.getElementById('a-vk-lot').textContent='—';
+  document.getElementById('a-vk-gewinn').textContent='—';
+  // reset card to full layout
+  var card = document.getElementById('a-result-card');
+  // restore full card if it was list view
+  doArtikelSearch._restoreCard && doArtikelSearch._restoreCard();
+}
+
+// Store original card HTML for restoration
+window._artikelCardHtml = document.getElementById('a-result-card').innerHTML;
+function attachLoadKalkBtn() {
+  var btn = document.getElementById('btn-load-kalk');
+  if (btn) {
+    btn.addEventListener('click', function(){
+      if(!lastArtikel) return;
+      if(lastArtikel['ITEM_EK_Preis']){ document.getElementById('ek_eur').value=lastArtikel['ITEM_EK_Preis'].toFixed(2); document.getElementById('ek_eur').dispatchEvent(new Event('input')); }
+      if(lastArtikel['ITEM_Mindest_VK']){ document.getElementById('vk').value=lastArtikel['ITEM_Mindest_VK'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
+      showScreen('screen-jp');
+    });
+    btn.addEventListener('touchend', function(e){ e.preventDefault();
+      if(!lastArtikel) return;
+      if(lastArtikel['ITEM_EK_Preis']){ document.getElementById('ek_eur').value=lastArtikel['ITEM_EK_Preis'].toFixed(2); document.getElementById('ek_eur').dispatchEvent(new Event('input')); }
+      if(lastArtikel['ITEM_Mindest_VK']){ document.getElementById('vk').value=lastArtikel['ITEM_Mindest_VK'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
+      showScreen('screen-jp');
+    }, {passive:false});
+  }
+}
+attachLoadKalkBtn();
+
+document.getElementById('btn-load-kalk').addEventListener('click', function(){
+  if(!lastArtikel) return;
+  if(lastArtikel['ITEM_EK_Preis']){ document.getElementById('ek_eur').value=lastArtikel['ITEM_EK_Preis'].toFixed(2); document.getElementById('ek_eur').dispatchEvent(new Event('input')); }
+  if(lastArtikel['ITEM_Mindest_VK']){ document.getElementById('vk').value=lastArtikel['ITEM_Mindest_VK'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
+  showScreen('screen-jp');
+});
 
 // ── SKU EINTRAGUNG ──
 function loadPimp() {
@@ -681,73 +898,67 @@ function fuzzyMatch(needle, haystack, threshold) {
   return matches / needle.length;
 }
 
+// ── EK AUSWERTUNG ──
+var ekSearchMode = 'lot';
+
 
 function doEkSearch() {
   var query = document.getElementById('ek-search-input').value.trim();
   if (!query) return;
-  ekShowLoading(true);
-  document.getElementById('ek-result').style.display = 'none';
+  document.getElementById('ek-search-loading').style.display = '';
+  document.getElementById('ek-search-error').style.display = 'none';
   document.getElementById('ek-partner-results').innerHTML = '';
+  document.getElementById('ek-result').style.display = 'none';
 
-  // Detect if it looks like an EK number (starts with EK or is numeric)
-  var isEkNr = /^EK/i.test(query) || /^[0-9]+$/.test(query);
+  var isEkNr = /^EK/i.test(query);
 
   if (isEkNr) {
-    // Fuzzy match against EK lots
     atGet('Einkauf_2026', '{EK_Lot}!=""',
       ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID','EK_Kaufdatum'],
       function(err, data) {
-        ekShowLoading(false);
+        document.getElementById('ek-search-loading').style.display = 'none';
         if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
+        var q = query.toLowerCase();
         var scored = data.records.map(function(rec){
-          return {rec:rec, score:fuzzyMatch(query, rec.fields['EK_Lot']||'', 0.75)};
-        }).filter(function(x){ return x.score >= 0.75; })
-          .sort(function(a,b){ return b.score - a.score; });
+          var lot = (rec.fields['EK_Lot']||'').toLowerCase();
+          var score = lot.includes(q) ? 1 : (function(){var m=0,i=0,j=0;while(i<q.length&&j<lot.length){if(q[i]===lot[j]){m++;i++;}j++;}return m/q.length;})();
+          return {rec:rec,score:score};
+        }).filter(function(x){return x.score>=0.75;}).sort(function(a,b){return b.score-a.score;});
         if (!scored.length) { ekShowError('Kein Einkauf gefunden.'); return; }
         if (scored.length === 1) { loadEkResult(scored[0].rec); return; }
         var wrap = document.getElementById('ek-partner-results');
         scored.slice(0,5).forEach(function(x){ wrap.appendChild(buildEkCard(x.rec)); });
       });
   } else {
-    // Search by partner name
     atGet('Partnerdaten_2026', '{PD_Anzeigename}!=""',
       ['PD_ID','PD_Anzeigename','PD_Name'],
       function(err, data) {
-        ekShowLoading(false);
+        document.getElementById('ek-search-loading').style.display = 'none';
         if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
+        var q = query.toLowerCase();
         var scored = data.records.map(function(rec){
           var f = rec.fields;
-          var display = f['PD_Anzeigename'] || f['PD_Name'] || '';
-          return {rec:rec, display:display, score:Math.max(
-            fuzzyMatch(query, display, 0.75),
-            fuzzyMatch(query, f['PD_Name']||'', 0.75)
-          )};
-        }).filter(function(x){ return x.score >= 0.75; })
-          .sort(function(a,b){ return b.score - a.score; });
+          var name = (f['PD_Anzeigename']||f['PD_Name']||'').toLowerCase();
+          var score = name.includes(q) ? 1 : (function(){var m=0,i=0,j=0;while(i<q.length&&j<name.length){if(q[i]===name[j]){m++;i++;}j++;}return m/q.length;})();
+          return {rec:rec,score:score,name:f['PD_Anzeigename']||f['PD_Name']||''};
+        }).filter(function(x){return x.score>=0.75;}).sort(function(a,b){return b.score-a.score;});
         if (!scored.length) { ekShowError('Kein Partner gefunden.'); return; }
-        if (scored.length === 1) {
-          loadEkByPartner(scored[0].rec.fields['PD_ID']);
-        } else {
-          // Show partner list to choose
-          var wrap = document.getElementById('ek-partner-results');
-          wrap.style.display = 'block';
-          scored.forEach(function(x){
-            var div = document.createElement('div');
-            div.className = 'ek-partner-item';
-            div.textContent = x.display + ' (' + Math.round(x.score*100) + '%)';
-            var pdId = x.rec.fields['PD_ID'];
-            function go(e){ if(e.cancelable) e.preventDefault(); loadEkByPartner(pdId); }
-            div.addEventListener('click', go);
-            div.addEventListener('touchend', go, {passive:false});
-            wrap.appendChild(div);
-          });
-        }
+        if (scored.length === 1) { loadEkByPartner(scored[0].rec.fields['PD_ID']); return; }
+        var wrap = document.getElementById('ek-partner-results');
+        wrap.style.flexDirection = 'column';
+        scored.forEach(function(x){
+          var div = document.createElement('div');
+          div.className = 'ek-partner-item';
+          div.textContent = x.name + ' (' + Math.round(x.score*100) + '%)';
+          var pid = x.rec.fields['PD_ID'];
+          function go(e){if(e.cancelable)e.preventDefault();loadEkByPartner(pid);}
+          div.addEventListener('click',go);
+          div.addEventListener('touchend',go,{passive:false});
+          wrap.appendChild(div);
+        });
       });
   }
 }
-
-// ── EK AUSWERTUNG ──
-var ekSearchMode = 'lot';
 
 function ekSetTab(mode) {
   ekSearchMode = mode;
@@ -1024,7 +1235,6 @@ function loadEkResult(ekRec) {
       }
     });
 }
-}
 
 calc();
 
@@ -1041,16 +1251,18 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <!-- Suche -->
     <div class="s-card" id="ek-search-card">
       <div class="s-card-title">Suche</div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-search-input" placeholder="EK-Nummer oder Partnername" onkeydown="if(event.key==='Enter')doEkSearch()" /></div>
+      <div style="display:flex;gap:8px;">
+        <div class="s-input-wrap" style="flex:1;">
+          <input type="text" id="ek-search-input" placeholder="EK-Nummer oder Partnername" onkeydown="if(event.key==='Enter')doEkSearch()" />
+        </div>
         <button class="s-search-btn" onclick="doEkSearch()">Suchen</button>
       </div>
       <div class="s-loading" id="ek-search-loading">Wird geladen…</div>
       <div class="s-error" id="ek-search-error"></div>
-      <div id="ek-partner-results" style="display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;margin-top:10px;"></div>
+      <div id="ek-partner-results" style="display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:10px;"></div>
     </div>
 
-    <!-- Ergebnis -->
+        <!-- Ergebnis -->
     <div id="ek-result" style="display:none">
 
       <!-- Header -->
