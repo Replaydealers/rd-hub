@@ -1031,15 +1031,16 @@ calc();
   btns.forEach(function(btn, i){
     var val = nums[i];
     if (val === null) return;
-    btn.addEventListener('touchstart', function(e){
-      e.preventDefault();
+    var lastFired = 0;
+    function fire() {
+      var now = Date.now();
+      if (now - lastFired < 300) return;
+      lastFired = now;
       if (val === 'del') pinDel();
       else pinPress(parseInt(val));
-    }, {passive:false});
-    btn.addEventListener('click', function(e){
-      if (val === 'del') pinDel();
-      else pinPress(parseInt(val));
-    });
+    }
+    btn.addEventListener('touchend', function(e){ e.preventDefault(); fire(); }, {passive:false});
+    btn.addEventListener('click', fire);
   });
 })();
 
