@@ -223,8 +223,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.1</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" id="sw-version-display" style="font-size:20px;color:var(--hint)">…</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.2</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" id="sw-version-display" style="font-size:20px;color:var(--hint)">rd-hub-v17</div></div>
     </div>
   </div>
   <div class="pin-display">
@@ -349,7 +349,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="s-card">
       <div class="s-card-title">Suche</div>
       <div style="display:flex;gap:8px">
-        <div class="s-input-wrap" style="flex:1"><input type="text" inputmode="numeric" id="a-nr" placeholder="Artikelnummer oder Name" /></div>
+        <div class="s-input-wrap" style="flex:1"><input type="text" id="a-nr" placeholder="Artikelnummer oder Name" /></div>
         <button class="s-search-btn" id="btn-a-search">Suchen</button>
       </div>
       <div class="s-loading" id="a-loading">Wird geladen…</div>
@@ -393,7 +393,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 </div>
 
 <script>
-var SW_VERSION = 'rd-hub-v16';
+var SW_VERSION = 'rd-hub-v17';
 var AT_BASE = 'appwhhRzsznu1LTRX';
 var AT_TABLE = 'Artikel_2026';
 var AT_TOKEN = 'patNPI9NMOZC3ZJgh.5815eddd9a34b7821d4eebcd67395c1707f49ac7bc12ecf1910e7f0ba38bd7ec';
@@ -1224,22 +1224,13 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-unified-input" placeholder="EK-Nummer oder Partnername" onkeydown="if(event.key==='Enter')doEkUnifiedSearch()" /></div>
         <button class="s-search-btn" onclick="doEkUnifiedSearch()">Suchen</button>
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:12px">
-        <button class="ek-tab active" id="ek-tab-lot" type="button" onclick="ekSetTab('lot')">EK-Nummer</button>
-        <button class="ek-tab" id="ek-tab-partner" type="button" onclick="ekSetTab('partner')">Partner</button>
-      </div>
-      <div id="ek-search-lot">
-        <div style="display:flex;gap:8px">
-          <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-lot-input" placeholder="z.B. EK15174" /></div>
-          <button class="s-search-btn" id="btn-ek-lot-search" onclick="doEkLotSearch()">Suchen</button>
+      <div style="display:none">
+        <button id="ek-tab-lot"></button>
+        <button id="ek-tab-partner"></button>
+        <div id="ek-search-lot"><input type="text" id="ek-lot-input" /></div>
+        <div id="ek-search-partner"><input type="text" id="ek-partner-input" />
+          <div id="ek-partner-results" style="margin-top:10px;display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;"></div>
         </div>
-      </div>
-      <div id="ek-search-partner" style="display:none">
-        <div style="display:flex;gap:8px">
-          <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-partner-input" placeholder="Name eingeben" /></div>
-          <button class="s-search-btn" id="btn-ek-partner-search" onclick="doEkPartnerSearch()">Suchen</button>
-        </div>
-        <div id="ek-partner-results" style="margin-top:10px;display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;"></div>
       </div>
       <div class="s-loading" id="ek-search-loading">Wird geladen…</div>
       <div class="s-error" id="ek-search-error"></div>
