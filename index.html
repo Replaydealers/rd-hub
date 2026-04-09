@@ -223,8 +223,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.4</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" id="sw-version-display" style="font-size:20px;color:var(--hint)">rd-hub-v18</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.5</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v20</div></div>
     </div>
   </div>
   <div class="pin-display">
@@ -255,7 +255,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">1.2.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.2.5</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -393,7 +393,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 </div>
 
 <script>
-var SW_VERSION = 'rd-hub-v19';
 var AT_BASE = 'appwhhRzsznu1LTRX';
 var AT_TABLE = 'Artikel_2026';
 var AT_TOKEN = 'patNPI9NMOZC3ZJgh.5815eddd9a34b7821d4eebcd67395c1707f49ac7bc12ecf1910e7f0ba38bd7ec';
@@ -906,69 +905,6 @@ function fuzzyMatch(needle, haystack, threshold) {
 // ── EK AUSWERTUNG ──
 var ekSearchMode = 'lot';
 
-var _ekSearchT = 0;
-function doEkUnifiedSearch() {
-  var now = Date.now(); if (now - _ekSearchT < 500) return; _ekSearchT = now;
-  var q = document.getElementById('ek-unified-input').value.trim();
-  if (!q) return;
-  document.getElementById('ek-partner-results').innerHTML = '';
-  document.getElementById('ek-result').style.display = 'none';
-  if (/^EK/i.test(q)) {
-    doEkSearchByLot(q);
-  } else {
-    doEkSearchByPartner(q);
-  }
-}
-
-function doEkSearchByLot(lot) {
-  ekShowLoading(true);
-  atGet('Einkauf_2026', '{EK_Lot}!=""',
-    ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID','EK_Kaufdatum'],
-    function(err, data) {
-      ekShowLoading(false);
-      if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
-      var scored = data.records.map(function(rec) {
-        var ekLot = rec.fields['EK_Lot'] || '';
-        return {rec: rec, score: fuzzyMatch(lot, ekLot, 0.75)};
-      }).filter(function(x){ return x.score >= 0.75; })
-        .sort(function(a,b){ return b.score - a.score; });
-      if (!scored.length) { ekShowError('Kein Einkauf gefunden.'); return; }
-      if (scored.length === 1) { loadEkResult(scored[0].rec); return; }
-      var wrap = document.getElementById('ek-partner-results');
-      scored.slice(0,5).forEach(function(x){ wrap.appendChild(buildEkCard(x.rec)); });
-    });
-}
-
-function doEkSearchByPartner(name) {
-  ekShowLoading(true);
-  atGet('Partnerdaten_2026', 'NOT({PD_Name}="")',
-    ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'],
-    function(err, data) {
-      ekShowLoading(false);
-      console.log('Partner data:', err, data && data.records && data.records.length);
-      if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
-      var scored = data.records.map(function(rec) {
-        var f = rec.fields;
-        var display = f['PD_Anzeigename'] || ((f['PD_Vorname']||'') + ' ' + (f['PD_Name']||'')).trim();
-        var score = Math.max(fuzzyMatch(name, display, 0.75), fuzzyMatch(name, f['PD_Name']||'', 0.75));
-        return {rec: rec, display: display, score: score};
-      }).filter(function(x){ return x.score >= 0.75; })
-        .sort(function(a,b){ return b.score - a.score; });
-      if (!scored.length) { ekShowError('Kein Partner gefunden.'); return; }
-      if (scored.length === 1) { loadEkByPartner(scored[0].rec.fields['PD_ID']); return; }
-      var wrap = document.getElementById('ek-partner-results');
-      scored.forEach(function(x) {
-        var div = document.createElement('div');
-        div.className = 'ek-partner-item';
-        div.textContent = x.display + ' (' + Math.round(x.score*100) + '%)';
-        var pdId = x.rec.fields['PD_ID'];
-        function go(e){ if(e.cancelable) e.preventDefault(); loadEkByPartner(pdId); }
-        div.addEventListener('click', go);
-        div.addEventListener('touchend', go, {passive:false});
-        wrap.appendChild(div);
-      });
-    });
-}
 function ekSetTab(mode) {
   ekSearchMode = mode;
   document.getElementById('ek-tab-lot').classList.toggle('active', mode==='lot');
@@ -1247,16 +1183,6 @@ function loadEkResult(ekRec) {
 
 calc();
 
-// Show SW version on PIN screen
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistration().then(function(reg) {
-    if (reg && reg.active) {
-      var swEl = document.getElementById('sw-version-display');
-      if (swEl) swEl.textContent = SW_VERSION;
-    }
-  });
-}
-
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 <!-- EK AUSWERTUNG -->
@@ -1270,17 +1196,22 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <!-- Suche -->
     <div class="s-card" id="ek-search-card">
       <div class="s-card-title">Suche</div>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-unified-input" placeholder="EK-Nummer oder Partnername" onkeydown="if(event.key==='Enter')doEkUnifiedSearch()" /></div>
-        <button class="s-search-btn" onclick="doEkUnifiedSearch()">Suchen</button>
+      <div style="display:flex;gap:6px;margin-bottom:12px">
+        <button class="ek-tab active" id="ek-tab-lot" type="button" onclick="ekSetTab('lot')">EK-Nummer</button>
+        <button class="ek-tab" id="ek-tab-partner" type="button" onclick="ekSetTab('partner')">Partner</button>
       </div>
-      <div style="display:none">
-        <button id="ek-tab-lot"></button>
-        <button id="ek-tab-partner"></button>
-        <div id="ek-search-lot"><input type="text" id="ek-lot-input" /></div>
-        <div id="ek-search-partner"><input type="text" id="ek-partner-input" />
-          <div id="ek-partner-results" style="margin-top:10px;display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;"></div>
+      <div id="ek-search-lot">
+        <div style="display:flex;gap:8px">
+          <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-lot-input" placeholder="z.B. EK15174" /></div>
+          <button class="s-search-btn" id="btn-ek-lot-search" onclick="doEkLotSearch()">Suchen</button>
         </div>
+      </div>
+      <div id="ek-search-partner" style="display:none">
+        <div style="display:flex;gap:8px">
+          <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-partner-input" placeholder="Name eingeben" /></div>
+          <button class="s-search-btn" id="btn-ek-partner-search" onclick="doEkPartnerSearch()">Suchen</button>
+        </div>
+        <div id="ek-partner-results" style="margin-top:10px;display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;"></div>
       </div>
       <div class="s-loading" id="ek-search-loading">Wird geladen…</div>
       <div class="s-error" id="ek-search-error"></div>
