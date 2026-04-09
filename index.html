@@ -223,7 +223,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.3</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.4</div></div>
       <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" id="sw-version-display" style="font-size:20px;color:var(--hint)">rd-hub-v18</div></div>
     </div>
   </div>
@@ -393,7 +393,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 </div>
 
 <script>
-var SW_VERSION = 'rd-hub-v18';
+var SW_VERSION = 'rd-hub-v19';
 var AT_BASE = 'appwhhRzsznu1LTRX';
 var AT_TABLE = 'Artikel_2026';
 var AT_TOKEN = 'patNPI9NMOZC3ZJgh.5815eddd9a34b7821d4eebcd67395c1707f49ac7bc12ecf1910e7f0ba38bd7ec';
@@ -906,7 +906,9 @@ function fuzzyMatch(needle, haystack, threshold) {
 // ── EK AUSWERTUNG ──
 var ekSearchMode = 'lot';
 
+var _ekSearchT = 0;
 function doEkUnifiedSearch() {
+  var now = Date.now(); if (now - _ekSearchT < 500) return; _ekSearchT = now;
   var q = document.getElementById('ek-unified-input').value.trim();
   if (!q) return;
   document.getElementById('ek-partner-results').innerHTML = '';
@@ -939,10 +941,11 @@ function doEkSearchByLot(lot) {
 
 function doEkSearchByPartner(name) {
   ekShowLoading(true);
-  atGet('Partnerdaten_2026', '{PD_Anzeigename}!=""',
+  atGet('Partnerdaten_2026', 'NOT({PD_Name}="")',
     ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'],
     function(err, data) {
       ekShowLoading(false);
+      console.log('Partner data:', err, data && data.records && data.records.length);
       if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
       var scored = data.records.map(function(rec) {
         var f = rec.fields;
