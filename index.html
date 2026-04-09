@@ -223,8 +223,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.2</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" id="sw-version-display" style="font-size:20px;color:var(--hint)">rd-hub-v17</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.3</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" id="sw-version-display" style="font-size:20px;color:var(--hint)">rd-hub-v18</div></div>
     </div>
   </div>
   <div class="pin-display">
@@ -393,7 +393,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 </div>
 
 <script>
-var SW_VERSION = 'rd-hub-v17';
+var SW_VERSION = 'rd-hub-v18';
 var AT_BASE = 'appwhhRzsznu1LTRX';
 var AT_TABLE = 'Artikel_2026';
 var AT_TOKEN = 'patNPI9NMOZC3ZJgh.5815eddd9a34b7821d4eebcd67395c1707f49ac7bc12ecf1910e7f0ba38bd7ec';
@@ -909,15 +909,62 @@ var ekSearchMode = 'lot';
 function doEkUnifiedSearch() {
   var q = document.getElementById('ek-unified-input').value.trim();
   if (!q) return;
+  document.getElementById('ek-partner-results').innerHTML = '';
+  document.getElementById('ek-result').style.display = 'none';
   if (/^EK/i.test(q)) {
-    document.getElementById('ek-lot-input').value = q;
-    ekSetTab('lot');
-    doEkLotSearch();
+    doEkSearchByLot(q);
   } else {
-    document.getElementById('ek-partner-input').value = q;
-    ekSetTab('partner');
-    doEkPartnerSearch();
+    doEkSearchByPartner(q);
   }
+}
+
+function doEkSearchByLot(lot) {
+  ekShowLoading(true);
+  atGet('Einkauf_2026', '{EK_Lot}!=""',
+    ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID','EK_Kaufdatum'],
+    function(err, data) {
+      ekShowLoading(false);
+      if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
+      var scored = data.records.map(function(rec) {
+        var ekLot = rec.fields['EK_Lot'] || '';
+        return {rec: rec, score: fuzzyMatch(lot, ekLot, 0.75)};
+      }).filter(function(x){ return x.score >= 0.75; })
+        .sort(function(a,b){ return b.score - a.score; });
+      if (!scored.length) { ekShowError('Kein Einkauf gefunden.'); return; }
+      if (scored.length === 1) { loadEkResult(scored[0].rec); return; }
+      var wrap = document.getElementById('ek-partner-results');
+      scored.slice(0,5).forEach(function(x){ wrap.appendChild(buildEkCard(x.rec)); });
+    });
+}
+
+function doEkSearchByPartner(name) {
+  ekShowLoading(true);
+  atGet('Partnerdaten_2026', '{PD_Anzeigename}!=""',
+    ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'],
+    function(err, data) {
+      ekShowLoading(false);
+      if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
+      var scored = data.records.map(function(rec) {
+        var f = rec.fields;
+        var display = f['PD_Anzeigename'] || ((f['PD_Vorname']||'') + ' ' + (f['PD_Name']||'')).trim();
+        var score = Math.max(fuzzyMatch(name, display, 0.75), fuzzyMatch(name, f['PD_Name']||'', 0.75));
+        return {rec: rec, display: display, score: score};
+      }).filter(function(x){ return x.score >= 0.75; })
+        .sort(function(a,b){ return b.score - a.score; });
+      if (!scored.length) { ekShowError('Kein Partner gefunden.'); return; }
+      if (scored.length === 1) { loadEkByPartner(scored[0].rec.fields['PD_ID']); return; }
+      var wrap = document.getElementById('ek-partner-results');
+      scored.forEach(function(x) {
+        var div = document.createElement('div');
+        div.className = 'ek-partner-item';
+        div.textContent = x.display + ' (' + Math.round(x.score*100) + '%)';
+        var pdId = x.rec.fields['PD_ID'];
+        function go(e){ if(e.cancelable) e.preventDefault(); loadEkByPartner(pdId); }
+        div.addEventListener('click', go);
+        div.addEventListener('touchend', go, {passive:false});
+        wrap.appendChild(div);
+      });
+    });
 }
 function ekSetTab(mode) {
   ekSearchMode = mode;
