@@ -223,8 +223,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.6</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v21</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.7</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v22</div></div>
     </div>
   </div>
   <div class="pin-display">
@@ -255,7 +255,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.2.6</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.2.7</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -914,7 +914,6 @@ function ekSetTab(mode) {
 }
 
 function ekShowLoading(show) {
-  console.log('ekShowLoading:', show);
   document.getElementById('ek-search-loading').style.display = show?'':'none';
   document.getElementById('ek-search-error').style.display = 'none';
 }
@@ -929,7 +928,7 @@ function doEkLotSearch() {
   if (!lot) return;
   ekShowLoading(true);
   document.getElementById('ek-result').style.display = 'none';
-  // Load all EKs and fuzzy match
+  document.getElementById('ek-partner-results').innerHTML = '';
   atGet('Einkauf_2026', '{EK_Lot}!=""',
     ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID','EK_Kaufdatum'],
     function(err, data) {
@@ -941,17 +940,12 @@ function doEkLotSearch() {
         return {rec: rec, lot: ekLot, score: score};
       }).filter(function(x){ return x.score >= 0.75; })
         .sort(function(a,b){ return b.score - a.score; });
-
-      if (!scored.length) { ekShowError('Kein Einkauf gefunden (75% Übereinstimmung).'); return; }
+      if (!scored.length) { ekShowError('Kein Einkauf gefunden.'); return; }
       if (scored.length === 1) { loadEkResult(scored[0].rec); return; }
-
-      // Show multiple results as cards
       var wrap = document.getElementById('ek-partner-results');
       wrap.style.display = 'flex';
       wrap.innerHTML = '';
-      scored.slice(0,5).forEach(function(x) {
-        wrap.appendChild(buildEkCard(x.rec));
-      });
+      scored.slice(0,5).forEach(function(x) { wrap.appendChild(buildEkCard(x.rec)); });
     });
 }
 
@@ -994,194 +988,12 @@ function loadEkByPartner(pdId) {
   atGet('Einkauf_2026', '{EK_PartnerID}="'+pdId+'"',
     ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID','EK_Kaufdatum'],
     function(err, data) {
+      ekShowLoading(false);
       if (err || !data.records || !data.records.length) { ekShowError('Keine Einkäufe gefunden.'); return; }
-      // Always show as cards
-      // Multiple EKs - show cards
-      ekShowLoading(false);
       var wrap = document.getElementById('ek-partner-results');
-      data.records.forEach(function(rec) {
-        wrap.appendChild(buildEkCard(rec));
-      });
+      data.records.forEach(function(rec) { wrap.appendChild(buildEkCard(rec)); });
     });
 }
-
-function loadEkResult(ekRec) {
-  var f = ekRec.fields;
-  var lot = f['EK_Lot'] || '—';
-  ekShowLoading(true);
-  // Load all Artikel for this lot
-  atGet('Artikel_2026',
-    '{ITEM_EK_Lot}="'+lot+'"',
-    ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_Status','ITEM_EK_Preis','ITEM_VK_Preis','ITEM_VK_Lot','ITEM_EK_Lot'],
-    function(err, artData) {
-      ekShowLoading(false);
-      if (err) { ekShowError('Fehler beim Laden der Artikel.'); return; }
-      var artikel = artData.records || [];
-
-      // Load partner name
-      var partnerId = f['EK_PartnerID'] || '';
-      function renderResult(partnerName) {
-        document.getElementById('ek-res-lot').textContent = lot;
-        document.getElementById('ek-res-betrag').textContent = '€' + (f['EK_Gesamtbetrag']||0).toFixed(2);
-        document.getElementById('ek-res-partner').textContent = partnerName || partnerId;
-        document.getElementById('ek-res-status').textContent = f['EK_Status'] || '—';
-
-        var verkauft = artikel.filter(function(r){ return r.fields['ITEM_Status'] === 'verkauft'; });
-        var offen = artikel.filter(function(r){ return r.fields['ITEM_Status'] !== 'verkauft'; });
-        var gewinn = verkauft.reduce(function(sum, r){
-          var vk = r.fields['ITEM_VK_Preis'] || 0;
-          var ek = r.fields['ITEM_EK_Preis'] || 0;
-          return sum + (vk - ek);
-        }, 0);
-
-        document.getElementById('ek-kz-gesamt').textContent = artikel.length;
-        document.getElementById('ek-kz-verkauft').textContent = verkauft.length + ' (' + Math.round(verkauft.length/Math.max(artikel.length,1)*100) + '%)';
-        var gEl = document.getElementById('ek-kz-gewinn');
-        gEl.textContent = '€' + gewinn.toFixed(2);
-        gEl.className = 'mval' + (gewinn >= 0 ? ' good' : ' bad');
-        document.getElementById('ek-kz-offen').textContent = offen.length;
-
-        // Offen list
-        var offenHtml = '<div class="ek-artikel-row" style="opacity:.5"><div style="font-size:10px;color:var(--hint)">Artikel</div><div style="font-size:10px;color:var(--hint);text-align:right">EK</div><div style="font-size:10px;color:var(--hint);text-align:right">VK</div><div style="font-size:10px;color:var(--hint);text-align:right">Gew.</div></div>';
-        offen.forEach(function(r){
-          var af = r.fields;
-          offenHtml += '<div class="ek-artikel-row">' +
-            '<div><div class="ek-artikel-name">' + escHtml(af['ITEM_Artikel']||'—') + '</div>' +
-            '<div class="ek-artikel-sub">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</div></div>' +
-            '<div class="ek-artikel-ek">€' + (af['ITEM_EK_Preis']||0).toFixed(2) + '</div>' +
-            '<div class="ek-artikel-ek">—</div>' +
-            '<div class="ek-artikel-ek">—</div>' +
-            '</div>';
-        });
-        document.getElementById('ek-offen-list').innerHTML = offenHtml || '<div style="font-size:13px;color:var(--muted)">Keine offenen Artikel</div>';
-        document.getElementById('ek-offen-card').style.display = offen.length ? '' : 'none';
-
-        // Verkauft list
-        // Load VK_Reingewinn for each verkauft artikel
-        var headerHtml = '<div class="ek-artikel-row" style="opacity:.5"><div style="font-size:10px;color:var(--hint)">Artikel</div><div style="font-size:10px;color:var(--hint);text-align:right">EK</div><div style="font-size:10px;color:var(--hint);text-align:right">VK</div><div style="font-size:10px;color:var(--hint);text-align:right">Gew.</div></div>';
-        // ITEM_VK_Lot is a linked record - get record IDs
-        var vkRecordIds = [];
-        verkauft.forEach(function(r){
-          var lot = r.fields['ITEM_VK_Lot'];
-          if (Array.isArray(lot) && lot.length) vkRecordIds.push(lot[0]);
-          else if (typeof lot === 'string' && lot) vkRecordIds.push(lot);
-        });
-        var gewinnMap = {}; // keyed by record ID
-        var vkPreisMap = {};
-        var vkLotMap = {}; // record ID -> VK_Lot text
-        function renderVerkauftGrouped(vkInfoMap, currentLot, currentEkId) {
-          // Group artikel by VK record ID
-          var groups = {}; // recId -> {info, artikel:[]}
-          var einzeln = []; // no VK lot
-          verkauft.forEach(function(r){
-            var af = r.fields;
-            var vkLotRaw = af['ITEM_VK_Lot'];
-            var recId = Array.isArray(vkLotRaw) ? vkLotRaw[0] : (typeof vkLotRaw==='string' ? vkLotRaw : '');
-            if (recId && vkInfoMap && vkInfoMap[recId]) {
-              if (!groups[recId]) groups[recId] = {info: vkInfoMap[recId], artikel: []};
-              groups[recId].artikel.push(r);
-            } else {
-              einzeln.push(r);
-            }
-          });
-
-          var html = headerHtml;
-          var totalGewinn = 0;
-
-          // Render grouped
-          Object.keys(groups).forEach(function(recId){
-            var g = groups[recId];
-            var gewinn = g.info.gewinn;
-            totalGewinn += gewinn;
-            // Check if VK contains artikel from other EKs
-            var hasOtherEk = g.artikel.some(function(r){
-              var itemLot = r.fields['ITEM_EK_Lot'];
-              if (!itemLot) return false;
-              var itemLotId = Array.isArray(itemLot) ? itemLot[0] : itemLot;
-              return itemLotId && itemLotId !== currentEkId;
-            });
-            // Group header row
-            html += '<div style="background:var(--card2);border-radius:6px;padding:6px 8px;margin:4px 0;">' +
-              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:6px;">' +
-                '<span style="font-size:11px;font-weight:700;color:var(--muted)">' + escHtml(g.info.lot) + (hasOtherEk ? ' ⚠️' : '') + '</span>' +
-                '<span style="font-size:11px;color:var(--muted)">VK €' + g.info.preis.toFixed(2) + '</span>' +
-                '<span style="font-size:12px;font-weight:700;' + (gewinn>=0?'color:#1D9E75':'color:var(--accent)') + '">€' + gewinn.toFixed(2) + (hasOtherEk ? '*' : '') + '</span>' +
-              '</div>' +
-              (hasOtherEk ? '<div style="font-size:10px;color:var(--amber,#EFA827);margin-bottom:4px;">* VK enthält Artikel aus anderem EK – Reingewinn nicht aufgeteilt</div>' : '');
-            // Sub-artikel
-            g.artikel.forEach(function(r){
-              var af = r.fields;
-              var ek = af['ITEM_EK_Preis'] || 0;
-              var vk = af['ITEM_VK_Preis'] || 0;
-              html += '<div style="display:grid;grid-template-columns:1fr 52px 52px;gap:4px;padding:3px 0 3px 8px;border-top:.5px solid var(--border);font-size:11px;">' +
-                '<div><span style="color:var(--text)">' + escHtml(af['ITEM_Artikel']||'—') + '</span>' +
-                '<span style="color:var(--hint);margin-left:4px">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</span></div>' +
-                '<div style="text-align:right;color:var(--muted)">€' + ek.toFixed(2) + '</div>' +
-                '<div style="text-align:right;color:#1D9E75">' + (vk ? '€'+vk.toFixed(2) : '—') + '</div>' +
-              '</div>';
-            });
-            html += '</div>';
-          });
-
-          // Render einzeln (no VK lot)
-          einzeln.forEach(function(r){
-            var af = r.fields;
-            var ek = af['ITEM_EK_Preis'] || 0;
-            var vk = af['ITEM_VK_Preis'] || 0;
-            var gewinn = vk - ek;
-            totalGewinn += gewinn;
-            html += '<div class="ek-artikel-row">' +
-              '<div><div class="ek-artikel-name">' + escHtml(af['ITEM_Artikel']||'—') + '</div>' +
-              '<div class="ek-artikel-sub">' + escHtml([af['ITEM_Konsole'],af['ITEM_Komponente']].filter(Boolean).join(' · ')) + '</div></div>' +
-              '<div class="ek-artikel-ek">€' + ek.toFixed(2) + '</div>' +
-              '<div class="ek-artikel-vk">' + (vk?'€'+vk.toFixed(2):'—') + '</div>' +
-              '<div class="ek-artikel-gewinn ' + (gewinn>=0?'pos':'neg') + '">' + (vk?'€'+gewinn.toFixed(2):'—') + '</div>' +
-            '</div>';
-          });
-
-          document.getElementById('ek-verkauft-list').innerHTML = html || '<div style="font-size:13px;color:var(--muted)">Noch keine Verkäufe</div>';
-          document.getElementById('ek-verkauft-card').style.display = '';
-          var gEl = document.getElementById('ek-kz-gewinn');
-          gEl.textContent = '€' + totalGewinn.toFixed(2);
-          gEl.className = 'mval' + (totalGewinn >= 0 ? ' good' : ' bad');
-        }
-        function renderVerkauftList() { renderVerkauftGrouped({}, lot, ekRec.id); }
-        if (vkRecordIds.length === 0) {
-          renderVerkauftList();
-        } else {
-          var uniqueIds = vkRecordIds.filter(function(id,i){ return vkRecordIds.indexOf(id)===i; });
-          var filter = 'OR(' + uniqueIds.map(function(id){ return 'RECORD_ID()="'+id+'"'; }).join(',') + ')';
-          atGet('Verkauf_2026', filter, ['VK_Lot','VK_Reingewinn','VK_Preis'], function(err, vkData) {
-            var vkInfoMap = {}; // recId -> {lot, gewinn, preis}
-            if (!err && vkData.records) {
-              vkData.records.forEach(function(vr){
-                vkInfoMap[vr.id] = {
-                  lot: vr.fields['VK_Lot'] || vr.id,
-                  gewinn: vr.fields['VK_Reingewinn'] || 0,
-                  preis: vr.fields['VK_Preis'] || 0
-                };
-              });
-            }
-            renderVerkauftGrouped(vkInfoMap, lot, ekRec.id);
-          });
-        }
-        document.getElementById('ek-verkauft-card').style.display = verkauft.length ? '' : 'none';
-
-        document.getElementById('ek-result').style.display = '';
-      }
-
-      if (partnerId) {
-        atGet('Partnerdaten_2026', '{PD_ID}="'+partnerId+'"', ['PD_Anzeigename'], function(err2, pd) {
-          var pname = (!err2 && pd.records && pd.records.length) ? (pd.records[0].fields['PD_Anzeigename']||partnerId) : partnerId;
-          renderResult(pname);
-        });
-      } else {
-        renderResult('—');
-      }
-    });
-}
-
-calc();
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
@@ -1219,8 +1031,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
     <!-- Ergebnis -->
     <div id="ek-result" style="display:none">
-
-      <!-- Header -->
       <div class="s-card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
           <div>
@@ -1237,27 +1047,20 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <div class="s-brow"><span class="bl">Status</span><span class="br" id="ek-res-status">—</span></div>
         </div>
       </div>
-
-      <!-- Kennzahlen -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
         <div class="s-metric"><div class="mlabel">Artikel gesamt</div><div class="mval" id="ek-kz-gesamt">—</div></div>
         <div class="s-metric"><div class="mlabel">Verkauft</div><div class="mval good" id="ek-kz-verkauft">—</div></div>
         <div class="s-metric"><div class="mlabel">Reingewinn</div><div class="mval" id="ek-kz-gewinn">—</div></div>
         <div class="s-metric"><div class="mlabel">Noch offen</div><div class="mval" id="ek-kz-offen">—</div></div>
       </div>
-
-      <!-- Offene Artikel -->
       <div class="s-card" id="ek-offen-card">
         <div class="s-card-title">Offene Artikel</div>
         <div id="ek-offen-list"></div>
       </div>
-
-      <!-- Verkaufte Artikel -->
       <div class="s-card" id="ek-verkauft-card">
         <div class="s-card-title">Verkaufte Artikel</div>
         <div id="ek-verkauft-list"></div>
       </div>
-
     </div>
   </div>
 </div>
