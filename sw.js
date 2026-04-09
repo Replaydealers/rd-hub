@@ -1,4 +1,4 @@
-const CACHE = 'rd-hub-v24';
+const CACHE = 'rd-hub-v26';
 const FILES = ['/rd-hub/', '/rd-hub/index.html', '/rd-hub/manifest.json'];
 
 self.addEventListener('install', e => {
