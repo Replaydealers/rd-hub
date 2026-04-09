@@ -223,8 +223,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.5</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v20</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.2.6</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v21</div></div>
     </div>
   </div>
   <div class="pin-display">
@@ -255,7 +255,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.2.5</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.2.6</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1211,10 +1211,10 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <div class="s-input-wrap" style="flex:1"><input type="text" id="ek-partner-input" placeholder="Name eingeben" /></div>
           <button class="s-search-btn" id="btn-ek-partner-search" onclick="doEkPartnerSearch()">Suchen</button>
         </div>
-        <div id="ek-partner-results" style="margin-top:10px;display:flex;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;"></div>
       </div>
       <div class="s-loading" id="ek-search-loading">Wird geladen…</div>
       <div class="s-error" id="ek-search-error"></div>
+      <div id="ek-partner-results" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;"></div>
     </div>
 
     <!-- Ergebnis -->
