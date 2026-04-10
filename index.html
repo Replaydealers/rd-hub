@@ -223,8 +223,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.3.1</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v26</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.3.3</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v28</div></div>
     </div>
   </div>
   <div class="pin-display">
@@ -255,7 +255,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.3.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.3.3</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -402,9 +402,18 @@ var skuRecordId = null;
 var skuArtikelNr = null;
 
 // ── NAVIGATION ──
-function showScreen(id) {
+var _navHistory = [];
+function showScreen(id, addToHistory) {
+  var current = document.querySelector('.screen:not(.hidden)');
+  if (current && addToHistory !== false) _navHistory.push(current.id);
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.add('hidden'); });
   document.getElementById(id).classList.remove('hidden');
+}
+function goBack() {
+  if (_navHistory.length === 0) { showScreen('screen-home', false); return; }
+  var prev = _navHistory.pop();
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.add('hidden'); });
+  document.getElementById(prev).classList.remove('hidden');
 }
 
 // ── PIN ──
@@ -470,11 +479,11 @@ addNav('tile-jp', 'screen-jp');
 addNav('tile-artikel', 'screen-artikel');
 addNav('tile-sku', 'screen-sku', loadPimp);
 addNav('btn-back-jp', 'screen-home');
-addNav('btn-back-artikel', 'screen-home');
+addNav('btn-back-artikel', null, goBack);
 addNav('btn-back-sku', 'screen-home');
 addNav('btn-sku-reload', 'screen-sku', loadPimp);
 addNav('tile-ek', 'screen-ek');
-addNav('btn-back-ek', 'screen-home');
+addNav('btn-back-ek', null, goBack);
 addNav('btn-fetchrate', null, fetchRate);
 
 document.getElementById('btn-fetchrate').addEventListener('click', fetchRate);
@@ -643,16 +652,53 @@ function doArtikelSearch() {
       document.getElementById('a-vk-lot').textContent = '—';
       document.getElementById('a-vk-gewinn').textContent = '—';
       document.getElementById('a-result-card').style.display='';
-      // Load VK details if sold
+      // Load VK details if sold - fetch VK record directly by ID
       if (vkRecId) {
-        var vkFilter = 'RECORD_ID()="'+vkRecId+'"';
-        atGet('Verkauf_2026', vkFilter, ['VK_Lot','VK_Reingewinn','VK_Datum'], function(err, vkData) {
-          if (!err && vkData.records && vkData.records.length) {
-            var vf = vkData.records[0].fields;
-            document.getElementById('a-vk-lot').textContent = vf['VK_Lot']||'—';
-            document.getElementById('a-vk-gewinn').textContent = vf['VK_Reingewinn']!==undefined?vf['VK_Reingewinn'].toFixed(2)+' €':'—';
-          }
-        });
+        fetch('https://api.airtable.com/v0/'+AT_BASE+'/Verkauf_2026/'+vkRecId,
+          {headers:{'Authorization':'Bearer '+AT_TOKEN}})
+          .then(function(r){ return r.json(); })
+          .then(function(vkRec){
+            if (!vkRec || !vkRec.fields) return;
+            var vf = vkRec.fields;
+            var vkLot = vf['VK_Lot'] || '—';
+            document.getElementById('a-vk-lot').textContent = vkLot;
+            document.getElementById('a-vk-gewinn').textContent = vf['VK_Reingewinn']!==undefined ? vf['VK_Reingewinn'].toFixed(2)+' €' : '—';
+            // Load all artikel of this VK lot
+            if (vkLot !== '—') {
+              atGet('Artikel_2026', '{ITEM_VK_Lot}="'+vkLot+'"',
+                ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_EK_Preis','ITEM_VK_Preis'],
+                function(err2, artData) {
+                  if (err2 || !artData.records || !artData.records.length) return;
+                  var html = '<div style="margin-top:12px"><div class="s-card-title">Alle Artikel im VK</div>';
+                  html += '<div class="ek-artikel-row" style="opacity:.5"><div style="font-size:10px;color:var(--hint)">Artikel</div><div style="font-size:10px;color:var(--hint);text-align:right">EK</div><div style="font-size:10px;color:var(--hint);text-align:right">VK</div><div style="font-size:10px;color:var(--hint);text-align:right">Gew.</div></div>';
+                  var totalGewinn = vf['VK_Reingewinn'] || 0;
+                  artData.records.forEach(function(r){
+                    var af = r.fields;
+                    var ek = af['ITEM_EK_Preis'] || 0;
+                    var vk = af['ITEM_VK_Preis'] || 0;
+                    var diff = vk - ek;
+                    html += '<div class="ek-artikel-row">' +
+                      '<div class="ek-artikel-name">' + escHtml(af['ITEM_Artikel']||'—') + '</div>' +
+                      '<div class="ek-artikel-ek">€' + ek.toFixed(2) + '</div>' +
+                      '<div class="ek-artikel-vk">€' + vk.toFixed(2) + '</div>' +
+                      '<div class="ek-artikel-gewinn ' + (diff>=0?'pos':'neg') + '">€' + diff.toFixed(2) + '</div>' +
+                    '</div>';
+                  });
+                  html += '<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:700;border-top:.5px solid var(--border);margin-top:4px">' +
+                    '<span style="color:var(--muted)">VK_Reingewinn</span>' +
+                    '<span style="color:' + (totalGewinn>=0?'#1D9E75':'var(--accent)') + '">€' + totalGewinn.toFixed(2) + '</span></div>';
+                  html += '</div>';
+                  // Append to result card
+                  var card = document.getElementById('a-result-card');
+                  var existing = card.querySelector('.vk-lot-detail');
+                  if (existing) existing.remove();
+                  var div = document.createElement('div');
+                  div.className = 'vk-lot-detail';
+                  div.innerHTML = html;
+                  card.appendChild(div);
+                });
+            }
+          }).catch(function(){});
       }
     });
 }
@@ -1220,7 +1266,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 <!-- EK AUSWERTUNG -->
 <div class="screen hidden" id="screen-ek">
   <div class="sub-header">
-    <button class="back-btn" id="btn-back-ek" onclick="showScreen('screen-home')">←</button>
+    <button class="back-btn" id="btn-back-ek">←</button>
     <div class="sub-header-title">Einkauf Auswertung</div>
   </div>
   <div class="sub-content" id="ek-content">
