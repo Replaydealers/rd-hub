@@ -223,8 +223,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.3.3</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v28</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.3.4</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v29</div></div>
     </div>
   </div>
   <div class="pin-display">
@@ -255,7 +255,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.3.3</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.3.4</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -348,9 +348,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   <div class="sub-content">
     <div class="s-card">
       <div class="s-card-title">Suche</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <div class="s-input-wrap" style="flex:1"><input type="number" inputmode="numeric" id="a-nr" placeholder="Artikelnummer" onkeydown="if(event.key==='Enter')doArtikelNrSearch()" /></div>
+        <button class="s-search-btn" onclick="doArtikelNrSearch()">Nr</button>
+      </div>
       <div style="display:flex;gap:8px">
-        <div class="s-input-wrap" style="flex:1"><input type="text" id="a-nr" placeholder="Artikelnummer oder Name" /></div>
-        <button class="s-search-btn" id="btn-a-search">Suchen</button>
+        <div class="s-input-wrap" style="flex:1"><input type="text" id="a-name" placeholder="Name suchen" onkeydown="if(event.key==='Enter')doArtikelNameSearch()" /></div>
+        <button class="s-search-btn" id="btn-a-search" onclick="doArtikelNameSearch()">Name</button>
       </div>
       <div class="s-loading" id="a-loading">Wird geladen…</div>
       <div class="s-error" id="a-error">Artikel nicht gefunden.</div>
@@ -586,54 +590,22 @@ function fetchRate() {
 }
 
 // ── ARTIKELSUCHE ──
-function doArtikelSearch() {
-  var query=document.getElementById('a-nr').value.trim(); if(!query) return;
+var ARTIKEL_FIELDS = ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_EK_Preis','ITEM_Mindest_VK','ITEM_Status','ITEM_Listing_Datum','ITEM_EK_Lot','ITEM_VK_Lot','ITEM_VK_Preis'];
+
+function artikelShowLoading() {
   document.getElementById('a-result-card').style.display='none';
   document.getElementById('a-error').style.display='none';
   document.getElementById('a-loading').style.display='';
-  var isNumber = /^\d+$/.test(query) || /^A-\d+$/i.test(query);
-  var filter = isNumber ? '{ITEM_Artikelnummer}="'+query+'"' : '{ITEM_Artikel}!=""';
-  atGet(AT_TABLE, filter,
-    ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_EK_Preis','ITEM_Mindest_VK','ITEM_Status','ITEM_Listing_Datum','ITEM_EK_Lot','ITEM_VK_Lot','ITEM_VK_Preis'],
-    function(err,data){
-      document.getElementById('a-loading').style.display='none';
-      if(err||!data.records||!data.records.length){ document.getElementById('a-error').style.display=''; return; }
-      var records = data.records;
-      // Fuzzy filter for name search
-      if (!isNumber) {
-        var scored = records.map(function(r){
-          var name = r.fields['ITEM_Artikel']||'';
-          var score = fuzzyMatch(query, name, 0.75);
-          return {r:r, score:score};
-        }).filter(function(x){ return x.score >= 0.75; })
-          .sort(function(a,b){ return b.score-a.score; });
-        if (!scored.length) { document.getElementById('a-error').style.display=''; return; }
-        // Show list if multiple results
-        if (scored.length > 1) {
-          var wrap = document.getElementById('a-result-card');
-          wrap.style.display='';
-          var listHtml = '<div class="s-card-title">'+scored.length+' Treffer</div><div id="a-fuzzy-list"></div>';
-          document.getElementById('a-result-card').innerHTML = listHtml;
-          var fuzzyList = document.getElementById('a-fuzzy-list');
-          scored.slice(0,10).forEach(function(x){
-            var f = x.r.fields;
-            var div = document.createElement('div');
-            div.className = 's-brow';
-            div.style.cssText = 'cursor:pointer;touch-action:manipulation';
-            div.innerHTML = '<span class="bl">#' + escHtml(String(f['ITEM_Artikelnummer']||'')) + ' ' + escHtml(f['ITEM_Artikel']||'—') + '</span><span class="br" style="color:var(--muted)">' + Math.round(x.score*100) + '%</span>';
-            var fields = x.r.fields;
-            var nr = String(f['ITEM_Artikelnummer']||'');
-            function go(e){ if(e.cancelable) e.preventDefault(); showArtikelDetail(fields, nr); }
-            div.addEventListener('click', go);
-            div.addEventListener('touchend', go, {passive:false});
-            fuzzyList.appendChild(div);
-          });
-          return;
-        }
-        records = [scored[0].r];
-      }
-      var f=records[0].fields;
-      var nr=f['ITEM_Artikelnummer']||query;
+}
+
+function doArtikelNrSearch() {
+  var nr = document.getElementById('a-nr').value.trim(); if(!nr) return;
+  artikelShowLoading();
+  atGet(AT_TABLE, '{ITEM_Artikelnummer}="'+nr+'"', ARTIKEL_FIELDS, function(err,data){
+    document.getElementById('a-loading').style.display='none';
+    if(err||!data.records||!data.records.length){ document.getElementById('a-error').style.display=''; return; }
+    var f=data.records[0].fields;
+    var query=nr;
       lastArtikel=f;
       document.getElementById('a-result-nr').textContent='Artikel #'+nr;
       document.getElementById('a-result-name').textContent=f['ITEM_Artikel']||'—';
@@ -702,9 +674,42 @@ function doArtikelSearch() {
       }
     });
 }
-document.getElementById('btn-a-search').addEventListener('click', doArtikelSearch);
-document.getElementById('btn-a-search').addEventListener('touchend', function(e){ e.preventDefault(); doArtikelSearch(); }, {passive:false});
-document.getElementById('a-nr').addEventListener('keydown', function(e){ if(e.key==='Enter') doArtikelSearch(); });
+function doArtikelNameSearch() {
+  var query = document.getElementById('a-name').value.trim(); if(!query) return;
+  artikelShowLoading();
+  atGet(AT_TABLE, '{ITEM_Artikel}!=""', ARTIKEL_FIELDS, function(err,data){
+    document.getElementById('a-loading').style.display='none';
+    if(err||!data.records||!data.records.length){ document.getElementById('a-error').style.display=''; return; }
+    var scored = data.records.map(function(r){
+      var name = r.fields['ITEM_Artikel']||'';
+      var score = fuzzyMatch(query, name, 0.75);
+      return {r:r, score:score};
+    }).filter(function(x){ return x.score >= 0.75; }).sort(function(a,b){ return b.score-a.score; });
+    if (!scored.length) { document.getElementById('a-error').style.display=''; return; }
+    if (scored.length > 1) {
+      var wrap = document.getElementById('a-result-card');
+      wrap.style.display='';
+      wrap.innerHTML = '<div class="s-card-title">'+scored.length+' Treffer</div><div id="a-fuzzy-list"></div>';
+      var fuzzyList = document.getElementById('a-fuzzy-list');
+      scored.slice(0,15).forEach(function(x){
+        var f = x.r.fields;
+        var div = document.createElement('div');
+        div.className = 's-brow';
+        div.style.cssText = 'cursor:pointer;touch-action:manipulation;padding:8px 0';
+        div.innerHTML = '<span class="bl">#'+escHtml(String(f['ITEM_Artikelnummer']||''))+' '+escHtml(f['ITEM_Artikel']||'—')+'</span><span class="br" style="color:var(--muted)">'+Math.round(x.score*100)+'%</span>';
+        var fields=f; var nr=String(f['ITEM_Artikelnummer']||'');
+        function go(e){ if(e.cancelable) e.preventDefault(); showArtikelDetail(fields,nr); }
+        div.addEventListener('click',go); div.addEventListener('touchend',go,{passive:false});
+        fuzzyList.appendChild(div);
+      });
+      return;
+    }
+    var f=scored[0].r.fields;
+    showArtikelResult(f, String(f['ITEM_Artikelnummer']||query));
+  });
+}
+
+function doArtikelSearch() { doArtikelNrSearch(); }
 
 function showArtikelDetail(f, nr) {
   lastArtikel = f;
@@ -1258,7 +1263,7 @@ function loadEkResult(ekRec) {
 function jumpToArtikel(nr) {
   document.getElementById('a-nr').value = nr;
   showScreen('screen-artikel');
-  doArtikelSearch();
+  doArtikelNrSearch();
 }
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
