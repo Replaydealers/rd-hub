@@ -1,3 +1,51 @@
+<!--
+================================================================================
+  RD Hub – Replay Dealers GbR
+  Version: 1.3.5
+  SW Cache: rd-hub-v30
+================================================================================
+
+  CHANGELOG
+  ─────────────────────────────────────────────────────────────────────────────
+  v1.3.5  (2026-04-10)  Versions-Header in index.html eingeführt
+  v1.3.5  (2026-04-10)  Artikelsuche: getrennte Felder für Nummer und Name
+  v1.3.5  (2026-04-10)  Artikelsuche: alle VK-Lot-Artikel bei Verkauf anzeigen
+  v1.3.5  (2026-04-10)  Navigation History: Zurück-Button merkt sich Herkunft
+  v1.3.5  (2026-04-10)  EK-Analyse: Artikelnamen anklickbar → springt zur Artikelsuche
+  v1.3.5  (2026-04-09)  EK-Karten horizontal scrollbar (flex-nowrap)
+  v1.3.5  (2026-04-09)  EK-Partner: FIND() Filter für Linked Record EK_PartnerID
+  v1.3.5  (2026-04-09)  buildEkCard neu geschrieben, loadEkResult aus Original
+  v1.3.5  (2026-04-09)  EK-Analyse JS+HTML aus funktionierender Version übernommen
+  v1.3.5  (2026-04-09)  ek-partner-results aus verstecktem Div herausverschoben
+  v1.3.5  (2026-04-09)  Reset auf Original + PIN Debounce + inputmode fix
+  v1.3.5  (2026-04-08)  EK-Suche: Debounce + Partner-Filter NOT({PD_Name}="")
+  v1.3.5  (2026-04-08)  EK-Suche: Query direkt übergeben statt über hidden input
+  v1.3.5  (2026-04-08)  inputmode numeric entfernt, SW-Version hardcoded, EK-Tabs hidden
+  v1.3.5  (2026-04-08)  APP + SW Version nebeneinander im PIN-Screen
+  v1.3.5  (2026-04-08)  Versionen konsistent gesetzt (index + sw.js)
+  v1.3.5  (2026-04-08)  Version groß im PIN-Screen, Home-Screen aktualisiert
+  v1.3.5  (2026-04-07)  Ursprüngliche Basis (hochgeladene funktionierende Version)
+  ─────────────────────────────────────────────────────────────────────────────
+
+  FEATURES
+  ─────────────────────────────────────────────────────────────────────────────
+  • PIN-Screen mit Debounce (250ms)
+  • JP Import Kalkulator (EK inkl./ohne Kosten Toggle, eBay, Versand VK)
+  • Artikelsuche: Nummer-Suche + Fuzzy-Namenssuche, VK-Lot-Details
+  • SKU Eintragung: Mehrfach-SKU bei qty>1, A- Prefix Toggle
+  • Einkauf Auswertung: Partner + EK-Nummer Suche, Fuzzy-Match
+    → EK-Karten horizontal scrollbar
+    → Artikel anklickbar → springt zur Artikelsuche
+    → Reingewinn mit Gruppen (VK-Lot), Cross-EK Warnung (⚠️)
+  ─────────────────────────────────────────────────────────────────────────────
+
+  AIRTABLE
+  ─────────────────────────────────────────────────────────────────────────────
+  Base:    appwhhRzsznu1LTRX
+  Tables:  Artikel_2026, Einkauf_2026, Verkauf_2026,
+           PlattformImport_2026, Partnerdaten_2026
+================================================================================
+-->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -223,8 +271,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.3.4</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v29</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.3.5</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v30</div></div>
     </div>
   </div>
   <div class="pin-display">
@@ -255,7 +303,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.3.4</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.3.5</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
