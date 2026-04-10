@@ -1,56 +1,37 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version: 1.3.6
-  SW Cache: rd-hub-v32
+  Version:  1.3.9
+  SW Cache: rd-hub-v34
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.7  (2026-04-10)  Versions-Header in index.html eingeführt
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-10)  Artikelsuche: getrennte Felder für Nummer und Name
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-10)  Artikelsuche: alle VK-Lot-Artikel bei Verkauf anzeigen
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-10)  Navigation History: Zurück-Button merkt sich Herkunft
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-10)  EK-Analyse: Artikelnamen anklickbar → springt zur Artikelsuche
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-09)  EK-Karten horizontal scrollbar (flex-nowrap)
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-09)  EK-Partner: FIND() Filter für Linked Record EK_PartnerID
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-09)  buildEkCard neu geschrieben, loadEkResult aus Original
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-09)  EK-Analyse JS+HTML aus funktionierender Version übernommen
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-09)  ek-partner-results aus verstecktem Div herausverschoben
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-09)  Reset auf Original + PIN Debounce + inputmode fix
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-08)  EK-Suche: Debounce + Partner-Filter NOT({PD_Name}="")
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-08)  EK-Suche: Query direkt übergeben statt über hidden input
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-08)  inputmode numeric entfernt, SW-Version hardcoded, EK-Tabs hidden
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-08)  APP + SW Version nebeneinander im PIN-Screen
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-08)  Versionen konsistent gesetzt (index + sw.js)
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-08)  Version groß im PIN-Screen, Home-Screen aktualisiert
-  v1.3.7  (2026-04-10)  SKU: + Button um weitere Slots hinzuzufügen (default qty, erweiterbar)
-  v1.3.6  (2026-04-07)  Ursprüngliche Basis (hochgeladene funktionierende Version)
+  v1.3.9  (2026-04-11)  Header-Versionierung korrigiert, Duplikate entfernt
+  v1.3.8  (2026-04-10)  SKU: Speichern oder + Weiterer Artikel nach Bestätigung
+  v1.3.7  (2026-04-10)  SKU: + Button für weitere Slots (default qty, erweiterbar)
+  v1.3.6  (2026-04-10)  JP Settings: safe-area padding + zentriert
+  v1.3.5  (2026-04-10)  Versions-Header mit Changelog in index.html eingeführt
+  v1.3.4  (2026-04-10)  Artikelsuche: getrennte Felder für Nummer und Name
+  v1.3.3  (2026-04-10)  Artikelsuche: alle VK-Lot-Artikel bei Verkauf anzeigen
+  v1.3.2  (2026-04-10)  Navigation History: Zurück-Button merkt sich Herkunft
+  v1.3.1  (2026-04-10)  EK-Analyse: Artikelnamen anklickbar → springt zur Artikelsuche
+  v1.3.0  (2026-04-09)  EK-Karten horizontal scrollbar (flex-nowrap)
+  v1.2.9  (2026-04-09)  EK-Partner: FIND() Filter für Linked Record EK_PartnerID
+  v1.2.8  (2026-04-09)  buildEkCard neu, loadEkResult aus Original wiederhergestellt
+  v1.2.7  (2026-04-09)  EK-Analyse JS+HTML aus funktionierender Version übernommen
+  v1.2.6  (2026-04-09)  ek-partner-results aus verstecktem Div herausverschoben
+  v1.2.5  (2026-04-09)  Reset auf Original + PIN Debounce + inputmode fix
+  v1.1.0  (2026-04-08)  Version groß im PIN-Screen, APP + SW nebeneinander
+  v1.0.5  (2026-04-07)  Ursprüngliche Basis (letzte funktionierende Version)
   ─────────────────────────────────────────────────────────────────────────────
 
   FEATURES
   ─────────────────────────────────────────────────────────────────────────────
-  • PIN-Screen mit Debounce (250ms)
-  • JP Import Kalkulator (EK inkl./ohne Kosten Toggle, eBay, Versand VK)
-  • Artikelsuche: Nummer-Suche + Fuzzy-Namenssuche, VK-Lot-Details
-  • SKU Eintragung: Mehrfach-SKU bei qty>1, A- Prefix Toggle
+  • PIN-Screen mit Debounce (250ms), APP + SW Version sichtbar
+  • JP Import Kalkulator (EK inkl./ohne Kosten, eBay, Versand VK)
+  • Artikelsuche: Nummer- und Namenssuche getrennt, VK-Lot-Details
+  • SKU Eintragung: Mehrfach-SKU (Speichern oder + Weiterer), A- Prefix
   • Einkauf Auswertung: Partner + EK-Nummer Suche, Fuzzy-Match
     → EK-Karten horizontal scrollbar
     → Artikel anklickbar → springt zur Artikelsuche
@@ -289,7 +270,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.3.7</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.3.9</div></div>
       <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v31</div></div>
     </div>
   </div>
@@ -321,7 +302,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.3.7</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.3.9</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -874,8 +855,7 @@ function buildSkuCard(rec) {
     '<div class="sku-numpad-display" style="display:flex;align-items:center;gap:10px;justify-content:center">' +
       '<button class="sku-prefix-btn" type="button" style="padding:4px 10px;border-radius:6px;border:.5px solid var(--border);background:var(--card);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation">A-</button>' +
       '<span class="sku-numpad-nr" style="font-size:20px;font-weight:700;letter-spacing:3px">—</span>' +
-      '<span class="sku-slot-indicator" style="font-size:11px;color:var(--muted)">1/' + qty + '</span>' +
-      '<button class="sku-add-slot-btn" type="button" style="padding:4px 8px;border-radius:6px;border:.5px solid var(--border);background:var(--card);color:var(--muted);font-size:16px;font-weight:700;cursor:pointer;touch-action:manipulation">+</button>' +
+      '<span class="sku-slot-indicator" style="font-size:11px;color:var(--muted)"></span>' +
     '</div>' +
     '<div class="sku-numpad">' +
       '<button class="sku-np" type="button">1</button><button class="sku-np" type="button">2</button><button class="sku-np" type="button">3</button>' +
@@ -889,8 +869,9 @@ function buildSkuCard(rec) {
       '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">Gefundener Artikel</div>' +
       '<div class="sku-card-found-name" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">—</div>' +
       '<div class="sku-card-found-meta" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>' +
-      '<div style="display:flex;gap:8px">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
         '<button class="sku-save-btn" style="flex:1;padding:10px;border:none;border-radius:var(--radius-sm);background:var(--green);color:white;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation">✓ Speichern</button>' +
+        '<button class="sku-add-btn" style="flex:1;padding:10px;border:none;border-radius:var(--radius-sm);background:var(--card2);color:var(--text);font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;border:.5px solid var(--border)">+ Weiterer</button>' +
         '<button class="sku-cancel-btn" style="padding:10px 14px;border:.5px solid var(--border);border-radius:var(--radius-sm);background:none;color:var(--muted);font-size:13px;cursor:pointer;touch-action:manipulation">✕</button>' +
       '</div>' +
     '</div>' +
@@ -911,21 +892,10 @@ function buildSkuCard(rec) {
     prefixBtn.addEventListener('touchend', togglePrefix, {passive:false});
   }
   var slotIndicator = card.querySelector('.sku-slot-indicator');
-  var skuSlots = new Array(qty).fill('');
+  var skuSlots = [];
   var currentSlot = 0;
-  var totalSlots = qty;
-
-  // Add slot button
-  var addSlotBtn = card.querySelector('.sku-add-slot-btn');
-  function addSlot(e) {
-    e.preventDefault();
-    totalSlots++;
-    skuSlots.push('');
-    if (slotIndicator) slotIndicator.textContent = (currentSlot+1) + '/' + totalSlots;
-  }
-  addSlotBtn.addEventListener('click', addSlot);
-  addSlotBtn.addEventListener('touchend', addSlot, {passive:false});
   var saveBtn = card.querySelector('.sku-save-btn');
+  var addBtn = card.querySelector('.sku-add-btn');
   var cancelBtn = card.querySelector('.sku-cancel-btn');
   var loading = card.querySelector('.sku-card-loading');
   var error = card.querySelector('.sku-card-error');
@@ -976,26 +946,29 @@ function buildSkuCard(rec) {
     });
   }
 
+  function addAnother() {
+    if (!currentNr) return;
+    skuSlots.push(currentNr);
+    currentNr = null;
+    nrInput = '';
+    nrDisplay.textContent = '—';
+    confirm.style.display = 'none';
+    if (slotIndicator) slotIndicator.textContent = (skuSlots.length+1) + '. SKU';
+    var savedEl = card.querySelector('.sku-saved-list');
+    if (!savedEl) {
+      savedEl = document.createElement('div');
+      savedEl.className = 'sku-saved-list';
+      savedEl.style.cssText = 'margin-bottom:6px;font-size:11px;color:var(--green)';
+      nrDisplay.parentNode.insertAdjacentElement('afterend', savedEl);
+    }
+    savedEl.innerHTML += '<div>✓ ' + escHtml(skuSlots[skuSlots.length-1]) + '</div>';
+  }
+
   function doSave() {
     if (!currentNr) return;
+    skuSlots.push(currentNr);
     confirm.style.display = 'none';
-    if (currentSlot < totalSlots - 1) {
-      currentSlot++;
-      nrInput = '';
-      nrDisplay.textContent = '—';
-      if (slotIndicator) slotIndicator.textContent = (currentSlot+1) + '/' + qty;
-      var savedEl = card.querySelector('.sku-saved-list');
-      if (!savedEl) {
-        savedEl = document.createElement('div');
-        savedEl.className = 'sku-saved-list';
-        savedEl.style.cssText = 'margin-bottom:6px;font-size:11px;color:var(--green)';
-        nrDisplay.parentNode.insertAdjacentElement('afterend', savedEl);
-      }
-      savedEl.innerHTML += '<div>✓ ' + escHtml(currentNr) + '</div>';
-      currentNr = null;
-      return;
-    }
-    var allSkus = skuSlots.slice(0, totalSlots).filter(Boolean).join(',');
+    var allSkus = skuSlots.filter(Boolean).join(',');
     atPatch('PlattformImport_2026', recId, {'PIMP_SKU': allSkus}, function(err, data) {
       if (!err && data.id) {
         success.style.display = '';
@@ -1007,9 +980,12 @@ function buildSkuCard(rec) {
       }
     });
   }
-
   saveBtn.addEventListener('click', doSave);
   saveBtn.addEventListener('touchend', function(e){ e.preventDefault(); doSave(); }, {passive:false});
+  if (addBtn) {
+    addBtn.addEventListener('click', addAnother);
+    addBtn.addEventListener('touchend', function(e){ e.preventDefault(); addAnother(); }, {passive:false});
+  }
   cancelBtn.addEventListener('click', function(){ confirm.style.display='none'; nrInput=''; nrDisplay.textContent='—'; });
 
   return card;
