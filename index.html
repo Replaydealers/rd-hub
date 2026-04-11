@@ -238,6 +238,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 @media (max-width: 768px) {
   .ek-select-card { min-width: calc(85vw); max-width: calc(85vw); }
 }
+
+.menu-nav-item{padding:14px 20px;font-size:15px;color:var(--text);cursor:pointer;touch-action:manipulation;border-bottom:.5px solid var(--border)}
+.menu-nav-item:hover{background:var(--card2)}
+.menu-btn{width:36px;height:36px;border-radius:50%;border:.5px solid var(--border);background:var(--card2);color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -248,7 +252,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.4.0</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.4.2</div></div>
       <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v35</div></div>
     </div>
   </div>
@@ -280,7 +284,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.4.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.4.2</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -297,6 +301,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 <!-- JP KALKULATOR -->
 <div class="screen hidden" id="screen-jp">
   <div class="sub-header">
+    <button class="menu-btn" onclick="openMenu()">☰</button>
     <button class="back-btn" id="btn-back-jp">←</button>
     <div class="sub-header-title">JP Import Kalkulator</div>
     <span id="kurs-status" style="font-size:11px;color:var(--hint);margin-left:auto;">wird geladen…</span>
@@ -367,6 +372,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 <!-- ARTIKELSUCHE -->
 <div class="screen hidden" id="screen-artikel">
   <div class="sub-header">
+    <button class="menu-btn" onclick="openMenu()">☰</button>
     <button class="back-btn" id="btn-back-artikel">←</button>
     <div class="sub-header-title">Artikelsuche</div>
   </div>
@@ -377,9 +383,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
         <div class="s-input-wrap" style="flex:1"><input type="number" inputmode="numeric" id="a-nr" placeholder="Artikelnummer" onkeydown="if(event.key==='Enter')doArtikelNrSearch()" /></div>
         <button class="s-search-btn" onclick="doArtikelNrSearch()">Nr</button>
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
         <div class="s-input-wrap" style="flex:1"><input type="text" id="a-name" placeholder="Name suchen" onkeydown="if(event.key==='Enter')doArtikelNameSearch()" /></div>
         <button class="s-search-btn" id="btn-a-search" onclick="doArtikelNameSearch()">Name</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap">Fuzzy</span>
+        <input type="range" id="a-fuzzy-threshold" min="50" max="100" value="75" step="5" style="flex:1;accent-color:var(--accent)" oninput="document.getElementById('a-fuzzy-val').textContent=this.value+'%'" />
+        <span id="a-fuzzy-val" style="font-size:11px;color:var(--muted);width:32px;text-align:right">75%</span>
       </div>
       <div class="s-loading" id="a-loading">Wird geladen…</div>
       <div class="s-error" id="a-error">Artikel nicht gefunden.</div>
@@ -410,6 +421,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 <!-- SKU EINTRAGUNG -->
 <div class="screen hidden" id="screen-sku">
   <div class="sub-header">
+    <button class="menu-btn" onclick="openMenu()">☰</button>
     <button class="back-btn" id="btn-back-sku">←</button>
     <div class="sub-header-title">SKU Eintragung</div>
     <button class="s-search-btn" id="btn-sku-reload" style="margin-left:auto;font-size:12px;padding:0 12px;height:32px;">↻ Neu laden</button>
@@ -500,9 +512,15 @@ document.getElementById('btn-lock').addEventListener('touchend', function(e){ e.
 function addNav(btnId, screenId, onShow) {
   var btn = document.getElementById(btnId);
   if (!btn) return;
-  function go(e){ e.preventDefault(); if(screenId) showScreen(screenId); if(onShow) onShow(); }
+  var _t = 0;
+  function go(e) {
+    if(e.cancelable) e.preventDefault();
+    var now = Date.now(); if(now-_t<300) return; _t=now;
+    if(screenId) showScreen(screenId);
+    if(onShow) onShow();
+  }
   btn.addEventListener('touchend', go, {passive:false});
-  btn.addEventListener('click', function(){ if(screenId) showScreen(screenId); if(onShow) onShow(); });
+  btn.addEventListener('click', go);
 }
 addNav('tile-jp', 'screen-jp');
 addNav('tile-artikel', 'screen-artikel');
@@ -641,7 +659,7 @@ function doArtikelNameSearch() {
     if(err||!data.records||!data.records.length){ document.getElementById('a-error').style.display=''; return; }
     var scored = data.records.map(function(r){
       return {r:r, score:fuzzyMatch(query, r.fields['ITEM_Artikel']||'', 0.75)};
-    }).filter(function(x){ return x.score >= 0.75; }).sort(function(a,b){ return b.score-a.score; });
+    }).filter(function(x){ var thr=(parseInt(document.getElementById('a-fuzzy-threshold').value)||75)/100; return x.score >= thr; }).sort(function(a,b){ return b.score-a.score; });
     if (!scored.length) { document.getElementById('a-error').style.display=''; return; }
     if (scored.length > 1) {
       var card = document.getElementById('a-result-card');
@@ -1001,6 +1019,7 @@ function doEkLotSearch() {
     if (!scored.length) { ekShowError('Kein Einkauf gefunden.'); return; }
     if (scored.length === 1) { loadEkResult(scored[0].rec); return; }
     var wrap = document.getElementById('ek-partner-results');
+    wrap.style.cssText='display:flex;flex-wrap:nowrap;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding-bottom:4px';
     scored.slice(0,5).forEach(function(x){ wrap.appendChild(buildEkCard(x.rec)); });
   });
 }
@@ -1012,15 +1031,22 @@ function doEkPartnerSearch() {
     ekShowLoading(false);
     if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
     var scored = data.records.map(function(rec){
-      var f=rec.fields; var display=f['PD_Anzeigename']||((f['PD_Vorname']||'')+' '+(f['PD_Name']||'')).trim();
-      return {rec:rec, display:display, score:Math.max(fuzzyMatch(name,display,0.75),fuzzyMatch(name,f['PD_Name']||'',0.75))};
+      var f=rec.fields;
+      var shortName = f['PD_Name']||'';
+      var vorname = f['PD_Vorname']||'';
+      var anzeige = f['PD_Anzeigename']||'';
+      var anzeigShort = anzeige.split(' ')[0];
+      var display = anzeige || (vorname+' '+shortName).trim();
+      var score = Math.max(fuzzyMatch(name,anzeigShort,0.75),fuzzyMatch(name,shortName,0.75),fuzzyMatch(name,vorname,0.75));
+      return {rec:rec, display:display, score:score};
     }).filter(function(x){ return x.score >= 0.75; }).sort(function(a,b){ return b.score-a.score; });
     if (!scored.length) { ekShowError('Kein Partner gefunden.'); return; }
     if (scored.length === 1) { loadEkByPartner(scored[0].rec.fields['PD_ID'], scored[0].rec.id); return; }
     var wrap = document.getElementById('ek-partner-results');
     scored.forEach(function(x){
       var div=document.createElement('div'); div.className='ek-partner-item';
-      div.textContent=x.display+' ('+Math.round(x.score*100)+'%)';
+      div.style.cssText='display:flex;justify-content:space-between;align-items:center';
+      div.innerHTML='<span>'+escHtml(x.display)+'</span><span style="color:var(--muted);font-size:11px;flex-shrink:0;margin-left:8px">'+Math.round(x.score*100)+'%</span>';
       var pdId=x.rec.fields['PD_ID']; var recId=x.rec.id;
       function go(e){ if(e.cancelable) e.preventDefault(); loadEkByPartner(pdId, recId); }
       div.addEventListener('click',go); div.addEventListener('touchend',go,{passive:false});
@@ -1036,6 +1062,7 @@ function loadEkByPartner(pdId, partnerRecId) {
     ekShowLoading(false);
     if (err || !data.records || !data.records.length) { ekShowError('Keine Einkäufe gefunden.'); return; }
     var wrap = document.getElementById('ek-partner-results');
+    wrap.style.cssText='display:flex;flex-wrap:nowrap;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding-bottom:4px';
     data.records.forEach(function(rec){ wrap.appendChild(buildEkCard(rec)); });
   });
 }
@@ -1052,11 +1079,26 @@ function buildEkCard(rec) {
   return card;
 }
 
+function openMenu() { 
+  document.getElementById('menu-overlay').style.display='block';
+  document.getElementById('menu-drawer').style.display='flex';
+}
+function closeMenu() {
+  document.getElementById('menu-overlay').style.display='none';
+  document.getElementById('menu-drawer').style.display='none';
+}
+function navTo(screenId, onShow) {
+  closeMenu();
+  showScreen(screenId);
+  if(onShow) onShow();
+}
+
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 <!-- EK AUSWERTUNG -->
 <div class="screen hidden" id="screen-ek">
   <div class="sub-header">
+    <button class="menu-btn" onclick="openMenu()">☰</button>
     <button class="back-btn" id="btn-back-ek">←</button>
     <div class="sub-header-title">Einkauf Auswertung</div>
   </div>
@@ -1081,7 +1123,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
       </div>
       <div class="s-loading" id="ek-search-loading">Wird geladen…</div>
       <div class="s-error" id="ek-search-error"></div>
-      <div id="ek-partner-results" style="margin-top:10px;display:flex;flex-wrap:nowrap;gap:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;padding-bottom:4px;"></div>
+      <div id="ek-partner-results" style="margin-top:10px;"></div>
     </div>
     <div id="ek-result" style="display:none">
       <div class="s-card">
@@ -1112,5 +1154,23 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   </div>
 </div>
 
+
+<!-- MENU OVERLAY -->
+<div id="menu-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;touch-action:none" onclick="closeMenu()"></div>
+<div id="menu-drawer" style="display:none;position:fixed;top:0;left:0;bottom:0;width:260px;background:var(--card);z-index:101;flex-direction:column;padding-top:env(safe-area-inset-top);box-shadow:4px 0 24px rgba(0,0,0,.4)">
+  <div style="padding:16px 20px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:16px;font-weight:700">RD Hub</div>
+    <button onclick="closeMenu()" style="width:32px;height:32px;border:none;background:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+  </div>
+  <div style="padding:8px 0;flex:1;overflow-y:auto">
+    <div class="menu-nav-item" onclick="navTo('screen-jp')">🇯🇵 JP Import Kalkulator</div>
+    <div class="menu-nav-item" onclick="navTo('screen-artikel')">🔍 Artikelsuche</div>
+    <div class="menu-nav-item" onclick="navTo('screen-sku', loadPimp)">📦 SKU Eintragung</div>
+    <div class="menu-nav-item" onclick="navTo('screen-ek')">📊 Einkauf Auswertung</div>
+    <div style="height:.5px;background:var(--border);margin:8px 0"></div>
+    <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
+  </div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.4.2 / rd-hub-v37</div>
+</div>
 </body>
 </html>
