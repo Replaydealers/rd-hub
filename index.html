@@ -793,6 +793,7 @@ document.getElementById('btn-load-kalk').addEventListener('click', function(){
 
 // ── SKU EINTRAGUNG ──
 function loadPimp() {
+  console.log('loadPimp called, screen visible:', document.getElementById('screen-sku').classList.contains('hidden'));
   var wrap = document.getElementById('sku-cards-wrap');
   wrap.innerHTML = '';
   document.getElementById('sku-list-error').style.display = 'none';
@@ -801,6 +802,7 @@ function loadPimp() {
     'AND({PIMP_RowType}="Bestellung",OR({PIMP_Processed}="false",{PIMP_Processed}="clearing"),{PIMP_SKU}="")',
     ['PIMP_Title','PIMP_BuyerName','PIMP_OrderId','PIMP_TransactionDate','PIMP_Quantity'],
     function(err, data) {
+      console.log('PIMP result:', JSON.stringify(err), data ? data.records.length : 'no data');
       document.getElementById('sku-list-loading').style.display = 'none';
       if (err || !data.records || !data.records.length) {
         document.getElementById('sku-list-error').textContent = err ? 'Verbindungsfehler.' : 'Keine offenen Bestellungen ohne SKU.';
