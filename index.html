@@ -1,13 +1,20 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  1.4.0
-  SW Cache: rd-hub-v35
+  Version:  1.4.6
+  SW Cache: rd-hub-v39
+  Build:    2026-04-25 13:59
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
-  v1.4.0  (2026-04-11)  Artikelsuche: getrennte Nr/Name Suche, showArtikelResult fix
+  v1.4.6  (2026-04-25 13:59)  SKU doppelter loadPimp Fix
+  v1.4.5  (2026-04-25)  Build-Timestamp auf PIN-Screen, Versionen hochgezählt
+  v1.4.4  (2026-04-25)  SKU: addAnother not defined Fix
+  v1.4.3  (2026-04-25)  Partner-Suche: Filter NOT({PD_Name}=""), Schwelle 50%
+  v1.4.2  (2026-04-25)  Zurück-Button Fix, Hamburger-Menü hinzugefügt
+  v1.4.1  (2026-04-25)  Partner-Fuzzy: nur Kurzname, Artikel-Fuzzy-Slider
+  v1.4.0  (2026-04-11)  Artikelsuche: Nr/Name getrennt, showArtikelResult fix
   v1.3.9  (2026-04-11)  Header-Versionierung korrigiert
   v1.3.8  (2026-04-10)  SKU: Speichern oder + Weiterer Artikel
   v1.3.7  (2026-04-10)  SKU: + Button für weitere Slots
@@ -252,9 +259,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.4.4</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v35</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.4.6</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v39</div></div>
     </div>
+    <div style="margin-top:6px;font-size:10px;color:var(--hint)">Build: 2026-04-25 13:59</div>
   </div>
   <div class="pin-display">
     <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
@@ -284,7 +292,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.4.4</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.4.6</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -793,7 +801,8 @@ document.getElementById('btn-load-kalk').addEventListener('click', function(){
 
 // ── SKU EINTRAGUNG ──
 function loadPimp() {
-  console.log('loadPimp called, screen visible:', document.getElementById('screen-sku').classList.contains('hidden'));
+  if (loadPimp._loading) return; loadPimp._loading = true;
+  setTimeout(function(){ loadPimp._loading = false; }, 2000);
   var wrap = document.getElementById('sku-cards-wrap');
   wrap.innerHTML = '';
   document.getElementById('sku-list-error').style.display = 'none';
@@ -802,7 +811,6 @@ function loadPimp() {
     'AND({PIMP_RowType}="Bestellung",OR({PIMP_Processed}="false",{PIMP_Processed}="clearing"),{PIMP_SKU}="")',
     ['PIMP_Title','PIMP_BuyerName','PIMP_OrderId','PIMP_TransactionDate','PIMP_Quantity'],
     function(err, data) {
-      console.log('PIMP result:', JSON.stringify(err), data ? data.records.length : 'no data');
       document.getElementById('sku-list-loading').style.display = 'none';
       if (err || !data.records || !data.records.length) {
         document.getElementById('sku-list-error').textContent = err ? 'Verbindungsfehler.' : 'Keine offenen Bestellungen ohne SKU.';
