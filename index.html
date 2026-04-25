@@ -252,7 +252,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.4.2</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.4.3</div></div>
       <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v35</div></div>
     </div>
   </div>
@@ -284,7 +284,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.4.2</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.4.3</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -793,6 +793,7 @@ document.getElementById('btn-load-kalk').addEventListener('click', function(){
 
 // ── SKU EINTRAGUNG ──
 function loadPimp() {
+  console.log('loadPimp called');
   var wrap = document.getElementById('sku-cards-wrap');
   wrap.innerHTML = '';
   document.getElementById('sku-list-error').style.display = 'none';
@@ -801,6 +802,7 @@ function loadPimp() {
     'AND({PIMP_RowType}="Bestellung",OR({PIMP_Processed}="false",{PIMP_Processed}="clearing"),{PIMP_SKU}="")',
     ['PIMP_Title','PIMP_BuyerName','PIMP_OrderId','PIMP_TransactionDate','PIMP_Quantity'],
     function(err, data) {
+      console.log('PIMP result:', err, data && data.records && data.records.length);
       document.getElementById('sku-list-loading').style.display = 'none';
       if (err || !data.records || !data.records.length) {
         document.getElementById('sku-list-error').textContent = err ? 'Verbindungsfehler.' : 'Keine offenen Bestellungen ohne SKU.';
@@ -1027,7 +1029,7 @@ function doEkPartnerSearch() {
   var name = document.getElementById('ek-partner-input').value.trim(); if (!name) return;
   ekShowLoading(true);
   document.getElementById('ek-partner-results').innerHTML = '';
-  atGet('Partnerdaten_2026', '{PD_Anzeigename}!=""', ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'], function(err, data) {
+  atGet('Partnerdaten_2026', 'NOT({PD_Name}="")', ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'], function(err, data) {
     ekShowLoading(false);
     if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
     var scored = data.records.map(function(rec){
@@ -1037,9 +1039,9 @@ function doEkPartnerSearch() {
       var anzeige = f['PD_Anzeigename']||'';
       var anzeigShort = anzeige.split(' ')[0];
       var display = anzeige || (vorname+' '+shortName).trim();
-      var score = Math.max(fuzzyMatch(name,anzeigShort,0.75),fuzzyMatch(name,shortName,0.75),fuzzyMatch(name,vorname,0.75));
+      var score = Math.max(fuzzyMatch(name,anzeigShort,0.5),fuzzyMatch(name,shortName,0.5),fuzzyMatch(name,vorname,0.5));
       return {rec:rec, display:display, score:score};
-    }).filter(function(x){ return x.score >= 0.75; }).sort(function(a,b){ return b.score-a.score; });
+    }).filter(function(x){ return x.score >= 0.5; }).sort(function(a,b){ return b.score-a.score; });
     if (!scored.length) { ekShowError('Kein Partner gefunden.'); return; }
     if (scored.length === 1) { loadEkByPartner(scored[0].rec.fields['PD_ID'], scored[0].rec.id); return; }
     var wrap = document.getElementById('ek-partner-results');
