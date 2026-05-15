@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.0.0
-  SW Cache: rd-hub-v48
+  Version:  2.0.1
+  SW Cache: rd-hub-v49
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.0.1  (2026-05-16)  Echte ITEM-Feldnamen, Marge statt Reingewinn, Listing-Preis statt Mindest-VK
   v2.0.0  (2026-05-15)  Artikelsuche überarbeitet — Cache, Status-Filter, Trefferliste-Info, Sortierung, Scroll-Fix, Zurück-Pfeil, Detail-Cleanup
   v1.10.0 (2026-05-15)  Partner-Info gefixt, Hinweis-Icon bei unvollständigem Partner, Partner bearbeiten, Zurück-Pfeil Navigation
   v1.9.0  (2026-05-15)  IBAN+Land im Partner-Panel, Partner-Info-Anzeige mit Rolle-Auto-Upgrade, Lieferant-Markierung gefixt
@@ -395,8 +396,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.0.0</span>
-      <span>SW rd-hub-v48</span>
+      <span>APP v2.0.1</span>
+      <span>SW rd-hub-v49</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -429,7 +430,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.0.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.0.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -575,7 +576,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
       <div class="s-breakdown" style="margin-bottom:14px">
         <div class="s-brow"><span class="bl">EK-Preis</span><span class="br" id="a-ek">—</span></div>
         <div class="s-brow"><span class="bl">EK-Lot</span><span class="br" id="a-ek-lot">—</span></div>
-        <div class="s-brow"><span class="bl">Mindest-VK</span><span class="br" id="a-minvk">—</span></div>
+        <div class="s-brow"><span class="bl">Listing-Preis</span><span class="br" id="a-minvk">—</span></div>
       </div>
       <div class="s-card-title">Status &amp; Verkauf</div>
       <div class="s-breakdown" style="margin-bottom:14px">
@@ -821,8 +822,8 @@ function fetchRate() {
 // ── ARTIKELSUCHE ──
 // Cache + Detail: ALLE Felder, die wir für Suche, Filter, Trefferliste und Detail-Ansicht brauchen.
 var ARTIKEL_CACHE_FIELDS = [
-  'ITEM_Artikelnummer','ITEM_Artikel','ITEM_Kategorie','ITEM_Konsole','ITEM_Komponente',
-  'ITEM_EK_Preis','ITEM_Mindest_VK','ITEM_VK_Preis','ITEM_Reingewinn',
+  'ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_Zustand','ITEM_Art',
+  'ITEM_EK_Preis','ITEM_Listing_Preis','ITEM_VK_Preis','ITEM_Marge',
   'ITEM_Status','ITEM_Listing_Datum','ITEM_EK_Lot','ITEM_VK_Lot'
 ];
 
@@ -976,18 +977,18 @@ function renderArtikelResults(results, hadQuery) {
     var name = f['ITEM_Artikel'] || '—';
     var status = f['ITEM_Status'] || '';
     var ek = f['ITEM_EK_Preis'];
-    var minvk = f['ITEM_Mindest_VK'];
+    var listing = f['ITEM_Listing_Preis'];
     var vk = f['ITEM_VK_Preis'];
-    var gewinn = f['ITEM_Reingewinn'];
+    var marge = f['ITEM_Marge'];
 
     var bottomLine = '';
     if (status === 'auf Lager' || status === 'unterwegs') {
-      bottomLine = 'EK ' + fmtEurOrDash(ek) + ' · Mindest-VK ' + fmtEurOrDash(minvk);
+      bottomLine = 'EK ' + fmtEurOrDash(ek) + ' · Listing ' + fmtEurOrDash(listing);
     } else if (status === 'verkauft') {
-      var gewinnNum = parseFloat(gewinn);
-      var gClass = isNaN(gewinnNum) ? '' : (gewinnNum >= 0 ? 'gewinn-pos' : 'gewinn-neg');
-      var gewinnHtml = isNaN(gewinnNum) ? '—' : '<span class="' + gClass + '">' + gewinnNum.toFixed(2) + ' €</span>';
-      bottomLine = 'EK ' + fmtEurOrDash(ek) + ' · VK ' + fmtEurOrDash(vk) + ' · Gew. ' + gewinnHtml;
+      var margeNum = parseFloat(marge);
+      var mClass = isNaN(margeNum) ? '' : (margeNum >= 0 ? 'gewinn-pos' : 'gewinn-neg');
+      var margeHtml = isNaN(margeNum) ? '—' : '<span class="' + mClass + '">' + margeNum.toFixed(2) + ' €</span>';
+      bottomLine = 'EK ' + fmtEurOrDash(ek) + ' · VK ' + fmtEurOrDash(vk) + ' · Marge ' + margeHtml;
     } else if (status.indexOf('Abschreibung') === 0) {
       bottomLine = 'EK ' + fmtEurOrDash(ek) + ' · abgeschrieben';
     } else {
@@ -1071,7 +1072,7 @@ function openArtikelDetail(rec) {
   var konsole = [f['ITEM_Konsole'], f['ITEM_Komponente']].filter(Boolean).join(' · ');
   document.getElementById('a-konsole').textContent = konsole || 'nicht gesetzt';
   document.getElementById('a-ek').textContent = fmtEur(f['ITEM_EK_Preis']);
-  document.getElementById('a-minvk').textContent = fmtEur(f['ITEM_Mindest_VK']);
+  document.getElementById('a-minvk').textContent = fmtEur(f['ITEM_Listing_Preis']);
   document.getElementById('a-status').textContent = f['ITEM_Status'] || 'nicht gesetzt';
   document.getElementById('a-datum').textContent = f['ITEM_Listing_Datum'] || 'nicht gesetzt';
   document.getElementById('a-vk-preis').textContent = fmtEur(f['ITEM_VK_Preis']);
@@ -1129,7 +1130,7 @@ function openArtikelDetail(rec) {
               html += '<div class="ek-artikel-row"><div class="ek-artikel-name">'+escHtml(af['ITEM_Artikel']||'—')+'</div><div class="ek-artikel-ek">€'+ek.toFixed(2)+'</div><div class="ek-artikel-vk">€'+vk.toFixed(2)+'</div><div class="ek-artikel-gewinn '+(diff>=0?'pos':'neg')+'">€'+diff.toFixed(2)+'</div></div>';
             });
             var rg = vf['VK_Reingewinn'] || 0;
-            html += '<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:700;border-top:.5px solid var(--border);margin-top:4px"><span style="color:var(--muted)">VK_Reingewinn</span><span style="color:'+(rg>=0?'#1D9E75':'var(--accent)')+'">€'+rg.toFixed(2)+'</span></div></div>';
+            html += '<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:700;border-top:.5px solid var(--border);margin-top:4px"><span style="color:var(--muted)">Marge gesamt</span><span style="color:'+(rg>=0?'#1D9E75':'var(--accent)')+'">€'+rg.toFixed(2)+'</span></div></div>';
             var existing = card.querySelector('.vk-lot-detail');
             if (existing) existing.remove();
             var div = document.createElement('div'); div.className = 'vk-lot-detail'; div.innerHTML = html;
@@ -1153,7 +1154,7 @@ function closeArtikelDetail() {
 document.getElementById('btn-load-kalk').addEventListener('click', function(){
   if (!lastArtikel) return;
   if (lastArtikel['ITEM_EK_Preis']) { document.getElementById('ek_eur').value = lastArtikel['ITEM_EK_Preis'].toFixed(2); document.getElementById('ek_eur').dispatchEvent(new Event('input')); }
-  if (lastArtikel['ITEM_Mindest_VK']) { document.getElementById('vk').value = lastArtikel['ITEM_Mindest_VK'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
+  if (lastArtikel['ITEM_Listing_Preis']) { document.getElementById('vk').value = lastArtikel['ITEM_Listing_Preis'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
   showScreen('screen-jp');
 });
 
@@ -2841,7 +2842,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.0.0 / rd-hub-v48</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.0.1 / rd-hub-v49</div>
 </div>
 </body>
 </html>
