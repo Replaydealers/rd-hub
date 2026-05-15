@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  1.7.0
-  SW Cache: rd-hub-v43
+  Version:  1.7.1
+  SW Cache: rd-hub-v44
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v1.7.1  (2026-05-15)  Dropdown-Optionen an Airtable angeglichen, Abschließen-Navigation gefixt
   v1.7.0  (2026-05-15)  BA-Review: 5 Buttons, Fuzzy-Partner-Suche über 6 Felder, Partner-Anlage-Dialog
   v1.6.0  (2026-05-15)  Login-Screen mit Logo + dynamischem Build-Datum, BA_USt_Satz als Single-Select-String
   v1.5.1  (2026-05-15)  BA-Review: BA_Lieferant Schreibfehler gefixt, Label Rechnungsnummer
@@ -324,8 +325,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v1.7.0</span>
-      <span>SW rd-hub-v43</span>
+      <span>APP v1.7.1</span>
+      <span>SW rd-hub-v44</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -358,7 +359,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.7.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.7.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1322,14 +1323,11 @@ function populateBaForm(rec) {
   document.getElementById('ba-bezeichnung').value = f['BA_Bezeichnung'] || '';
   document.getElementById('ba-brutto').value = f['BA_Brutto'] != null ? f['BA_Brutto'] : '';
 
-  var satz = f['BA_USt_Satz'];
-  if (satz != null) {
-    var satzNum = typeof satz === 'string' ? parseFloat(satz) : satz;
-    if (satzNum > 0 && satzNum < 1) satzNum = satzNum * 100;
-    document.getElementById('ba-ust-satz').value = String(Math.round(satzNum));
-  } else {
-    document.getElementById('ba-ust-satz').value = '19';
-  }
+  // BA_USt_Satz: Single-Select-String aus Airtable. Option-Values matchen direkt.
+  // parseFloat() in baCalc verarbeitet "0%"/"7%"/"19%"/"0% / Reverse Charge" korrekt.
+  document.getElementById('ba-ust-satz').value = (f['BA_USt_Satz'] != null && f['BA_USt_Satz'] !== '')
+    ? String(f['BA_USt_Satz'])
+    : '19%';
 
   document.getElementById('ba-netto').value = f['BA_Netto'] != null ? f['BA_Netto'] : '';
   document.getElementById('ba-ust-betrag').value = f['BA_USt_Betrag'] != null ? f['BA_USt_Betrag'] : '';
@@ -1441,10 +1439,12 @@ function openPartnerModal(prefillName) {
   document.getElementById('pm-typ').value = 'Unternehmen';
   document.getElementById('pm-rolle').value = 'BA-Lieferant';
 
-  // USt-Status aus aktueller BA übernehmen
-  var baSatzVal = document.getElementById('ba-ust-satz').value; // "0"/"7"/"19"
-  if (baSatzVal === '0' || baSatzVal === '7' || baSatzVal === '19') {
-    document.getElementById('pm-ust-status').value = baSatzVal + '%';
+  // USt-Status aus aktueller BA übernehmen — BA_USt_Satz kann "0%"/"7%"/"19%"/"0% / Reverse Charge" sein.
+  // PD_USt_Status kennt nur "0%","7%","19%" → Reverse Charge fällt auf "0%" zurück.
+  var baSatzVal = document.getElementById('ba-ust-satz').value;
+  var pmMatch = baSatzVal.match(/^(\d+)%/);
+  if (pmMatch && ['0','7','19'].indexOf(pmMatch[1]) >= 0) {
+    document.getElementById('pm-ust-status').value = pmMatch[1] + '%';
   }
 
   // Firmenname aus Suchbegriff vorbefüllen
@@ -1538,9 +1538,10 @@ function collectBaFields() {
     'BA_Datum': s('ba-datum'),
     'BA_Bezeichnung': s('ba-bezeichnung'),
     'BA_Brutto': n('ba-brutto'),
-    // BA_USt_Satz ist ein Single-Select in Airtable mit Optionen "0%","7%","19%"
-    // → als String schreiben. Intern (baCalc) wird weiterhin mit Dezimal gerechnet.
-    'BA_USt_Satz': document.getElementById('ba-ust-satz').value + '%',
+    // BA_USt_Satz ist ein Single-Select in Airtable mit Optionen
+    // "0%","7%","19%","0% / Reverse Charge" — die Option-Values matchen exakt.
+    // Intern (baCalc) wird weiterhin mit Dezimal gerechnet via parseFloat().
+    'BA_USt_Satz': document.getElementById('ba-ust-satz').value,
     'BA_Netto': n('ba-netto'),
     'BA_USt_Betrag': n('ba-ust-betrag'),
     'BA_Kategorie': sel('ba-kategorie'),
@@ -1560,6 +1561,15 @@ function baSave(opts) {
   if (!baCurrentRec) return;
   var fields = collectBaFields();
   fields['BA_Status'] = opts.targetStatus;
+
+  // Position der aktuellen BA in der sortierten Liste festhalten — wird nach
+  // dem Entfernen aus dem Cache (Abschließen) gebraucht, um die nächste BA
+  // an der gleichen Listenposition zu laden.
+  var sortedBefore = baSortRecords(baList);
+  var originalIdx = -1;
+  for (var i = 0; i < sortedBefore.length; i++) {
+    if (sortedBefore[i].id === baCurrentRec.id) { originalIdx = i; break; }
+  }
 
   var msg = document.getElementById('ba-save-msg');
   msg.textContent = 'Speichere…';
@@ -1602,7 +1612,7 @@ function baSave(opts) {
     }
 
     if (opts.afterSave === 'next') {
-      var nextRec = baFindNext(currentId);
+      var nextRec = baFindNext(currentId, originalIdx);
       if (nextRec) {
         msg.textContent = (opts.successMsg || '✓ Gespeichert') + '. Lade nächste…';
         msg.style.color = 'var(--green)';
@@ -1614,13 +1624,21 @@ function baSave(opts) {
   });
 }
 
-function baFindNext(currentId) {
+// Liefert die nächste BA zum aktuell bearbeiteten Datensatz.
+// originalIdx = Position der aktuellen BA in der sortierten Liste *vor* dem Save (nur bei Approve relevant).
+// - Aktuelle BA noch im Cache (Weiter): Position+1 in der sortierten Liste.
+// - Aktuelle BA entfernt (Abschließen): gleiche Index-Position in der verkürzten Liste, also die
+//   BA, die zuvor an originalIdx+1 stand und nun nach oben gerückt ist.
+function baFindNext(currentId, originalIdx) {
   var sorted = baSortRecords(baList);
   for (var i = 0; i < sorted.length; i++) {
-    if (sorted[i].id === currentId && i + 1 < sorted.length) return sorted[i + 1];
+    if (sorted[i].id === currentId) {
+      return i + 1 < sorted.length ? sorted[i + 1] : null;
+    }
   }
-  // Current not in list (e.g. removed after approve) → erste verbleibende
-  if (sorted.length && !sorted.some(function(r){ return r.id === currentId; })) return sorted[0];
+  if (typeof originalIdx === 'number' && originalIdx >= 0 && originalIdx < sorted.length) {
+    return sorted[originalIdx];
+  }
   return null;
 }
 
@@ -1843,9 +1861,10 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <div class="ba-field"><label>Brutto (€)</label><input type="number" step="0.01" id="ba-brutto" /></div>
         <div class="ba-field"><label>USt-Satz</label>
           <select id="ba-ust-satz">
-            <option value="0">0%</option>
-            <option value="7">7%</option>
-            <option value="19" selected>19%</option>
+            <option value="0%">0%</option>
+            <option value="7%">7%</option>
+            <option value="19%" selected>19%</option>
+            <option value="0% / Reverse Charge">0% / Reverse Charge</option>
           </select>
         </div>
       </div>
@@ -1859,31 +1878,30 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <div class="ba-field"><label>Kategorie</label>
           <select id="ba-kategorie">
             <option value="">—</option>
-            <option>Versandkosten</option>
-            <option>Verpackung</option>
-            <option>Plattform-Gebühren</option>
-            <option>Büroausstattung</option>
-            <option>Software</option>
-            <option>Werkzeug</option>
             <option>Warenersatzteile</option>
-            <option>Miete</option>
-            <option>Versicherung</option>
-            <option>Werbekosten</option>
-            <option>Bankgebühren</option>
+            <option>Verpackung</option>
+            <option>Versandkosten</option>
+            <option>Büroausstattung</option>
+            <option>Werkzeug</option>
+            <option>Software</option>
+            <option>Plattform-Gebühren</option>
             <option>Fahrtkosten</option>
+            <option>Miete</option>
             <option>Sonstiges</option>
+            <option>Versicherung</option>
+            <option>Bankgebühren</option>
+            <option>Werbekosten</option>
           </select>
         </div>
         <div class="ba-field"><label>Zahlweg</label>
           <select id="ba-zahlweg">
             <option value="">—</option>
-            <option>SEPA Lastschrift</option>
             <option>Überweisung</option>
-            <option>PayPal</option>
-            <option>Karte</option>
-            <option>Kreditkarte</option>
+            <option>Paypal</option>
+            <option>bar</option>
             <option>eBay</option>
-            <option>Shopify</option>
+            <option>Lastschrift</option>
+            <option>Karte</option>
           </select>
         </div>
       </div>
@@ -2017,7 +2035,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.7.0 / rd-hub-v43</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.7.1 / rd-hub-v44</div>
 </div>
 </body>
 </html>
