@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  1.5.1
-  SW Cache: rd-hub-v41
-  Build:    2026-05-15
+  Version:  1.6.0
+  SW Cache: rd-hub-v42
+  Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v1.6.0  (2026-05-15)  Login-Screen mit Logo + dynamischem Build-Datum, BA_USt_Satz als Single-Select-String
   v1.5.1  (2026-05-15)  BA-Review: BA_Lieferant Schreibfehler gefixt, Label Rechnungsnummer
   v1.5.0  (2026-05-15)  BA-Review: Liste + Detail mit PDF, Auto-USt, Partner-Suche
   v1.4.7  (2026-04-27 14:49)  Service Worker no-cache
@@ -60,6 +61,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .lock-logo{margin-bottom:32px;text-align:center}
 .lock-logo .rd{font-size:13px;font-weight:700;letter-spacing:.2em;color:var(--accent);text-transform:uppercase;margin-bottom:4px}
 .lock-logo .name{font-size:26px;font-weight:700;color:var(--text);letter-spacing:-.5px}
+.lock-img{width:140px;height:auto;display:block;margin:0 auto 18px;user-select:none;-webkit-user-select:none;pointer-events:none}
+.lock-versions{margin-top:14px;display:flex;gap:14px;justify-content:center;font-size:11px;color:var(--hint);letter-spacing:.04em}
+.lock-versions span{font-weight:600}
+.lock-build{margin-top:14px;font-size:17px;font-weight:500;color:#dcdce8;letter-spacing:.02em}
+.lock-build-label{font-size:9px;color:var(--hint);letter-spacing:.18em;text-transform:uppercase;margin-bottom:3px}
 .pin-display{display:flex;gap:12px;margin-bottom:32px;justify-content:center}
 .pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);transition:all .15s}
 .pin-dot.filled{background:var(--accent);border-color:var(--accent);transform:scale(1.1)}
@@ -295,13 +301,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 <!-- LOCK -->
 <div class="screen" id="screen-lock">
   <div class="lock-logo">
+    <img src="logo.png" alt="Replay Dealers" class="lock-img" />
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
-    <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.5.1</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v41</div></div>
+    <div class="lock-versions">
+      <span>APP v1.6.0</span>
+      <span>SW rd-hub-v42</span>
     </div>
-    <div style="margin-top:6px;font-size:10px;color:var(--hint)">Build: 2026-05-15</div>
+    <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
+    <div class="lock-build" id="build-date">…</div>
   </div>
   <div class="pin-display">
     <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
@@ -331,7 +339,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.5.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.6.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1371,7 +1379,9 @@ function collectBaFields() {
     'BA_Datum': s('ba-datum'),
     'BA_Bezeichnung': s('ba-bezeichnung'),
     'BA_Brutto': n('ba-brutto'),
-    'BA_USt_Satz': (parseFloat(document.getElementById('ba-ust-satz').value) || 0) / 100,
+    // BA_USt_Satz ist ein Single-Select in Airtable mit Optionen "0%","7%","19%"
+    // → als String schreiben. Intern (baCalc) wird weiterhin mit Dezimal gerechnet.
+    'BA_USt_Satz': document.getElementById('ba-ust-satz').value + '%',
     'BA_Netto': n('ba-netto'),
     'BA_USt_Betrag': n('ba-ust-betrag'),
     'BA_Kategorie': sel('ba-kategorie'),
@@ -1467,6 +1477,22 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
 
   addNav('btn-back-ba', 'screen-home');
 });
+
+// ── BUILD DATE (letzter Commit auf main) ──
+(function loadBuildDate() {
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function fmt(d){ return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes()); }
+  var el = document.getElementById('build-date');
+  if (!el) return;
+  fetch('https://api.github.com/repos/Replaydealers/rd-hub/commits/main', {headers:{'Accept':'application/vnd.github.v3+json'}})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var iso = d && d.commit && d.commit.committer && d.commit.committer.date;
+      if (iso) el.textContent = fmt(new Date(iso));
+      else el.textContent = '—';
+    })
+    .catch(function(){ el.textContent = '—'; });
+})();
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
@@ -1682,7 +1708,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.5.1 / rd-hub-v41</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.6.0 / rd-hub-v42</div>
 </div>
 </body>
 </html>
