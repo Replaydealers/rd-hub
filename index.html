@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  1.6.0
-  SW Cache: rd-hub-v42
+  Version:  1.7.0
+  SW Cache: rd-hub-v43
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v1.7.0  (2026-05-15)  BA-Review: 5 Buttons, Fuzzy-Partner-Suche über 6 Felder, Partner-Anlage-Dialog
   v1.6.0  (2026-05-15)  Login-Screen mit Logo + dynamischem Build-Datum, BA_USt_Satz als Single-Select-String
   v1.5.1  (2026-05-15)  BA-Review: BA_Lieferant Schreibfehler gefixt, Label Rechnungsnummer
   v1.5.0  (2026-05-15)  BA-Review: Liste + Detail mit PDF, Auto-USt, Partner-Suche
@@ -277,9 +278,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ba-dd-item{padding:8px 10px;cursor:pointer;font-size:13px;color:var(--text);border-bottom:.5px solid var(--border)}
 .ba-dd-item:last-child{border-bottom:none}
 .ba-dd-item:hover{background:var(--card)}
-.ba-buttons{display:flex;gap:8px;margin-top:14px}
-.ba-buttons button{flex:1;padding:11px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;font-family:inherit}
+.ba-dd-empty{padding:10px;font-size:12px;color:var(--muted);font-style:italic;text-align:center;border-bottom:.5px solid var(--border)}
+.ba-dd-create{padding:10px;cursor:pointer;font-size:13px;font-weight:600;color:var(--accent);text-align:center;background:rgba(230,57,70,.06)}
+.ba-dd-create:hover{background:rgba(230,57,70,.14)}
+.ba-buttons{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
+.ba-buttons button{flex:1;min-width:90px;padding:11px 6px;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;touch-action:manipulation;font-family:inherit;transition:opacity .15s}
+.ba-buttons button:disabled{opacity:.5;cursor:wait}
 .btn-ba-save{background:var(--card2);color:var(--text);border:.5px solid var(--border)}
+.btn-ba-list{background:var(--card2);color:var(--text);border:.5px solid var(--border)}
+.btn-ba-next{background:var(--card2);color:var(--text);border:.5px solid var(--accent)}
 .btn-ba-approve{background:var(--green);color:white}
 .btn-ba-cancel{background:transparent;color:var(--muted);border:.5px solid var(--border)}
 .ba-klaer-banner{background:rgba(239,168,39,.15);border:.5px solid var(--amber);border-radius:var(--radius-sm);padding:10px 12px;color:var(--amber);margin-bottom:14px;font-size:13px;font-weight:500}
@@ -294,6 +301,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ba-pdf-yes{color:var(--green);font-size:16px}
 .ba-pdf-no{color:var(--hint);font-size:16px}
 .ba-klaer-icon{color:var(--amber)}
+
+/* PARTNER MODAL */
+.partner-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.partner-modal{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);width:100%;max-width:640px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,.6)}
+.partner-modal-header{padding:18px 20px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.partner-modal-close{width:32px;height:32px;border-radius:50%;border:.5px solid var(--border);background:var(--card2);color:var(--muted);font-size:14px;cursor:pointer;touch-action:manipulation}
+.partner-modal-body{padding:18px 20px;overflow-y:auto;flex:1}
+.partner-modal-footer{padding:14px 20px;border-top:.5px solid var(--border);display:flex;gap:8px;flex-shrink:0}
+.partner-modal-footer button{flex:1;padding:11px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
+.partner-modal-footer button:disabled{opacity:.5;cursor:wait}
+.partner-modal-hint{font-size:11px;color:var(--hint);margin:4px 0 8px;font-style:italic}
+.partner-modal-error{background:rgba(230,57,70,.15);border:.5px solid var(--accent);border-radius:var(--radius-sm);padding:10px 12px;color:var(--accent);font-size:13px;margin-top:10px}
 </style>
 </head>
 <body>
@@ -305,8 +324,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v1.6.0</span>
-      <span>SW rd-hub-v42</span>
+      <span>APP v1.7.0</span>
+      <span>SW rd-hub-v43</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -339,7 +358,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.6.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.7.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -617,6 +636,13 @@ function atGet(table, filter, fields, cb) {
 function atPatch(table, recId, fields, cb) {
   fetch('https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) + '/' + recId, {
     method:'PATCH',
+    headers:{'Authorization':'Bearer '+AT_TOKEN,'Content-Type':'application/json'},
+    body:JSON.stringify({fields:fields})
+  }).then(function(r){ return r.json(); }).then(function(d){ cb(null,d); }).catch(function(e){ cb(e,null); });
+}
+function atPost(table, fields, cb) {
+  fetch('https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table), {
+    method:'POST',
     headers:{'Authorization':'Bearer '+AT_TOKEN,'Content-Type':'application/json'},
     body:JSON.stringify({fields:fields})
   }).then(function(r){ return r.json(); }).then(function(d){ cb(null,d); }).catch(function(e){ cb(e,null); });
@@ -1338,35 +1364,168 @@ function baCalc() {
   if (!baUstOverride) document.getElementById('ba-ust-betrag').value = ust.toFixed(2);
 }
 
+var PARTNER_SEARCH_FIELDS = ['PD_ID','PD_Firmenname','PD_Name','PD_Vorname','PD_PLZ','PD_Ort'];
+var PARTNER_DISPLAY_FIELDS = ['PD_ID','PD_Firmenname','PD_Name','PD_Vorname','PD_PLZ','PD_Ort'];
+
+function partnerDisplayName(f) {
+  return f['PD_Firmenname']
+    || ((f['PD_Vorname']||'') + ' ' + (f['PD_Name']||'')).trim()
+    || f['PD_ID']
+    || '—';
+}
+
+function partnerLabel(f) {
+  var main = partnerDisplayName(f);
+  var loc = [f['PD_PLZ']||'', f['PD_Ort']||''].filter(Boolean).join(' ');
+  return loc ? main + ' · ' + loc : main;
+}
+
 function searchPartners(query) {
   var safe = query.replace(/"/g,'\\"');
-  atGet('Partnerdaten_2026', 'FIND(LOWER("'+safe+'"),LOWER({PD_Firmenname}&""))>0', ['PD_Firmenname'], function(err, data) {
-    if (err || !data.records) { hidePartnerDropdown(); return; }
-    showPartnerDropdown(data.records.slice(0, 15));
+  var clauses = PARTNER_SEARCH_FIELDS.map(function(f){
+    return 'FIND(LOWER("'+safe+'"),LOWER({'+f+'}&""))>0';
+  }).join(',');
+  var formula = 'OR(' + clauses + ')';
+  atGet('Partnerdaten_2026', formula, PARTNER_DISPLAY_FIELDS, function(err, data) {
+    if (err) { hidePartnerDropdown(); return; }
+    showPartnerDropdown((data && data.records) ? data.records.slice(0, 15) : [], query);
   });
 }
 
-function showPartnerDropdown(records) {
+function showPartnerDropdown(records, query) {
   var dd = document.getElementById('ba-lieferant-dropdown');
-  if (!records.length) { dd.style.display = 'none'; return; }
   var html = '';
-  records.forEach(function(r) {
-    html += '<div class="ba-dd-item" data-id="'+r.id+'">'+escHtml(r.fields['PD_Firmenname']||'—')+'</div>';
-  });
+  if (!records.length) {
+    html += '<div class="ba-dd-empty">Keine Treffer für „'+escHtml(query)+'"</div>';
+  } else {
+    records.forEach(function(r) {
+      var f = r.fields;
+      html += '<div class="ba-dd-item" data-id="'+r.id+'" data-name="'+escHtml(partnerDisplayName(f))+'">'+escHtml(partnerLabel(f))+'</div>';
+    });
+  }
+  html += '<div class="ba-dd-create" id="ba-dd-create-btn">+ Partner neu anlegen…</div>';
+
   dd.innerHTML = html;
   dd.querySelectorAll('.ba-dd-item').forEach(function(item){
     item.addEventListener('mousedown', function(e){
       e.preventDefault();
       baSelectedPartnerId = item.getAttribute('data-id');
-      document.getElementById('ba-lieferant').value = item.textContent;
+      document.getElementById('ba-lieferant').value = item.getAttribute('data-name') || item.textContent;
       hidePartnerDropdown();
     });
   });
+  var createBtn = document.getElementById('ba-dd-create-btn');
+  if (createBtn) {
+    createBtn.addEventListener('mousedown', function(e){
+      e.preventDefault();
+      hidePartnerDropdown();
+      openPartnerModal(query);
+    });
+  }
   dd.style.display = 'block';
 }
 
 function hidePartnerDropdown() {
   document.getElementById('ba-lieferant-dropdown').style.display = 'none';
+}
+
+// ── PARTNER ANLEGEN MODAL ──
+function openPartnerModal(prefillName) {
+  // Reset fields
+  ['pm-typ','pm-rolle','pm-ust-status','pm-plattform','pm-firmenname','pm-name','pm-vorname','pm-ka-name','pm-plz','pm-ort','pm-strasse','pm-email','pm-telefon','pm-notizen'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('pm-error').style.display = 'none';
+
+  // Defaults
+  document.getElementById('pm-typ').value = 'Unternehmen';
+  document.getElementById('pm-rolle').value = 'BA-Lieferant';
+
+  // USt-Status aus aktueller BA übernehmen
+  var baSatzVal = document.getElementById('ba-ust-satz').value; // "0"/"7"/"19"
+  if (baSatzVal === '0' || baSatzVal === '7' || baSatzVal === '19') {
+    document.getElementById('pm-ust-status').value = baSatzVal + '%';
+  }
+
+  // Firmenname aus Suchbegriff vorbefüllen
+  if (prefillName) document.getElementById('pm-firmenname').value = prefillName;
+
+  document.getElementById('partner-modal-overlay').style.display = 'flex';
+  setTimeout(function(){
+    var first = document.getElementById('pm-firmenname');
+    if (first && first.value) { first.focus(); first.select(); }
+    else document.getElementById('pm-typ').focus();
+  }, 50);
+}
+
+function closePartnerModal() {
+  document.getElementById('partner-modal-overlay').style.display = 'none';
+  document.getElementById('pm-error').style.display = 'none';
+}
+
+function pmShowError(msg) {
+  var el = document.getElementById('pm-error');
+  el.textContent = msg;
+  el.style.display = '';
+}
+
+function pmSetSaving(saving) {
+  document.getElementById('btn-pm-save').disabled = saving;
+  document.getElementById('btn-pm-cancel').disabled = saving;
+  document.getElementById('btn-pm-close').disabled = saving;
+  document.getElementById('btn-pm-save').textContent = saving ? 'Speichere…' : 'Speichern';
+}
+
+function savePartner() {
+  var typ = document.getElementById('pm-typ').value;
+  var rolle = document.getElementById('pm-rolle').value;
+  var ust = document.getElementById('pm-ust-status').value;
+  var firmenname = document.getElementById('pm-firmenname').value.trim();
+  var name = document.getElementById('pm-name').value.trim();
+  var kaName = document.getElementById('pm-ka-name').value.trim();
+
+  var missing = [];
+  if (!typ) missing.push('Typ');
+  if (!rolle) missing.push('Rolle');
+  if (!ust) missing.push('USt-Status');
+  if (!firmenname && !name && !kaName) missing.push('Firmenname/Name/KA-Name (mind. eins)');
+  if (missing.length) { pmShowError('Pflichtfelder fehlen: ' + missing.join(', ')); return; }
+
+  var fields = { 'PD_Typ': typ, 'PD_Rolle': rolle, 'PD_USt_Status': ust };
+  function add(field, id) { var v = document.getElementById(id).value.trim(); if (v) fields[field] = v; }
+  add('PD_Firmenname','pm-firmenname');
+  add('PD_Name','pm-name');
+  add('PD_Vorname','pm-vorname');
+  add('PD_KA_Name','pm-ka-name');
+  add('PD_PLZ','pm-plz');
+  add('PD_Ort','pm-ort');
+  add('PD_Strasse','pm-strasse');
+  add('PD_Email','pm-email');
+  add('PD_Telefon','pm-telefon');
+  add('PD_Plattform','pm-plattform');
+  add('PD_Notizen','pm-notizen');
+
+  pmSetSaving(true);
+  atPost('Partnerdaten_2026', fields, function(err, data) {
+    pmSetSaving(false);
+    if (err || (data && data.error)) {
+      pmShowError('Fehler: ' + (err ? err.message : data.error.message));
+      return;
+    }
+    if (!data || !data.id) { pmShowError('Unerwartete Antwort von Airtable.'); return; }
+
+    // Erfolg: in BA verlinken
+    baSelectedPartnerId = data.id;
+    var f = data.fields || fields;
+    var displayName = partnerDisplayName(f);
+    document.getElementById('ba-lieferant').value = displayName;
+    closePartnerModal();
+
+    var msg = document.getElementById('ba-save-msg');
+    msg.textContent = '✓ Partner „' + displayName + '" angelegt und verknüpft';
+    msg.style.color = 'var(--green)';
+    setTimeout(function(){ if (msg.textContent.indexOf('Partner') !== -1) msg.textContent = ''; }, 3000);
+  });
 }
 
 function collectBaFields() {
@@ -1396,49 +1555,99 @@ function collectBaFields() {
   return fields;
 }
 
-function baSave(approve) {
+// opts: { targetStatus, afterSave: 'stay'|'list'|'next', removeFromList, noNextMsg, successMsg }
+function baSave(opts) {
   if (!baCurrentRec) return;
   var fields = collectBaFields();
-  fields['BA_Status'] = approve ? 'freigegeben' : 'in Bearbeitung';
+  fields['BA_Status'] = opts.targetStatus;
 
   var msg = document.getElementById('ba-save-msg');
   msg.textContent = 'Speichere…';
   msg.style.color = 'var(--muted)';
 
+  // Disable buttons during save
+  setBaButtonsDisabled(true);
+
   atPatch('Betriebsausgaben_2026', baCurrentRec.id, fields, function(err, data) {
+    setBaButtonsDisabled(false);
     if (err || (data && data.error)) {
       msg.textContent = 'Fehler: ' + (err ? err.message : data.error.message);
       msg.style.color = 'var(--accent)';
       return;
     }
-    if (approve) {
-      baList = baList.filter(function(r){ return r.id !== baCurrentRec.id; });
-      var sorted = baSortRecords(baList);
-      if (sorted.length > 0) {
-        msg.textContent = '✓ Freigegeben. Lade nächste…';
-        msg.style.color = 'var(--green)';
-        setTimeout(function(){ openBaDetail(sorted[0].id); }, 400);
-      } else {
-        showBaListView();
-        var errEl = document.getElementById('ba-list-error');
-        errEl.textContent = 'Alle BAs durchgearbeitet 🎉';
-        errEl.style.color = 'var(--green)';
-        errEl.style.display = '';
-        document.getElementById('ba-list-table-wrap').innerHTML = '';
-        document.getElementById('ba-list-count').textContent = '0 offene Betriebsausgaben';
-        baCurrentRec = null;
-      }
+
+    var currentId = baCurrentRec.id;
+
+    if (opts.removeFromList) {
+      baList = baList.filter(function(r){ return r.id !== currentId; });
     } else {
-      var local = baList.filter(function(r){ return r.id === baCurrentRec.id; })[0];
-      if (local) local.fields['BA_Status'] = 'in Bearbeitung';
-      baCurrentRec.fields['BA_Status'] = 'in Bearbeitung';
-      var statusEl = document.getElementById('ba-status-display');
-      statusEl.textContent = 'in Bearbeitung';
-      statusEl.className = 'ba-status-pill ba-status-bearbeitung';
-      msg.textContent = '✓ Gespeichert';
-      msg.style.color = 'var(--green)';
-      setTimeout(function(){ if (msg.textContent==='✓ Gespeichert') msg.textContent=''; }, 2000);
+      var local = baList.filter(function(r){ return r.id === currentId; })[0];
+      if (local) local.fields['BA_Status'] = opts.targetStatus;
     }
+    baCurrentRec.fields['BA_Status'] = opts.targetStatus;
+    var statusEl = document.getElementById('ba-status-display');
+    statusEl.textContent = opts.targetStatus;
+    statusEl.className = 'ba-status-pill ' + (opts.targetStatus === 'offen' ? 'ba-status-offen' : 'ba-status-bearbeitung');
+
+    if (opts.afterSave === 'stay') {
+      msg.textContent = opts.successMsg || '✓ Gespeichert';
+      msg.style.color = 'var(--green)';
+      setTimeout(function(){ if (msg.textContent === (opts.successMsg || '✓ Gespeichert')) msg.textContent = ''; }, 2000);
+      return;
+    }
+
+    if (opts.afterSave === 'list') {
+      baGoToList(null);
+      return;
+    }
+
+    if (opts.afterSave === 'next') {
+      var nextRec = baFindNext(currentId);
+      if (nextRec) {
+        msg.textContent = (opts.successMsg || '✓ Gespeichert') + '. Lade nächste…';
+        msg.style.color = 'var(--green)';
+        setTimeout(function(){ openBaDetail(nextRec.id); }, 350);
+      } else {
+        baGoToList(opts.noNextMsg || null);
+      }
+    }
+  });
+}
+
+function baFindNext(currentId) {
+  var sorted = baSortRecords(baList);
+  for (var i = 0; i < sorted.length; i++) {
+    if (sorted[i].id === currentId && i + 1 < sorted.length) return sorted[i + 1];
+  }
+  // Current not in list (e.g. removed after approve) → erste verbleibende
+  if (sorted.length && !sorted.some(function(r){ return r.id === currentId; })) return sorted[0];
+  return null;
+}
+
+function baGoToList(infoMsg) {
+  baCurrentRec = null;
+  showBaListView();
+  if (baList.length === 0) {
+    document.getElementById('ba-list-table-wrap').innerHTML = '';
+    document.getElementById('ba-list-count').textContent = '0 offene Betriebsausgaben';
+  } else {
+    renderBaTable();
+  }
+  var errEl = document.getElementById('ba-list-error');
+  if (infoMsg) {
+    errEl.textContent = infoMsg;
+    errEl.style.color = 'var(--green)';
+    errEl.style.display = '';
+  } else {
+    errEl.style.display = 'none';
+    errEl.style.color = '';
+  }
+}
+
+function setBaButtonsDisabled(disabled) {
+  ['btn-ba-cancel','btn-ba-save','btn-ba-list','btn-ba-next','btn-ba-approve'].forEach(function(id){
+    var b = document.getElementById(id);
+    if (b) b.disabled = disabled;
   });
 }
 
@@ -1457,8 +1666,18 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
   document.getElementById('ba-sort').addEventListener('change', function(){ baSortMode = this.value; renderBaTable(); });
   document.getElementById('btn-ba-reload').addEventListener('click', loadBaList);
   document.getElementById('btn-ba-cancel').addEventListener('click', baCancel);
-  document.getElementById('btn-ba-save').addEventListener('click', function(){ baSave(false); });
-  document.getElementById('btn-ba-approve').addEventListener('click', function(){ baSave(true); });
+  document.getElementById('btn-ba-save').addEventListener('click', function(){
+    baSave({ targetStatus:'in Bearbeitung', afterSave:'stay', successMsg:'✓ Gespeichert' });
+  });
+  document.getElementById('btn-ba-list').addEventListener('click', function(){
+    baSave({ targetStatus:'in Bearbeitung', afterSave:'list' });
+  });
+  document.getElementById('btn-ba-next').addEventListener('click', function(){
+    baSave({ targetStatus:'in Bearbeitung', afterSave:'next', noNextMsg:'Keine weiteren offenen BAs', successMsg:'✓ Gespeichert' });
+  });
+  document.getElementById('btn-ba-approve').addEventListener('click', function(){
+    baSave({ targetStatus:'freigegeben', afterSave:'next', removeFromList:true, noNextMsg:'Alle BAs durchgearbeitet 🎉', successMsg:'✓ Abgeschlossen' });
+  });
 
   document.getElementById('ba-brutto').addEventListener('input', baCalc);
   document.getElementById('ba-ust-satz').addEventListener('change', baCalc);
@@ -1476,6 +1695,14 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
   lief.addEventListener('blur', function(){ setTimeout(hidePartnerDropdown, 200); });
 
   addNav('btn-back-ba', 'screen-home');
+
+  // Partner-Anlage-Modal
+  document.getElementById('btn-pm-close').addEventListener('click', closePartnerModal);
+  document.getElementById('btn-pm-cancel').addEventListener('click', closePartnerModal);
+  document.getElementById('btn-pm-save').addEventListener('click', savePartner);
+  document.getElementById('partner-modal-overlay').addEventListener('click', function(e){
+    if (e.target === this) closePartnerModal();
+  });
 });
 
 // ── BUILD DATE (letzter Commit auf main) ──
@@ -1683,7 +1910,9 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
       <div class="ba-buttons">
         <button id="btn-ba-cancel" class="btn-ba-cancel" type="button">Abbrechen</button>
         <button id="btn-ba-save" class="btn-ba-save" type="button">Zwischenspeichern</button>
-        <button id="btn-ba-approve" class="btn-ba-approve" type="button">Freigeben &amp; nächste →</button>
+        <button id="btn-ba-list" class="btn-ba-list" type="button">Zur Liste</button>
+        <button id="btn-ba-next" class="btn-ba-next" type="button">Weiter →</button>
+        <button id="btn-ba-approve" class="btn-ba-approve" type="button">Abschließen</button>
       </div>
 
       <div id="ba-save-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
@@ -1691,6 +1920,86 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   </div>
 </div>
 
+
+<!-- PARTNER ANLEGEN MODAL -->
+<div id="partner-modal-overlay" class="partner-modal-overlay" style="display:none">
+  <div class="partner-modal">
+    <div class="partner-modal-header">
+      <div>
+        <div style="font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em">Neuer Partner</div>
+        <div style="font-size:18px;font-weight:700;color:var(--text)">Partner anlegen</div>
+      </div>
+      <button type="button" class="partner-modal-close" id="btn-pm-close">✕</button>
+    </div>
+    <div class="partner-modal-body">
+      <div class="ba-form-row">
+        <div class="ba-field"><label>Typ *</label>
+          <select id="pm-typ">
+            <option value="">— bitte wählen —</option>
+            <option>Privatperson</option>
+            <option>Unternehmen</option>
+          </select>
+        </div>
+        <div class="ba-field"><label>Rolle *</label>
+          <select id="pm-rolle">
+            <option value="">— bitte wählen —</option>
+            <option>BA-Lieferant</option>
+            <option>EK-Lieferant</option>
+            <option>VK-Kunde</option>
+            <option>Mehrfach</option>
+          </select>
+        </div>
+      </div>
+      <div class="ba-form-row">
+        <div class="ba-field"><label>USt-Status *</label>
+          <select id="pm-ust-status">
+            <option value="">— bitte wählen —</option>
+            <option>0%</option>
+            <option>7%</option>
+            <option>19%</option>
+          </select>
+        </div>
+        <div class="ba-field"><label>Plattform</label>
+          <select id="pm-plattform">
+            <option value="">—</option>
+            <option>Kleinanzeigen</option>
+            <option>eBay</option>
+            <option>Amazon</option>
+            <option>Sonstige</option>
+          </select>
+        </div>
+      </div>
+      <div class="partner-modal-hint">Mindestens eins von Firmenname / Name / KA-Name befüllen.</div>
+      <div class="ba-form-row" style="grid-template-columns:1fr">
+        <div class="ba-field"><label>Firmenname</label><input type="text" id="pm-firmenname" /></div>
+      </div>
+      <div class="ba-form-row">
+        <div class="ba-field"><label>Nachname</label><input type="text" id="pm-name" /></div>
+        <div class="ba-field"><label>Vorname</label><input type="text" id="pm-vorname" /></div>
+      </div>
+      <div class="ba-form-row" style="grid-template-columns:1fr">
+        <div class="ba-field"><label>Kleinanzeigen-Name</label><input type="text" id="pm-ka-name" /></div>
+      </div>
+      <div class="ba-form-row" style="grid-template-columns:1fr 1fr 2fr">
+        <div class="ba-field"><label>PLZ</label><input type="text" id="pm-plz" /></div>
+        <div class="ba-field"><label>Ort</label><input type="text" id="pm-ort" /></div>
+        <div class="ba-field"><label>Straße</label><input type="text" id="pm-strasse" /></div>
+      </div>
+      <div class="ba-form-row">
+        <div class="ba-field"><label>E-Mail</label><input type="email" id="pm-email" /></div>
+        <div class="ba-field"><label>Telefon</label><input type="text" id="pm-telefon" /></div>
+      </div>
+      <div class="ba-form-row" style="grid-template-columns:1fr">
+        <div class="ba-field"><label>Notizen</label><textarea id="pm-notizen" rows="2"></textarea></div>
+      </div>
+      <div id="pm-error" class="partner-modal-error" style="display:none"></div>
+    </div>
+    <div class="partner-modal-footer">
+      <button type="button" class="btn-ba-cancel" id="btn-pm-cancel">Abbrechen</button>
+      <button type="button" class="btn-ba-approve" id="btn-pm-save">Speichern</button>
+    </div>
+  </div>
+</div>
 
 <!-- MENU OVERLAY -->
 <div id="menu-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;touch-action:none" onclick="closeMenu()"></div>
@@ -1708,7 +2017,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.6.0 / rd-hub-v42</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.7.0 / rd-hub-v43</div>
 </div>
 </body>
 </html>
