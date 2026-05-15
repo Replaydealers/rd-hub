@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  1.10.0
-  SW Cache: rd-hub-v47
+  Version:  2.0.0
+  SW Cache: rd-hub-v48
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.0.0  (2026-05-15)  Artikelsuche überarbeitet — Cache, Status-Filter, Trefferliste-Info, Sortierung, Scroll-Fix, Zurück-Pfeil, Detail-Cleanup
   v1.10.0 (2026-05-15)  Partner-Info gefixt, Hinweis-Icon bei unvollständigem Partner, Partner bearbeiten, Zurück-Pfeil Navigation
   v1.9.0  (2026-05-15)  IBAN+Land im Partner-Panel, Partner-Info-Anzeige mit Rolle-Auto-Upgrade, Lieferant-Markierung gefixt
   v1.8.0  (2026-05-15)  Netto-Berechnung gefixt, Lieferant-Suche auf BA-Rollen gefiltert, Partner-Panel statt Vollbild, Duplikat-Erkennung
@@ -339,6 +340,50 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 
 /* Validierungs-Markierung für leeres Lieferant-Feld (nur nach Save-Versuch) */
 #ba-lieferant.ba-lieferant-invalid{border-color:var(--accent);background:rgba(230,57,70,.08);box-shadow:0 0 0 1px var(--accent)}
+
+/* ─────────────────── ARTIKELSUCHE — Mobile-First Refactor ─────────────────── */
+.artikel-list-view{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.artikel-detail-view{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+.artikel-search-section{padding:10px 12px;background:var(--card);border-bottom:.5px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+.artikel-search-inputs{display:flex;gap:6px}
+.artikel-search-inputs input{flex:1;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:9px 10px;font-size:15px;outline:none;font-family:inherit;-webkit-appearance:none;min-width:0}
+.artikel-search-inputs input#a-nr{flex:0 0 80px}
+.artikel-search-inputs input::placeholder{color:var(--hint)}
+.artikel-search-inputs input:focus{border-color:var(--accent)}
+.artikel-pills-row{display:flex;gap:6px}
+.artikel-pill{flex:1;padding:8px 6px;border:.5px solid var(--border);background:var(--card2);color:var(--muted);font-size:12px;font-weight:600;border-radius:999px;cursor:pointer;touch-action:manipulation;font-family:inherit;transition:background .12s, color .12s, border-color .12s;min-height:36px}
+.artikel-pill-active.artikel-pill-stock{background:var(--green);color:white;border-color:var(--green)}
+.artikel-pill-active.artikel-pill-sold{background:#5A5A6E;color:white;border-color:#5A5A6E}
+.artikel-pill-active.artikel-pill-all{background:#3B82C4;color:white;border-color:#3B82C4}
+.artikel-controls-row{display:flex;gap:6px;align-items:center}
+.artikel-sort{flex:1;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:7px 8px;font-size:12px;font-family:inherit;outline:none;min-width:0}
+.artikel-fuzzy{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.artikel-fuzzy-label{font-size:10px;color:var(--muted)}
+.artikel-fuzzy input[type=range]{width:60px;accent-color:var(--accent)}
+.artikel-fuzzy #a-fuzzy-val{font-size:10px;color:var(--muted);width:30px;text-align:right}
+.artikel-cache-status{display:flex;align-items:center;gap:10px;justify-content:center;padding:18px;color:var(--muted);font-size:13px}
+.artikel-spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:art-spin .8s linear infinite}
+@keyframes art-spin{to{transform:rotate(360deg)}}
+.artikel-result-count{padding:6px 12px;font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-weight:600;flex-shrink:0}
+.artikel-results{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 8px 12px}
+.artikel-empty{padding:24px 12px;text-align:center;color:var(--muted);font-size:13px}
+
+/* Treffer-Items */
+.artikel-item{display:flex;background:var(--card);border:.5px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;min-height:48px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:rgba(230,57,70,.08);overflow:hidden;user-select:none;-webkit-user-select:none}
+.artikel-item:active{background:var(--card2)}
+.artikel-item-bar{width:4px;flex-shrink:0;background:var(--hint)}
+.artikel-item-stock .artikel-item-bar{background:var(--green)}
+.artikel-item-sold .artikel-item-bar{background:#5A5A6E}
+.artikel-item-unterwegs .artikel-item-bar{background:#FF8C42}
+.artikel-item-abschreibung .artikel-item-bar{background:var(--accent)}
+.artikel-item-content{flex:1;padding:8px 10px;min-width:0}
+.artikel-item-top{font-size:14px;color:var(--text);line-height:1.3;display:flex;align-items:baseline;gap:6px;overflow:hidden}
+.artikel-item-nr{color:var(--hint);font-weight:600;flex-shrink:0}
+.artikel-item-name{flex:1;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.artikel-item-score{font-size:10px;color:var(--muted);background:var(--card2);padding:1px 6px;border-radius:8px;flex-shrink:0;margin-left:auto}
+.artikel-item-bottom{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.artikel-item-bottom .gewinn-pos{color:var(--green);font-weight:600}
+.artikel-item-bottom .gewinn-neg{color:var(--accent);font-weight:600}
 </style>
 </head>
 <body>
@@ -350,8 +395,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v1.10.0</span>
-      <span>SW rd-hub-v47</span>
+      <span>APP v2.0.0</span>
+      <span>SW rd-hub-v48</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -384,7 +429,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.10.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.0.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -475,28 +520,54 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   <div class="sub-header">
     <button class="menu-btn" onclick="openMenu()">☰</button>
     <button class="back-btn" id="btn-back-artikel">←</button>
-    <div class="sub-header-title">Artikelsuche</div>
+    <div class="sub-header-title" id="artikel-header-title">Artikelsuche</div>
   </div>
-  <div class="sub-content">
-    <div class="s-card">
-      <div class="s-card-title">Suche</div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <div class="s-input-wrap" style="flex:1"><input type="number" inputmode="numeric" id="a-nr" placeholder="Artikelnummer" onkeydown="if(event.key==='Enter')doArtikelNrSearch()" /></div>
-        <button class="s-search-btn" onclick="doArtikelNrSearch()">Nr</button>
+
+  <!-- LIST VIEW (Default) -->
+  <div id="artikel-list-view" class="artikel-list-view">
+    <!-- Sticky search + filter section -->
+    <div class="artikel-search-section">
+      <div class="artikel-search-inputs">
+        <input type="number" inputmode="numeric" id="a-nr" placeholder="Nr" autocomplete="off" />
+        <input type="text" id="a-name" placeholder="Name suchen…" autocomplete="off" />
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <div class="s-input-wrap" style="flex:1"><input type="text" id="a-name" placeholder="Name suchen" onkeydown="if(event.key==='Enter')doArtikelNameSearch()" /></div>
-        <button class="s-search-btn" id="btn-a-search" onclick="doArtikelNameSearch()">Name</button>
+      <div class="artikel-pills-row">
+        <button class="artikel-pill artikel-pill-stock" data-status="auf Lager" type="button">Auf Lager</button>
+        <button class="artikel-pill artikel-pill-sold" data-status="verkauft" type="button">Verkauft</button>
+        <button class="artikel-pill artikel-pill-all artikel-pill-active" data-status="all" type="button">Alle</button>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
-        <span style="font-size:11px;color:var(--muted);white-space:nowrap">Fuzzy</span>
-        <input type="range" id="a-fuzzy-threshold" min="50" max="100" value="75" step="5" style="flex:1;accent-color:var(--accent)" oninput="document.getElementById('a-fuzzy-val').textContent=this.value+'%'" />
-        <span id="a-fuzzy-val" style="font-size:11px;color:var(--muted);width:32px;text-align:right">75%</span>
+      <div class="artikel-controls-row">
+        <select id="artikel-sort" class="artikel-sort">
+          <option value="match">Sortierung: Match</option>
+          <option value="status">Sortierung: Status</option>
+          <option value="ek_asc">EK aufsteigend</option>
+          <option value="ek_desc">EK absteigend</option>
+          <option value="datum_desc">Listing-Datum (neueste)</option>
+        </select>
+        <div class="artikel-fuzzy">
+          <span class="artikel-fuzzy-label">Fuzzy</span>
+          <input type="range" id="a-fuzzy-threshold" min="50" max="100" value="75" step="5" />
+          <span id="a-fuzzy-val">75%</span>
+        </div>
       </div>
-      <div class="s-loading" id="a-loading">Wird geladen…</div>
-      <div class="s-error" id="a-error">Artikel nicht gefunden.</div>
     </div>
-    <div class="s-card" id="a-result-card" style="display:none">
+
+    <!-- Cache-Loading-Indikator -->
+    <div id="artikel-cache-status" class="artikel-cache-status" style="display:none">
+      <div class="artikel-spinner"></div>
+      <span>Lade Artikel…</span>
+    </div>
+
+    <!-- Trefferanzahl -->
+    <div id="artikel-result-count" class="artikel-result-count" style="display:none"></div>
+
+    <!-- Trefferliste -->
+    <div id="artikel-results" class="artikel-results"></div>
+  </div>
+
+  <!-- DETAIL VIEW (versteckt initial) -->
+  <div id="artikel-detail-view" class="artikel-detail-view" style="display:none">
+    <div class="s-card" id="a-result-card">
       <div class="s-card-title" id="a-result-nr">—</div>
       <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px" id="a-result-name">—</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:14px" id="a-konsole">—</div>
@@ -506,13 +577,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
         <div class="s-brow"><span class="bl">EK-Lot</span><span class="br" id="a-ek-lot">—</span></div>
         <div class="s-brow"><span class="bl">Mindest-VK</span><span class="br" id="a-minvk">—</span></div>
       </div>
-      <div class="s-card-title">Status & Verkauf</div>
+      <div class="s-card-title">Status &amp; Verkauf</div>
       <div class="s-breakdown" style="margin-bottom:14px">
         <div class="s-brow"><span class="bl">Status</span><span class="br" id="a-status">—</span></div>
         <div class="s-brow"><span class="bl">Listing-Datum</span><span class="br" id="a-datum">—</span></div>
         <div class="s-brow"><span class="bl">VK-Lot</span><span class="br" id="a-vk-lot">—</span></div>
         <div class="s-brow"><span class="bl">VK-Preis</span><span class="br" id="a-vk-preis">—</span></div>
-        <div class="s-brow"><span class="bl">Reingewinn</span><span class="br" id="a-vk-gewinn">—</span></div>
       </div>
       <button id="btn-load-kalk" style="width:100%;padding:12px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:white;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation">In JP Kalkulator laden →</button>
     </div>
@@ -624,10 +694,18 @@ function addNav(btnId, screenId, onShow) {
   btn.addEventListener('click', go);
 }
 addNav('tile-jp', 'screen-jp');
-addNav('tile-artikel', 'screen-artikel');
+addNav('tile-artikel', 'screen-artikel', ensureArtikelCache);
 addNav('tile-sku', 'screen-sku', loadPimp);
 addNav('btn-back-jp', 'screen-home');
-addNav('btn-back-artikel', null, goBack);
+addNav('btn-back-artikel', null, function(){
+  // Detail-View → zurück zur Liste (Sucheingaben, Filter, Sortierung, Scroll-Position bleiben erhalten)
+  var detailView = document.getElementById('artikel-detail-view');
+  if (detailView && detailView.style.display !== 'none') {
+    closeArtikelDetail();
+  } else {
+    goBack();
+  }
+});
 addNav('btn-back-sku', null, goBack);
 addNav('btn-sku-reload', 'screen-sku', loadPimp);
 addNav('tile-ek', 'screen-ek');
@@ -741,162 +819,362 @@ function fetchRate() {
 }
 
 // ── ARTIKELSUCHE ──
-var ARTIKEL_FIELDS = ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_Konsole','ITEM_Komponente','ITEM_EK_Preis','ITEM_Mindest_VK','ITEM_Status','ITEM_Listing_Datum','ITEM_EK_Lot','ITEM_VK_Lot','ITEM_VK_Preis'];
+// Cache + Detail: ALLE Felder, die wir für Suche, Filter, Trefferliste und Detail-Ansicht brauchen.
+var ARTIKEL_CACHE_FIELDS = [
+  'ITEM_Artikelnummer','ITEM_Artikel','ITEM_Kategorie','ITEM_Konsole','ITEM_Komponente',
+  'ITEM_EK_Preis','ITEM_Mindest_VK','ITEM_VK_Preis','ITEM_Reingewinn',
+  'ITEM_Status','ITEM_Listing_Datum','ITEM_EK_Lot','ITEM_VK_Lot'
+];
 
-function artikelShowLoading() {
-  document.getElementById('a-result-card').style.display='none';
-  document.getElementById('a-error').style.display='none';
-  document.getElementById('a-loading').style.display='';
+// ── Cache & State ──
+var artikelCache = null;        // null = nicht geladen; Array = geladen
+var artikelCacheLoading = false;
+var artikelStatusFilter = 'all'; // 'all' | 'auf Lager' | 'verkauft'
+var artikelSortMode = 'match';
+var artikelSearchDebounce = null;
+var ekLotResolveCache = {};      // recordId → "EK26/0234" (lazy fetched)
+
+function fmtEur(v) {
+  if (v == null || v === '') return 'nicht gesetzt';
+  var n = typeof v === 'number' ? v : parseFloat(v);
+  return isNaN(n) ? 'nicht gesetzt' : n.toFixed(2)+' €';
+}
+function fmtEurOrDash(v) {
+  if (v == null || v === '') return '—';
+  var n = typeof v === 'number' ? v : parseFloat(v);
+  return isNaN(n) ? '—' : n.toFixed(2)+' €';
 }
 
-function doArtikelNrSearch() {
-  var nr = document.getElementById('a-nr').value.trim(); if(!nr) return;
-  artikelShowLoading();
-  atGet(AT_TABLE, '{ITEM_Artikelnummer}="'+nr+'"', ARTIKEL_FIELDS, function(err,data){
-    document.getElementById('a-loading').style.display='none';
-    if(err||!data.records||!data.records.length){ document.getElementById('a-error').style.display=''; return; }
-    showArtikelResult(data.records[0].fields, nr);
-  });
+function artikelStatusClass(status) {
+  if (status === 'auf Lager') return 'artikel-item-stock';
+  if (status === 'verkauft') return 'artikel-item-sold';
+  if (status === 'unterwegs') return 'artikel-item-unterwegs';
+  if (status && status.indexOf('Abschreibung') === 0) return 'artikel-item-abschreibung';
+  return '';
 }
 
-function doArtikelNameSearch() {
-  var query = document.getElementById('a-name').value.trim(); if(!query) return;
-  artikelShowLoading();
-  atGet(AT_TABLE, '{ITEM_Artikel}!=""', ARTIKEL_FIELDS, function(err,data){
-    document.getElementById('a-loading').style.display='none';
-    if(err||!data.records||!data.records.length){ document.getElementById('a-error').style.display=''; return; }
-    var scored = data.records.map(function(r){
-      return {r:r, score:fuzzyMatch(query, r.fields['ITEM_Artikel']||'', 0.75)};
-    }).filter(function(x){ var thr=(parseInt(document.getElementById('a-fuzzy-threshold').value)||75)/100; return x.score >= thr; }).sort(function(a,b){ return b.score-a.score; });
-    if (!scored.length) { document.getElementById('a-error').style.display=''; return; }
-    if (scored.length > 1) {
-      var card = document.getElementById('a-result-card');
-      card.style.display='';
-      card.innerHTML = '<div class="s-card-title">'+scored.length+' Treffer</div>';
-      scored.slice(0,15).forEach(function(x){
-        var f = x.r.fields;
-        var div = document.createElement('div');
-        div.className = 's-brow';
-        div.style.cssText = 'cursor:pointer;touch-action:manipulation;padding:8px 0';
-        div.innerHTML = '<span class="bl">#'+escHtml(String(f['ITEM_Artikelnummer']||''))+' '+escHtml(f['ITEM_Artikel']||'—')+'</span><span class="br" style="color:var(--muted)">'+Math.round(x.score*100)+'%</span>';
-        var ff=f;
-        function go(e){ if(e.cancelable) e.preventDefault(); showArtikelResult(ff, String(ff['ITEM_Artikelnummer']||'')); }
-        div.addEventListener('click',go); div.addEventListener('touchend',go,{passive:false});
-        card.appendChild(div);
-      });
+function ensureArtikelCache() {
+  if (artikelCache !== null || artikelCacheLoading) {
+    artikelDoSearch(); // trotzdem rendern (z.B. wenn Filter sich änderte)
+    return;
+  }
+  loadArtikelCache();
+}
+
+function loadArtikelCache() {
+  artikelCacheLoading = true;
+  document.getElementById('artikel-cache-status').style.display = 'flex';
+  document.getElementById('artikel-results').innerHTML = '';
+  document.getElementById('artikel-result-count').style.display = 'none';
+
+  atGet(AT_TABLE, '{ITEM_Artikelnummer}!=""', ARTIKEL_CACHE_FIELDS, function(err, data) {
+    artikelCacheLoading = false;
+    document.getElementById('artikel-cache-status').style.display = 'none';
+    if (err) {
+      document.getElementById('artikel-results').innerHTML = '<div class="artikel-empty">Fehler beim Laden: ' + escHtml(err.message) + '</div>';
       return;
     }
-    showArtikelResult(scored[0].r.fields, String(scored[0].r.fields['ITEM_Artikelnummer']||query));
+    artikelCache = data.records || [];
+    artikelDoSearch();
   });
 }
 
-function showArtikelResult(f, nr) {
-  lastArtikel=f;
-  // Restore original card HTML if it was replaced by list
-  var card = document.getElementById('a-result-card');
-  if (!document.getElementById('a-result-nr')) {
-    card.innerHTML = window._artikelCardHtml || '';
-    attachLoadKalkBtn();
+function scheduleArtikelSearch() {
+  if (artikelSearchDebounce) clearTimeout(artikelSearchDebounce);
+  artikelSearchDebounce = setTimeout(artikelDoSearch, 200);
+}
+
+// Hauptsuche: läuft lokal auf dem Cache.
+function artikelDoSearch() {
+  if (!artikelCache) return;
+  var nrRaw = document.getElementById('a-nr').value.trim();
+  var nameQ = document.getElementById('a-name').value.trim();
+  var fuzzyThr = (parseInt(document.getElementById('a-fuzzy-threshold').value) || 75) / 100;
+
+  var results = [];
+  for (var i = 0; i < artikelCache.length; i++) {
+    var rec = artikelCache[i];
+    var f = rec.fields;
+    var score = 1;
+
+    // Nr-Filter (Prefix-Match, leer = übersprungen)
+    if (nrRaw) {
+      var artNr = String(f['ITEM_Artikelnummer'] || '');
+      if (artNr.indexOf(nrRaw) !== 0) continue;
+    }
+
+    // Name-Filter (Fuzzy, leer = übersprungen)
+    if (nameQ) {
+      score = fuzzyMatch(nameQ, f['ITEM_Artikel'] || '', fuzzyThr);
+      if (score < fuzzyThr) continue;
+    }
+
+    // Status-Filter
+    if (artikelStatusFilter !== 'all') {
+      var st = f['ITEM_Status'] || '';
+      if (st !== artikelStatusFilter) continue;
+    }
+
+    results.push({ rec: rec, score: score });
   }
-  document.getElementById('a-result-nr').textContent='Artikel #'+nr;
-  document.getElementById('a-result-name').textContent=f['ITEM_Artikel']||'—';
-  document.getElementById('a-ek').textContent=f['ITEM_EK_Preis']?f['ITEM_EK_Preis'].toFixed(2)+' €':'—';
-  document.getElementById('a-minvk').textContent=f['ITEM_Mindest_VK']?f['ITEM_Mindest_VK'].toFixed(2)+' €':'—';
-  document.getElementById('a-status').textContent=f['ITEM_Status']||'—';
-  document.getElementById('a-datum').textContent=f['ITEM_Listing_Datum']||'—';
-  document.getElementById('a-konsole').textContent=[f['ITEM_Konsole'],f['ITEM_Komponente']].filter(Boolean).join(' · ')||'—';
-  var ekLot = f['ITEM_EK_Lot'];
-  document.getElementById('a-ek-lot').textContent = Array.isArray(ekLot)?ekLot[0]:(ekLot||'—');
+
+  // Sortierung
+  results.sort(artikelGetSortFn(artikelSortMode));
+
+  renderArtikelResults(results, !!(nrRaw || nameQ));
+}
+
+function artikelGetSortFn(mode) {
+  if (mode === 'match') {
+    return function(a, b) { return b.score - a.score; };
+  }
+  if (mode === 'status') {
+    var order = { 'auf Lager': 0, 'unterwegs': 1, 'verkauft': 2, 'Abschreibung 2025': 3, 'Abschreibung 2026': 4 };
+    return function(a, b) {
+      var sa = order[a.rec.fields['ITEM_Status']]; if (sa == null) sa = 99;
+      var sb = order[b.rec.fields['ITEM_Status']]; if (sb == null) sb = 99;
+      return sa - sb;
+    };
+  }
+  if (mode === 'ek_asc' || mode === 'ek_desc') {
+    var dir = mode === 'ek_asc' ? 1 : -1;
+    return function(a, b) {
+      var ea = parseFloat(a.rec.fields['ITEM_EK_Preis']) || 0;
+      var eb = parseFloat(b.rec.fields['ITEM_EK_Preis']) || 0;
+      return (ea - eb) * dir;
+    };
+  }
+  if (mode === 'datum_desc') {
+    return function(a, b) {
+      var da = String(a.rec.fields['ITEM_Listing_Datum'] || '');
+      var db = String(b.rec.fields['ITEM_Listing_Datum'] || '');
+      return db.localeCompare(da);
+    };
+  }
+  return function() { return 0; };
+}
+
+function renderArtikelResults(results, hadQuery) {
+  var wrap = document.getElementById('artikel-results');
+  var countEl = document.getElementById('artikel-result-count');
+
+  if (!results.length) {
+    wrap.innerHTML = '<div class="artikel-empty">' + (hadQuery ? 'Keine Treffer' : 'Sucheingabe nutzen, um Treffer zu sehen') + '</div>';
+    countEl.style.display = 'none';
+    return;
+  }
+
+  countEl.textContent = results.length + ' Treffer' + (results.length > 200 ? ' (zeige erste 200)' : '');
+  countEl.style.display = '';
+
+  var max = Math.min(results.length, 200);
+  var html = '';
+  for (var i = 0; i < max; i++) {
+    var x = results[i];
+    var f = x.rec.fields;
+    var nr = String(f['ITEM_Artikelnummer'] || '');
+    var name = f['ITEM_Artikel'] || '—';
+    var status = f['ITEM_Status'] || '';
+    var ek = f['ITEM_EK_Preis'];
+    var minvk = f['ITEM_Mindest_VK'];
+    var vk = f['ITEM_VK_Preis'];
+    var gewinn = f['ITEM_Reingewinn'];
+
+    var bottomLine = '';
+    if (status === 'auf Lager' || status === 'unterwegs') {
+      bottomLine = 'EK ' + fmtEurOrDash(ek) + ' · Mindest-VK ' + fmtEurOrDash(minvk);
+    } else if (status === 'verkauft') {
+      var gewinnNum = parseFloat(gewinn);
+      var gClass = isNaN(gewinnNum) ? '' : (gewinnNum >= 0 ? 'gewinn-pos' : 'gewinn-neg');
+      var gewinnHtml = isNaN(gewinnNum) ? '—' : '<span class="' + gClass + '">' + gewinnNum.toFixed(2) + ' €</span>';
+      bottomLine = 'EK ' + fmtEurOrDash(ek) + ' · VK ' + fmtEurOrDash(vk) + ' · Gew. ' + gewinnHtml;
+    } else if (status.indexOf('Abschreibung') === 0) {
+      bottomLine = 'EK ' + fmtEurOrDash(ek) + ' · abgeschrieben';
+    } else {
+      bottomLine = 'EK ' + fmtEurOrDash(ek);
+    }
+
+    var scoreHtml = '';
+    if (x.score < 1) scoreHtml = '<span class="artikel-item-score">' + Math.round(x.score * 100) + '%</span>';
+
+    html += '<div class="artikel-item ' + artikelStatusClass(status) + '" data-nr="' + escHtml(nr) + '">'+
+      '<div class="artikel-item-bar"></div>'+
+      '<div class="artikel-item-content">'+
+        '<div class="artikel-item-top">'+
+          '<span class="artikel-item-nr">#' + escHtml(nr) + '</span>'+
+          '<span class="artikel-item-name">' + escHtml(name) + '</span>'+
+          scoreHtml +
+        '</div>'+
+        '<div class="artikel-item-bottom">' + bottomLine + '</div>'+
+      '</div>'+
+    '</div>';
+  }
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.artikel-item').forEach(function(el) {
+    attachTouchClickHandler(el, function() {
+      var nr = el.getAttribute('data-nr');
+      var rec = artikelFindByNr(nr);
+      if (rec) openArtikelDetail(rec);
+    });
+  });
+}
+
+function artikelFindByNr(nr) {
+  if (!artikelCache) return null;
+  for (var i = 0; i < artikelCache.length; i++) {
+    if (String(artikelCache[i].fields['ITEM_Artikelnummer']) === String(nr)) return artikelCache[i];
+  }
+  return null;
+}
+
+// Touch- + Click-Handler, der zwischen Scroll-Swipe und Tap unterscheidet.
+// touchstart merkt Position; touchmove markiert "bewegt" wenn >10px; touchend feuert nur bei Tap.
+function attachTouchClickHandler(el, fn) {
+  var startY = 0, startX = 0, moved = false, lastFire = 0;
+  el.addEventListener('touchstart', function(e) {
+    if (!e.touches[0]) return;
+    startY = e.touches[0].clientY;
+    startX = e.touches[0].clientX;
+    moved = false;
+  }, { passive: true });
+  el.addEventListener('touchmove', function(e) {
+    if (!e.touches[0]) return;
+    var dy = Math.abs(e.touches[0].clientY - startY);
+    var dx = Math.abs(e.touches[0].clientX - startX);
+    if (dy > 10 || dx > 10) moved = true;
+  }, { passive: true });
+  function handler(e) {
+    if (moved) return;
+    var now = Date.now();
+    if (now - lastFire < 400) return;
+    lastFire = now;
+    if (e && e.cancelable) e.preventDefault();
+    fn();
+  }
+  el.addEventListener('touchend', handler, { passive: false });
+  el.addEventListener('click', handler);
+}
+
+// ── Detail-View ──
+function openArtikelDetail(rec) {
+  var f = rec.fields;
+  lastArtikel = f;
+
+  document.getElementById('artikel-list-view').style.display = 'none';
+  document.getElementById('artikel-detail-view').style.display = '';
+  document.getElementById('artikel-header-title').textContent = 'Artikel-Detail';
+
+  var nr = String(f['ITEM_Artikelnummer'] || '');
+  document.getElementById('a-result-nr').textContent = 'Artikel #' + nr;
+  document.getElementById('a-result-name').textContent = f['ITEM_Artikel'] || 'nicht gesetzt';
+  var konsole = [f['ITEM_Konsole'], f['ITEM_Komponente']].filter(Boolean).join(' · ');
+  document.getElementById('a-konsole').textContent = konsole || 'nicht gesetzt';
+  document.getElementById('a-ek').textContent = fmtEur(f['ITEM_EK_Preis']);
+  document.getElementById('a-minvk').textContent = fmtEur(f['ITEM_Mindest_VK']);
+  document.getElementById('a-status').textContent = f['ITEM_Status'] || 'nicht gesetzt';
+  document.getElementById('a-datum').textContent = f['ITEM_Listing_Datum'] || 'nicht gesetzt';
+  document.getElementById('a-vk-preis').textContent = fmtEur(f['ITEM_VK_Preis']);
+  document.getElementById('a-vk-lot').textContent = '…';
+
+  // EK-Lot lesbar auflösen (linked record → EK_Lot des verknüpften Datensatzes)
+  var ekLotRaw = f['ITEM_EK_Lot'];
+  var ekRecId = Array.isArray(ekLotRaw) ? ekLotRaw[0] : null;
+  var ekLotEl = document.getElementById('a-ek-lot');
+  if (ekRecId) {
+    if (ekLotResolveCache[ekRecId]) {
+      ekLotEl.textContent = ekLotResolveCache[ekRecId];
+    } else {
+      ekLotEl.textContent = '…';
+      fetch('https://api.airtable.com/v0/' + AT_BASE + '/Einkauf_2026/' + ekRecId, {
+        headers: { 'Authorization': 'Bearer ' + AT_TOKEN }
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(rec){
+          var lotName = (rec && rec.fields && rec.fields['EK_Lot']) || 'nicht gesetzt';
+          ekLotResolveCache[ekRecId] = lotName;
+          ekLotEl.textContent = lotName;
+        })
+        .catch(function(){ ekLotEl.textContent = 'nicht gesetzt'; });
+    }
+  } else if (typeof ekLotRaw === 'string' && ekLotRaw) {
+    ekLotEl.textContent = ekLotRaw;
+  } else {
+    ekLotEl.textContent = 'nicht gesetzt';
+  }
+
+  // Vorhandene "Alle Artikel im VK"-Sektion entfernen (bei wiederholtem Öffnen)
+  var card = document.getElementById('a-result-card');
+  var existingVkDetail = card.querySelector('.vk-lot-detail');
+  if (existingVkDetail) existingVkDetail.remove();
+
+  // VK-Lot auflösen + "Alle Artikel im VK"-Sektion bauen (wie zuvor, jetzt am Detail-Card-Ende)
   var vkLotRaw = f['ITEM_VK_Lot'];
-  var vkRecId = Array.isArray(vkLotRaw)?vkLotRaw[0]:(typeof vkLotRaw==='string'?vkLotRaw:'');
-  document.getElementById('a-vk-preis').textContent = f['ITEM_VK_Preis']?f['ITEM_VK_Preis'].toFixed(2)+' €':'—';
-  document.getElementById('a-vk-lot').textContent = '—';
-  document.getElementById('a-vk-gewinn').textContent = '—';
-  card.style.display='';
+  var vkRecId = Array.isArray(vkLotRaw) ? vkLotRaw[0] : (typeof vkLotRaw === 'string' ? vkLotRaw : '');
   if (vkRecId) {
-    fetch('https://api.airtable.com/v0/'+AT_BASE+'/Verkauf_2026/'+vkRecId, {headers:{'Authorization':'Bearer '+AT_TOKEN}})
+    fetch('https://api.airtable.com/v0/' + AT_BASE + '/Verkauf_2026/' + vkRecId, { headers: { 'Authorization': 'Bearer ' + AT_TOKEN } })
       .then(function(r){ return r.json(); })
       .then(function(vkRec){
-        if (!vkRec||!vkRec.fields) return;
+        if (!vkRec || !vkRec.fields) { document.getElementById('a-vk-lot').textContent = 'nicht gesetzt'; return; }
         var vf = vkRec.fields;
-        var vkLot = vf['VK_Lot']||'—';
+        var vkLot = vf['VK_Lot'] || 'nicht gesetzt';
         document.getElementById('a-vk-lot').textContent = vkLot;
-        document.getElementById('a-vk-gewinn').textContent = vf['VK_Reingewinn']!==undefined?vf['VK_Reingewinn'].toFixed(2)+' €':'—';
-        if (vkLot !== '—') {
+        if (vkLot !== 'nicht gesetzt') {
           atGet('Artikel_2026', '{ITEM_VK_Lot}="'+vkLot+'"', ['ITEM_Artikelnummer','ITEM_Artikel','ITEM_EK_Preis','ITEM_VK_Preis'], function(err2, artData) {
-            if (err2||!artData.records||!artData.records.length) return;
+            if (err2 || !artData.records || !artData.records.length) return;
             var html = '<div style="margin-top:12px"><div class="s-card-title">Alle Artikel im VK</div>';
             html += '<div class="ek-artikel-row" style="opacity:.5"><div style="font-size:10px;color:var(--hint)">Artikel</div><div style="font-size:10px;color:var(--hint);text-align:right">EK</div><div style="font-size:10px;color:var(--hint);text-align:right">VK</div><div style="font-size:10px;color:var(--hint);text-align:right">Gew.</div></div>';
             artData.records.forEach(function(r){
-              var af=r.fields; var ek=af['ITEM_EK_Preis']||0; var vk=af['ITEM_VK_Preis']||0; var diff=vk-ek;
+              var af = r.fields; var ek = af['ITEM_EK_Preis']||0; var vk = af['ITEM_VK_Preis']||0; var diff = vk - ek;
               html += '<div class="ek-artikel-row"><div class="ek-artikel-name">'+escHtml(af['ITEM_Artikel']||'—')+'</div><div class="ek-artikel-ek">€'+ek.toFixed(2)+'</div><div class="ek-artikel-vk">€'+vk.toFixed(2)+'</div><div class="ek-artikel-gewinn '+(diff>=0?'pos':'neg')+'">€'+diff.toFixed(2)+'</div></div>';
             });
-            var rg = vf['VK_Reingewinn']||0;
+            var rg = vf['VK_Reingewinn'] || 0;
             html += '<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px;font-weight:700;border-top:.5px solid var(--border);margin-top:4px"><span style="color:var(--muted)">VK_Reingewinn</span><span style="color:'+(rg>=0?'#1D9E75':'var(--accent)')+'">€'+rg.toFixed(2)+'</span></div></div>';
             var existing = card.querySelector('.vk-lot-detail');
             if (existing) existing.remove();
-            var div = document.createElement('div'); div.className='vk-lot-detail'; div.innerHTML=html;
+            var div = document.createElement('div'); div.className = 'vk-lot-detail'; div.innerHTML = html;
             card.appendChild(div);
           });
         }
-      }).catch(function(){});
+      })
+      .catch(function(){ document.getElementById('a-vk-lot').textContent = 'nicht gesetzt'; });
+  } else {
+    document.getElementById('a-vk-lot').textContent = 'nicht gesetzt';
   }
 }
 
-function doArtikelSearch() { doArtikelNrSearch(); }
-
-
-
-function showArtikelDetail(f, nr) {
-  lastArtikel = f;
-  if (!document.getElementById('a-result-nr')) {
-    document.getElementById('a-result-card').innerHTML = window._artikelCardHtml || '';
-    attachLoadKalkBtn();
-  }
-  document.getElementById('a-result-nr').textContent='Artikel #'+nr;
-  document.getElementById('a-result-name').textContent=f['ITEM_Artikel']||'—';
-  document.getElementById('a-konsole').textContent=[f['ITEM_Konsole'],f['ITEM_Komponente']].filter(Boolean).join(' · ')||'—';
-  var ekLot = f['ITEM_EK_Lot'];
-  document.getElementById('a-ek-lot').textContent = Array.isArray(ekLot)?ekLot[0]:(ekLot||'—');
-  document.getElementById('a-ek').textContent=f['ITEM_EK_Preis']?f['ITEM_EK_Preis'].toFixed(2)+' €':'—';
-  document.getElementById('a-minvk').textContent=f['ITEM_Mindest_VK']?f['ITEM_Mindest_VK'].toFixed(2)+' €':'—';
-  document.getElementById('a-status').textContent=f['ITEM_Status']||'—';
-  document.getElementById('a-datum').textContent=f['ITEM_Listing_Datum']||'—';
-  document.getElementById('a-vk-preis').textContent=f['ITEM_VK_Preis']?f['ITEM_VK_Preis'].toFixed(2)+' €':'—';
-  document.getElementById('a-vk-lot').textContent='—';
-  document.getElementById('a-vk-gewinn').textContent='—';
-  // reset card to full layout
-  var card = document.getElementById('a-result-card');
-  // restore full card if it was list view
-  doArtikelSearch._restoreCard && doArtikelSearch._restoreCard();
+function closeArtikelDetail() {
+  document.getElementById('artikel-detail-view').style.display = 'none';
+  document.getElementById('artikel-list-view').style.display = '';
+  document.getElementById('artikel-header-title').textContent = 'Artikelsuche';
 }
 
-// Store original card HTML for restoration
-window._artikelCardHtml = document.getElementById('a-result-card').innerHTML;
-function attachLoadKalkBtn() {
-  var btn = document.getElementById('btn-load-kalk');
-  if (btn) {
-    btn.addEventListener('click', function(){
-      if(!lastArtikel) return;
-      if(lastArtikel['ITEM_EK_Preis']){ document.getElementById('ek_eur').value=lastArtikel['ITEM_EK_Preis'].toFixed(2); document.getElementById('ek_eur').dispatchEvent(new Event('input')); }
-      if(lastArtikel['ITEM_Mindest_VK']){ document.getElementById('vk').value=lastArtikel['ITEM_Mindest_VK'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
-      showScreen('screen-jp');
-    });
-    btn.addEventListener('touchend', function(e){ e.preventDefault();
-      if(!lastArtikel) return;
-      if(lastArtikel['ITEM_EK_Preis']){ document.getElementById('ek_eur').value=lastArtikel['ITEM_EK_Preis'].toFixed(2); document.getElementById('ek_eur').dispatchEvent(new Event('input')); }
-      if(lastArtikel['ITEM_Mindest_VK']){ document.getElementById('vk').value=lastArtikel['ITEM_Mindest_VK'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
-      showScreen('screen-jp');
-    }, {passive:false});
-  }
-}
-attachLoadKalkBtn();
-
+// JP-Kalkulator-Transfer
 document.getElementById('btn-load-kalk').addEventListener('click', function(){
-  if(!lastArtikel) return;
-  if(lastArtikel['ITEM_EK_Preis']){ document.getElementById('ek_eur').value=lastArtikel['ITEM_EK_Preis'].toFixed(2); document.getElementById('ek_eur').dispatchEvent(new Event('input')); }
-  if(lastArtikel['ITEM_Mindest_VK']){ document.getElementById('vk').value=lastArtikel['ITEM_Mindest_VK'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
+  if (!lastArtikel) return;
+  if (lastArtikel['ITEM_EK_Preis']) { document.getElementById('ek_eur').value = lastArtikel['ITEM_EK_Preis'].toFixed(2); document.getElementById('ek_eur').dispatchEvent(new Event('input')); }
+  if (lastArtikel['ITEM_Mindest_VK']) { document.getElementById('vk').value = lastArtikel['ITEM_Mindest_VK'].toFixed(2); document.getElementById('vk').dispatchEvent(new Event('input')); }
   showScreen('screen-jp');
+});
+
+// Wire-up: Suchfelder + Filter + Sortierung
+document.getElementById('a-nr').addEventListener('input', scheduleArtikelSearch);
+document.getElementById('a-name').addEventListener('input', scheduleArtikelSearch);
+document.getElementById('a-fuzzy-threshold').addEventListener('input', function(){
+  document.getElementById('a-fuzzy-val').textContent = this.value + '%';
+  scheduleArtikelSearch();
+});
+document.getElementById('artikel-sort').addEventListener('change', function(){
+  artikelSortMode = this.value;
+  artikelDoSearch();
+});
+document.querySelectorAll('#artikel-list-view .artikel-pill').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('#artikel-list-view .artikel-pill').forEach(function(b){ b.classList.remove('artikel-pill-active'); });
+    btn.classList.add('artikel-pill-active');
+    artikelStatusFilter = btn.getAttribute('data-status');
+    artikelDoSearch();
+  });
 });
 
 // ── SKU EINTRAGUNG ──
@@ -2556,14 +2834,14 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   </div>
   <div style="padding:8px 0;flex:1;overflow-y:auto">
     <div class="menu-nav-item" onclick="navTo('screen-jp')">🇯🇵 JP Import Kalkulator</div>
-    <div class="menu-nav-item" onclick="navTo('screen-artikel')">🔍 Artikelsuche</div>
+    <div class="menu-nav-item" onclick="navTo('screen-artikel', ensureArtikelCache)">🔍 Artikelsuche</div>
     <div class="menu-nav-item" onclick="navTo('screen-sku', loadPimp)">📦 SKU Eintragung</div>
     <div class="menu-nav-item" onclick="navTo('screen-ek')">📊 Einkauf Auswertung</div>
     <div class="menu-nav-item" onclick="navTo('screen-ba', loadBaList)">📄 BA-Review</div>
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.10.0 / rd-hub-v47</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.0.0 / rd-hub-v48</div>
 </div>
 </body>
 </html>
