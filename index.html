@@ -1,13 +1,15 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  1.4.7
-  SW Cache: rd-hub-v39
-  Build:    2026-04-27 14:49
+  Version:  1.5.0
+  SW Cache: rd-hub-v40
+  Build:    2026-05-15
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v1.5.0  (2026-05-15)  BA-Review: Liste + Detail mit PDF, Auto-USt, Partner-Suche
+  v1.4.7  (2026-04-27 14:49)  Service Worker no-cache
   v1.4.6  (2026-04-25 13:59)  SKU doppelter loadPimp Fix
   v1.4.5  (2026-04-25)  Build-Timestamp auf PIN-Screen, Versionen hochgezählt
   v1.4.4  (2026-04-25)  SKU: addAnother not defined Fix
@@ -249,6 +251,42 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .menu-nav-item{padding:14px 20px;font-size:15px;color:var(--text);cursor:pointer;touch-action:manipulation;border-bottom:.5px solid var(--border)}
 .menu-nav-item:hover{background:var(--card2)}
 .menu-btn{width:36px;height:36px;border-radius:50%;border:.5px solid var(--border);background:var(--card2);color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;flex-shrink:0}
+
+/* BA REVIEW */
+.ba-sort-select{background:var(--card2);color:var(--text);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:12px;font-family:inherit;outline:none;margin-left:auto}
+.ba-detail-hidden{display:none}
+#ba-detail-view:not(.ba-detail-hidden){display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;flex:1;overflow:hidden;min-height:0}
+.ba-pdf-pane{background:var(--card);border-radius:var(--radius);border:.5px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;min-height:0}
+.ba-pdf-pane iframe{width:100%;height:100%;border:none;background:white;display:block}
+.ba-pdf-empty{font-size:14px;color:var(--muted);text-align:center;padding:20px}
+.ba-form-pane{background:var(--card);border-radius:var(--radius);border:.5px solid var(--border);padding:18px;overflow-y:auto;min-height:0}
+.ba-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.ba-field{display:flex;flex-direction:column;gap:4px}
+.ba-field label{font-size:12px;color:var(--muted)}
+.ba-field input,.ba-field select,.ba-field textarea{border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:9px 10px;font-size:14px;font-family:inherit;outline:none;width:100%}
+.ba-field input:focus,.ba-field select:focus,.ba-field textarea:focus{border-color:var(--accent)}
+.ba-field textarea{resize:vertical;min-height:60px}
+.ba-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);max-height:220px;overflow-y:auto;z-index:50;display:none;margin-top:2px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.ba-dd-item{padding:8px 10px;cursor:pointer;font-size:13px;color:var(--text);border-bottom:.5px solid var(--border)}
+.ba-dd-item:last-child{border-bottom:none}
+.ba-dd-item:hover{background:var(--card)}
+.ba-buttons{display:flex;gap:8px;margin-top:14px}
+.ba-buttons button{flex:1;padding:11px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;font-family:inherit}
+.btn-ba-save{background:var(--card2);color:var(--text);border:.5px solid var(--border)}
+.btn-ba-approve{background:var(--green);color:white}
+.btn-ba-cancel{background:transparent;color:var(--muted);border:.5px solid var(--border)}
+.ba-klaer-banner{background:rgba(239,168,39,.15);border:.5px solid var(--amber);border-radius:var(--radius-sm);padding:10px 12px;color:var(--amber);margin-bottom:14px;font-size:13px;font-weight:500}
+.ba-table{width:100%;border-collapse:collapse;font-size:13px}
+.ba-table th{text-align:left;padding:8px 10px;font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;border-bottom:.5px solid var(--border);font-weight:600}
+.ba-table td{padding:10px;border-bottom:.5px solid var(--border);color:var(--text)}
+.ba-table tbody tr{cursor:pointer;transition:background .1s}
+.ba-table tbody tr:hover{background:var(--card2)}
+.ba-status-pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}
+.ba-status-offen{background:rgba(230,57,70,.15);color:var(--accent)}
+.ba-status-bearbeitung{background:rgba(239,168,39,.15);color:var(--amber)}
+.ba-pdf-yes{color:var(--green);font-size:16px}
+.ba-pdf-no{color:var(--hint);font-size:16px}
+.ba-klaer-icon{color:var(--amber)}
 </style>
 </head>
 <body>
@@ -259,10 +297,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.4.7</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v39</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.5.0</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v40</div></div>
     </div>
-    <div style="margin-top:6px;font-size:10px;color:var(--hint)">Build: 2026-04-27 14:49</div>
+    <div style="margin-top:6px;font-size:10px;color:var(--hint)">Build: 2026-05-15</div>
   </div>
   <div class="pin-display">
     <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
@@ -292,7 +330,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.4.7</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.5.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -301,6 +339,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="menu-tile active-tile" id="tile-artikel"><div class="tile-accent"></div><div class="tile-icon">🔍</div><div><div class="tile-label">Artikelsuche</div><div class="tile-sub">EK · VK · Status</div></div></div>
     <div class="menu-tile active-tile" id="tile-sku"><div class="tile-accent"></div><div class="tile-icon">📦</div><div><div class="tile-label">SKU Eintragung</div><div class="tile-sub">Packtisch · PIMP</div></div></div>
     <div class="menu-tile active-tile" id="tile-ek"><div class="tile-accent"></div><div class="tile-icon">📊</div><div><div class="tile-label">Einkauf Auswertung</div><div class="tile-sub">Profit · Artikel · Status</div></div></div>
+    <div class="menu-tile active-tile" id="tile-ba"><div class="tile-accent"></div><div class="tile-icon">📄</div><div><div class="tile-label">BA-Review</div><div class="tile-sub">Betriebsausgaben prüfen</div></div></div>
     <div class="menu-tile inactive"><div class="tile-icon">🛒</div><div><div class="tile-label">Einkauf anlegen</div><div class="tile-sub">Kommt bald</div></div></div>
     <div class="menu-tile inactive"><div class="tile-icon">⚙️</div><div><div class="tile-label">Einstellungen</div><div class="tile-sub">Kommt bald</div></div></div>
   </div>
@@ -1098,6 +1137,335 @@ function navTo(screenId, onShow) {
   if(onShow) onShow();
 }
 
+// ── BA REVIEW ──
+var BA_LIST_FIELDS = ['BA_ID','BA_Datum','BA_Lieferant','BA_Brutto','BA_Status','BA_Beleg','BA_Notizen'];
+var baList = [];
+var baCurrentRec = null;
+var baSortMode = 'date_asc';
+var baSelectedPartnerId = null;
+var baNettoOverride = false;
+var baUstOverride = false;
+var baPartnerSearchTimer = null;
+
+function showBaListView() {
+  document.getElementById('ba-list-view').style.display = '';
+  document.getElementById('ba-detail-view').classList.add('ba-detail-hidden');
+  document.getElementById('ba-header-title').textContent = 'BA-Review';
+  document.getElementById('ba-sort').style.display = '';
+  document.getElementById('btn-ba-reload').style.display = '';
+}
+
+function showBaDetailView() {
+  document.getElementById('ba-list-view').style.display = 'none';
+  document.getElementById('ba-detail-view').classList.remove('ba-detail-hidden');
+  document.getElementById('ba-header-title').textContent = 'BA bearbeiten';
+  document.getElementById('ba-sort').style.display = 'none';
+  document.getElementById('btn-ba-reload').style.display = 'none';
+}
+
+function loadBaList() {
+  showBaListView();
+  var loadEl = document.getElementById('ba-list-loading');
+  var errEl = document.getElementById('ba-list-error');
+  loadEl.style.display = '';
+  errEl.style.display = 'none';
+  errEl.style.color = '';
+  document.getElementById('ba-list-table-wrap').innerHTML = '';
+  atGet('Betriebsausgaben_2026', "OR({BA_Status}='offen',{BA_Status}='in Bearbeitung')", BA_LIST_FIELDS, function(err, data) {
+    loadEl.style.display = 'none';
+    if (err) { errEl.textContent = 'Verbindungsfehler: ' + err.message; errEl.style.display = ''; return; }
+    if (!data.records || !data.records.length) {
+      errEl.textContent = 'Keine offenen Betriebsausgaben.';
+      errEl.style.display = '';
+      document.getElementById('ba-list-count').textContent = '0 offene Betriebsausgaben';
+      return;
+    }
+    baList = data.records;
+    renderBaTable();
+  });
+}
+
+function baSortRecords(list) {
+  return list.slice().sort(function(a,b) {
+    var af = a.fields, bf = b.fields;
+    if (baSortMode === 'date_asc') return String(af['BA_Datum']||'').localeCompare(String(bf['BA_Datum']||''));
+    if (baSortMode === 'date_desc') return String(bf['BA_Datum']||'').localeCompare(String(af['BA_Datum']||''));
+    if (baSortMode === 'supplier') return String(af['BA_Lieferant']||'').localeCompare(String(bf['BA_Lieferant']||''));
+    if (baSortMode === 'amount_desc') return (parseFloat(bf['BA_Brutto'])||0) - (parseFloat(af['BA_Brutto'])||0);
+    return 0;
+  });
+}
+
+function renderBaTable() {
+  var sorted = baSortRecords(baList);
+  document.getElementById('ba-list-count').textContent = sorted.length + ' offene Betriebsausgabe' + (sorted.length===1?'':'n');
+
+  var html = '<table class="ba-table"><thead><tr>'+
+    '<th style="width:24px"></th>'+
+    '<th>BA-ID</th>'+
+    '<th>Datum</th>'+
+    '<th>Lieferant</th>'+
+    '<th style="text-align:right">Brutto</th>'+
+    '<th>Status</th>'+
+    '<th style="text-align:center">PDF</th>'+
+    '</tr></thead><tbody>';
+
+  sorted.forEach(function(rec) {
+    var f = rec.fields;
+    var notizen = String(f['BA_Notizen'] || '');
+    var isKlaer = notizen.toUpperCase().indexOf('KLÄRFALL:') === 0;
+    var hasPdf = Array.isArray(f['BA_Beleg']) && f['BA_Beleg'].length > 0;
+    var status = f['BA_Status'] || '—';
+    var statusCls = status === 'offen' ? 'ba-status-offen' : 'ba-status-bearbeitung';
+    var brutto = f['BA_Brutto'] != null ? parseFloat(f['BA_Brutto']).toFixed(2)+' €' : '—';
+    var datum = f['BA_Datum'] ? String(f['BA_Datum']).substring(0,10) : '—';
+
+    html += '<tr data-id="'+rec.id+'">'+
+      '<td>'+(isKlaer?'<span class="ba-klaer-icon" title="Klärfall">⚠️</span>':'')+'</td>'+
+      '<td>'+escHtml(f['BA_ID']||'—')+'</td>'+
+      '<td>'+escHtml(datum)+'</td>'+
+      '<td>'+escHtml(f['BA_Lieferant']||'—')+'</td>'+
+      '<td style="text-align:right;font-weight:600">'+brutto+'</td>'+
+      '<td><span class="ba-status-pill '+statusCls+'">'+escHtml(status)+'</span></td>'+
+      '<td style="text-align:center">'+(hasPdf?'<span class="ba-pdf-yes">●</span>':'<span class="ba-pdf-no">○</span>')+'</td>'+
+      '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('ba-list-table-wrap').innerHTML = html;
+
+  document.getElementById('ba-list-table-wrap').querySelectorAll('tbody tr').forEach(function(tr) {
+    tr.addEventListener('click', function() {
+      openBaDetail(tr.getAttribute('data-id'));
+    });
+  });
+}
+
+function openBaDetail(recId) {
+  showBaDetailView();
+  var msg = document.getElementById('ba-save-msg');
+  msg.textContent = 'Lade…';
+  msg.style.color = 'var(--muted)';
+
+  fetch('https://api.airtable.com/v0/' + AT_BASE + '/Betriebsausgaben_2026/' + recId, {headers:{'Authorization':'Bearer '+AT_TOKEN}})
+    .then(function(r){ return r.json(); })
+    .then(function(rec) {
+      if (rec.error) { msg.textContent='Fehler: '+rec.error.message; msg.style.color='var(--accent)'; return; }
+      baCurrentRec = rec;
+      populateBaForm(rec);
+      msg.textContent = '';
+    })
+    .catch(function(e) {
+      msg.textContent = 'Fehler: '+e.message;
+      msg.style.color='var(--accent)';
+    });
+}
+
+function populateBaForm(rec) {
+  var f = rec.fields;
+  baNettoOverride = false;
+  baUstOverride = false;
+  baSelectedPartnerId = null;
+
+  document.getElementById('ba-id-display').textContent = f['BA_ID'] || '—';
+  var statusEl = document.getElementById('ba-status-display');
+  var status = f['BA_Status'] || '—';
+  statusEl.textContent = status;
+  statusEl.className = 'ba-status-pill ' + (status === 'offen' ? 'ba-status-offen' : 'ba-status-bearbeitung');
+
+  var notizen = String(f['BA_Notizen'] || '');
+  var banner = document.getElementById('ba-klaer-banner');
+  if (notizen.toUpperCase().indexOf('KLÄRFALL:') === 0) {
+    banner.textContent = '⚠️ ' + notizen;
+    banner.style.display = '';
+  } else {
+    banner.style.display = 'none';
+  }
+
+  document.getElementById('ba-lieferant').value = f['BA_Lieferant'] || '';
+  document.getElementById('ba-datum').value = f['BA_Datum'] ? String(f['BA_Datum']).substring(0,10) : '';
+  document.getElementById('ba-bezeichnung').value = f['BA_Bezeichnung'] || '';
+  document.getElementById('ba-brutto').value = f['BA_Brutto'] != null ? f['BA_Brutto'] : '';
+
+  var satz = f['BA_USt_Satz'];
+  if (satz != null) {
+    var satzNum = typeof satz === 'string' ? parseFloat(satz) : satz;
+    if (satzNum > 0 && satzNum < 1) satzNum = satzNum * 100;
+    document.getElementById('ba-ust-satz').value = String(Math.round(satzNum));
+  } else {
+    document.getElementById('ba-ust-satz').value = '19';
+  }
+
+  document.getElementById('ba-netto').value = f['BA_Netto'] != null ? f['BA_Netto'] : '';
+  document.getElementById('ba-ust-betrag').value = f['BA_USt_Betrag'] != null ? f['BA_USt_Betrag'] : '';
+  document.getElementById('ba-kategorie').value = f['BA_Kategorie'] || '';
+  document.getElementById('ba-zahlweg').value = f['BA_Zahlweg'] || '';
+  document.getElementById('ba-beleg-nr').value = f['BA_Beleg_Nr'] || '';
+  document.getElementById('ba-vorsteuer').value = f['BA_Vorsteuer_absetzbar'] || '';
+  document.getElementById('ba-wiederkehrend').value = f['BA_Wiederkehrend'] || '';
+  document.getElementById('ba-zahlperiode').value = f['BA_Zahlperiode'] || '';
+  document.getElementById('ba-notizen').value = notizen;
+
+  var beleg = f['BA_Beleg'];
+  var iframe = document.getElementById('ba-pdf-frame');
+  var emptyDiv = document.getElementById('ba-pdf-empty');
+  if (Array.isArray(beleg) && beleg.length > 0 && beleg[0].url) {
+    iframe.src = beleg[0].url;
+    iframe.style.display = '';
+    emptyDiv.style.display = 'none';
+  } else {
+    iframe.src = 'about:blank';
+    iframe.style.display = 'none';
+    emptyDiv.style.display = '';
+  }
+}
+
+function baCalc() {
+  var brutto = parseFloat(document.getElementById('ba-brutto').value) || 0;
+  var satz = parseFloat(document.getElementById('ba-ust-satz').value) / 100;
+  var netto = brutto / (1 + satz);
+  var ust = brutto - netto;
+  if (!baNettoOverride) document.getElementById('ba-netto').value = netto.toFixed(2);
+  if (!baUstOverride) document.getElementById('ba-ust-betrag').value = ust.toFixed(2);
+}
+
+function searchPartners(query) {
+  var safe = query.replace(/"/g,'\\"');
+  atGet('Partnerdaten_2026', 'FIND(LOWER("'+safe+'"),LOWER({PD_Firmenname}&""))>0', ['PD_Firmenname'], function(err, data) {
+    if (err || !data.records) { hidePartnerDropdown(); return; }
+    showPartnerDropdown(data.records.slice(0, 15));
+  });
+}
+
+function showPartnerDropdown(records) {
+  var dd = document.getElementById('ba-lieferant-dropdown');
+  if (!records.length) { dd.style.display = 'none'; return; }
+  var html = '';
+  records.forEach(function(r) {
+    html += '<div class="ba-dd-item" data-id="'+r.id+'">'+escHtml(r.fields['PD_Firmenname']||'—')+'</div>';
+  });
+  dd.innerHTML = html;
+  dd.querySelectorAll('.ba-dd-item').forEach(function(item){
+    item.addEventListener('mousedown', function(e){
+      e.preventDefault();
+      baSelectedPartnerId = item.getAttribute('data-id');
+      document.getElementById('ba-lieferant').value = item.textContent;
+      hidePartnerDropdown();
+    });
+  });
+  dd.style.display = 'block';
+}
+
+function hidePartnerDropdown() {
+  document.getElementById('ba-lieferant-dropdown').style.display = 'none';
+}
+
+function collectBaFields() {
+  function n(id) { var v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; }
+  function s(id) { var v = document.getElementById(id).value.trim(); return v || null; }
+  function sel(id) { var v = document.getElementById(id).value; return v || null; }
+  var fields = {
+    'BA_Lieferant': s('ba-lieferant'),
+    'BA_Datum': s('ba-datum'),
+    'BA_Bezeichnung': s('ba-bezeichnung'),
+    'BA_Brutto': n('ba-brutto'),
+    'BA_USt_Satz': (parseFloat(document.getElementById('ba-ust-satz').value) || 0) / 100,
+    'BA_Netto': n('ba-netto'),
+    'BA_USt_Betrag': n('ba-ust-betrag'),
+    'BA_Kategorie': sel('ba-kategorie'),
+    'BA_Zahlweg': sel('ba-zahlweg'),
+    'BA_Beleg_Nr': s('ba-beleg-nr'),
+    'BA_Vorsteuer_absetzbar': sel('ba-vorsteuer'),
+    'BA_Wiederkehrend': sel('ba-wiederkehrend'),
+    'BA_Zahlperiode': sel('ba-zahlperiode'),
+    'BA_Notizen': document.getElementById('ba-notizen').value || null
+  };
+  if (baSelectedPartnerId) fields['BA_PartnerID'] = [baSelectedPartnerId];
+  return fields;
+}
+
+function baSave(approve) {
+  if (!baCurrentRec) return;
+  var fields = collectBaFields();
+  fields['BA_Status'] = approve ? 'freigegeben' : 'in Bearbeitung';
+
+  var msg = document.getElementById('ba-save-msg');
+  msg.textContent = 'Speichere…';
+  msg.style.color = 'var(--muted)';
+
+  atPatch('Betriebsausgaben_2026', baCurrentRec.id, fields, function(err, data) {
+    if (err || (data && data.error)) {
+      msg.textContent = 'Fehler: ' + (err ? err.message : data.error.message);
+      msg.style.color = 'var(--accent)';
+      return;
+    }
+    if (approve) {
+      baList = baList.filter(function(r){ return r.id !== baCurrentRec.id; });
+      var sorted = baSortRecords(baList);
+      if (sorted.length > 0) {
+        msg.textContent = '✓ Freigegeben. Lade nächste…';
+        msg.style.color = 'var(--green)';
+        setTimeout(function(){ openBaDetail(sorted[0].id); }, 400);
+      } else {
+        showBaListView();
+        var errEl = document.getElementById('ba-list-error');
+        errEl.textContent = 'Alle BAs durchgearbeitet 🎉';
+        errEl.style.color = 'var(--green)';
+        errEl.style.display = '';
+        document.getElementById('ba-list-table-wrap').innerHTML = '';
+        document.getElementById('ba-list-count').textContent = '0 offene Betriebsausgaben';
+        baCurrentRec = null;
+      }
+    } else {
+      var local = baList.filter(function(r){ return r.id === baCurrentRec.id; })[0];
+      if (local) local.fields['BA_Status'] = 'in Bearbeitung';
+      baCurrentRec.fields['BA_Status'] = 'in Bearbeitung';
+      var statusEl = document.getElementById('ba-status-display');
+      statusEl.textContent = 'in Bearbeitung';
+      statusEl.className = 'ba-status-pill ba-status-bearbeitung';
+      msg.textContent = '✓ Gespeichert';
+      msg.style.color = 'var(--green)';
+      setTimeout(function(){ if (msg.textContent==='✓ Gespeichert') msg.textContent=''; }, 2000);
+    }
+  });
+}
+
+function baCancel() {
+  baCurrentRec = null;
+  baSelectedPartnerId = null;
+  hidePartnerDropdown();
+  showBaListView();
+}
+
+// BA: tile is in home (above this script) → can wire now
+addNav('tile-ba', 'screen-ba', loadBaList);
+
+// BA: detail elements live below this script in the DOM, so wire on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function setupBa() {
+  document.getElementById('ba-sort').addEventListener('change', function(){ baSortMode = this.value; renderBaTable(); });
+  document.getElementById('btn-ba-reload').addEventListener('click', loadBaList);
+  document.getElementById('btn-ba-cancel').addEventListener('click', baCancel);
+  document.getElementById('btn-ba-save').addEventListener('click', function(){ baSave(false); });
+  document.getElementById('btn-ba-approve').addEventListener('click', function(){ baSave(true); });
+
+  document.getElementById('ba-brutto').addEventListener('input', baCalc);
+  document.getElementById('ba-ust-satz').addEventListener('change', baCalc);
+  document.getElementById('ba-netto').addEventListener('input', function(e){ if (e.isTrusted) baNettoOverride = true; });
+  document.getElementById('ba-ust-betrag').addEventListener('input', function(e){ if (e.isTrusted) baUstOverride = true; });
+
+  var lief = document.getElementById('ba-lieferant');
+  lief.addEventListener('input', function() {
+    var q = lief.value.trim();
+    baSelectedPartnerId = null;
+    if (baPartnerSearchTimer) clearTimeout(baPartnerSearchTimer);
+    if (q.length < 2) { hidePartnerDropdown(); return; }
+    baPartnerSearchTimer = setTimeout(function(){ searchPartners(q); }, 250);
+  });
+  lief.addEventListener('blur', function(){ setTimeout(hidePartnerDropdown, 200); });
+
+  addNav('btn-back-ba', 'screen-home');
+});
+
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 <!-- EK AUSWERTUNG -->
@@ -1160,6 +1528,142 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </div>
 
 
+<!-- BA REVIEW -->
+<div class="screen hidden" id="screen-ba">
+  <div class="sub-header">
+    <button class="menu-btn" onclick="openMenu()">☰</button>
+    <button class="back-btn" id="btn-back-ba">←</button>
+    <div class="sub-header-title" id="ba-header-title">BA-Review</div>
+    <select id="ba-sort" class="ba-sort-select">
+      <option value="date_asc">Datum (älteste zuerst)</option>
+      <option value="date_desc">Datum (neueste zuerst)</option>
+      <option value="supplier">Lieferant A-Z</option>
+      <option value="amount_desc">Brutto absteigend</option>
+    </select>
+    <button class="refresh-btn" id="btn-ba-reload" style="margin-left:6px;width:32px;height:32px;padding:0;font-size:14px;">↻</button>
+  </div>
+
+  <div class="sub-content" id="ba-list-view">
+    <div class="s-card">
+      <div class="s-card-title" id="ba-list-count">Offene Betriebsausgaben</div>
+      <div class="s-loading" id="ba-list-loading">Wird geladen…</div>
+      <div class="s-error" id="ba-list-error"></div>
+      <div id="ba-list-table-wrap" style="overflow-x:auto"></div>
+    </div>
+  </div>
+
+  <div id="ba-detail-view" class="ba-detail-hidden">
+    <div class="ba-pdf-pane">
+      <iframe id="ba-pdf-frame" style="display:none"></iframe>
+      <div id="ba-pdf-empty" class="ba-pdf-empty">Kein Beleg vorhanden</div>
+    </div>
+    <div class="ba-form-pane">
+      <div id="ba-klaer-banner" class="ba-klaer-banner" style="display:none"></div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em">Betriebsausgabe</div>
+          <div id="ba-id-display" style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.3px">—</div>
+        </div>
+        <div id="ba-status-display" class="ba-status-pill" style="margin-top:4px">—</div>
+      </div>
+
+      <div class="ba-form-row">
+        <div class="ba-field" style="position:relative;grid-column:span 2">
+          <label>Lieferant</label>
+          <input type="text" id="ba-lieferant" autocomplete="off" placeholder="Tippen, ab 2 Zeichen Vorschläge…" />
+          <div id="ba-lieferant-dropdown" class="ba-dropdown"></div>
+        </div>
+      </div>
+
+      <div class="ba-form-row">
+        <div class="ba-field"><label>Datum</label><input type="date" id="ba-datum" /></div>
+        <div class="ba-field"><label>Belegnummer</label><input type="text" id="ba-beleg-nr" /></div>
+      </div>
+
+      <div class="ba-form-row" style="grid-template-columns:1fr">
+        <div class="ba-field"><label>Bezeichnung</label><input type="text" id="ba-bezeichnung" /></div>
+      </div>
+
+      <div class="ba-form-row">
+        <div class="ba-field"><label>Brutto (€)</label><input type="number" step="0.01" id="ba-brutto" /></div>
+        <div class="ba-field"><label>USt-Satz</label>
+          <select id="ba-ust-satz">
+            <option value="0">0%</option>
+            <option value="7">7%</option>
+            <option value="19" selected>19%</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="ba-form-row">
+        <div class="ba-field"><label>Netto (€) <span style="color:var(--hint);font-size:10px">auto</span></label><input type="number" step="0.01" id="ba-netto" /></div>
+        <div class="ba-field"><label>USt-Betrag (€) <span style="color:var(--hint);font-size:10px">auto</span></label><input type="number" step="0.01" id="ba-ust-betrag" /></div>
+      </div>
+
+      <div class="ba-form-row">
+        <div class="ba-field"><label>Kategorie</label>
+          <select id="ba-kategorie">
+            <option value="">—</option>
+            <option>Versandkosten</option>
+            <option>Verpackung</option>
+            <option>Plattform-Gebühren</option>
+            <option>Büroausstattung</option>
+            <option>Software</option>
+            <option>Werkzeug</option>
+            <option>Warenersatzteile</option>
+            <option>Miete</option>
+            <option>Versicherung</option>
+            <option>Werbekosten</option>
+            <option>Bankgebühren</option>
+            <option>Fahrtkosten</option>
+            <option>Sonstiges</option>
+          </select>
+        </div>
+        <div class="ba-field"><label>Zahlweg</label>
+          <select id="ba-zahlweg">
+            <option value="">—</option>
+            <option>SEPA Lastschrift</option>
+            <option>Überweisung</option>
+            <option>PayPal</option>
+            <option>Karte</option>
+            <option>Kreditkarte</option>
+            <option>eBay</option>
+            <option>Shopify</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="ba-form-row">
+        <div class="ba-field"><label>Vorsteuer absetzbar</label>
+          <select id="ba-vorsteuer"><option value="">—</option><option>ja</option><option>nein</option></select>
+        </div>
+        <div class="ba-field"><label>Wiederkehrend</label>
+          <select id="ba-wiederkehrend"><option value="">—</option><option>ja</option><option>nein</option></select>
+        </div>
+      </div>
+
+      <div class="ba-form-row" style="grid-template-columns:1fr">
+        <div class="ba-field"><label>Zahlperiode</label>
+          <select id="ba-zahlperiode"><option value="">—</option><option>monatlich</option><option>jährlich</option><option>einmalig</option></select>
+        </div>
+      </div>
+
+      <div class="ba-form-row" style="grid-template-columns:1fr">
+        <div class="ba-field"><label>Notizen</label><textarea id="ba-notizen" rows="3"></textarea></div>
+      </div>
+
+      <div class="ba-buttons">
+        <button id="btn-ba-cancel" class="btn-ba-cancel" type="button">Abbrechen</button>
+        <button id="btn-ba-save" class="btn-ba-save" type="button">Zwischenspeichern</button>
+        <button id="btn-ba-approve" class="btn-ba-approve" type="button">Freigeben &amp; nächste →</button>
+      </div>
+
+      <div id="ba-save-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
+    </div>
+  </div>
+</div>
+
+
 <!-- MENU OVERLAY -->
 <div id="menu-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;touch-action:none" onclick="closeMenu()"></div>
 <div id="menu-drawer" style="display:none;position:fixed;top:0;left:0;bottom:0;width:260px;background:var(--card);z-index:101;flex-direction:column;padding-top:env(safe-area-inset-top);box-shadow:4px 0 24px rgba(0,0,0,.4)">
@@ -1172,10 +1676,11 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div class="menu-nav-item" onclick="navTo('screen-artikel')">🔍 Artikelsuche</div>
     <div class="menu-nav-item" onclick="navTo('screen-sku', loadPimp)">📦 SKU Eintragung</div>
     <div class="menu-nav-item" onclick="navTo('screen-ek')">📊 Einkauf Auswertung</div>
+    <div class="menu-nav-item" onclick="navTo('screen-ba', loadBaList)">📄 BA-Review</div>
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.4.2 / rd-hub-v37</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.5.0 / rd-hub-v40</div>
 </div>
 </body>
 </html>
