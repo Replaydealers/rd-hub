@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  1.5.0
-  SW Cache: rd-hub-v40
+  Version:  1.5.1
+  SW Cache: rd-hub-v41
   Build:    2026-05-15
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v1.5.1  (2026-05-15)  BA-Review: BA_Lieferant Schreibfehler gefixt, Label Rechnungsnummer
   v1.5.0  (2026-05-15)  BA-Review: Liste + Detail mit PDF, Auto-USt, Partner-Suche
   v1.4.7  (2026-04-27 14:49)  Service Worker no-cache
   v1.4.6  (2026-04-25 13:59)  SKU doppelter loadPimp Fix
@@ -297,8 +298,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div style="margin-top:8px;display:flex;gap:16px;justify-content:center">
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.5.0</div></div>
-      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v40</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">APP</div><div class="name" style="font-size:20px;color:var(--hint)">v1.5.1</div></div>
+      <div style="text-align:center"><div style="font-size:10px;color:var(--hint);letter-spacing:.1em">SW</div><div class="name" style="font-size:20px;color:var(--hint)">rd-hub-v41</div></div>
     </div>
     <div style="margin-top:6px;font-size:10px;color:var(--hint)">Build: 2026-05-15</div>
   </div>
@@ -330,7 +331,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.5.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.5.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1364,8 +1365,9 @@ function collectBaFields() {
   function n(id) { var v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; }
   function s(id) { var v = document.getElementById(id).value.trim(); return v || null; }
   function sel(id) { var v = document.getElementById(id).value; return v || null; }
+  // BA_Lieferant ist ein Lookup-Feld (computed via BA_PartnerID) → nicht schreibbar.
+  // Wird ausschließlich durch Setzen von BA_PartnerID aktualisiert.
   var fields = {
-    'BA_Lieferant': s('ba-lieferant'),
     'BA_Datum': s('ba-datum'),
     'BA_Bezeichnung': s('ba-bezeichnung'),
     'BA_Brutto': n('ba-brutto'),
@@ -1577,7 +1579,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
       <div class="ba-form-row">
         <div class="ba-field"><label>Datum</label><input type="date" id="ba-datum" /></div>
-        <div class="ba-field"><label>Belegnummer</label><input type="text" id="ba-beleg-nr" /></div>
+        <div class="ba-field"><label>Rechnungsnummer</label><input type="text" id="ba-beleg-nr" /></div>
       </div>
 
       <div class="ba-form-row" style="grid-template-columns:1fr">
@@ -1680,7 +1682,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.5.0 / rd-hub-v40</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.5.1 / rd-hub-v41</div>
 </div>
 </body>
 </html>
