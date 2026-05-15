@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  1.8.0
-  SW Cache: rd-hub-v45
+  Version:  1.9.0
+  SW Cache: rd-hub-v46
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v1.9.0  (2026-05-15)  IBAN+Land im Partner-Panel, Partner-Info-Anzeige mit Rolle-Auto-Upgrade, Lieferant-Markierung gefixt
   v1.8.0  (2026-05-15)  Netto-Berechnung gefixt, Lieferant-Suche auf BA-Rollen gefiltert, Partner-Panel statt Vollbild, Duplikat-Erkennung
   v1.7.1  (2026-05-15)  Dropdown-Optionen an Airtable angeglichen, Abschließen-Navigation gefixt
   v1.7.0  (2026-05-15)  BA-Review: 5 Buttons, Fuzzy-Partner-Suche über 6 Felder, Partner-Anlage-Dialog
@@ -320,6 +321,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .pm-dup-select-btn{padding:8px 12px;border:none;border-radius:var(--radius-sm);background:var(--green);color:white;font-size:12px;font-weight:600;cursor:pointer;touch-action:manipulation;font-family:inherit;align-self:flex-start}
 .pm-dup-select-btn:hover{filter:brightness(1.1)}
 .pm-dup-score{font-size:10px;color:var(--hint);margin-left:6px}
+
+/* Partner-Info-Zeile unter dem Lieferant-Suchfeld */
+.ba-partner-info{font-size:12px;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.4}
+.ba-partner-info .pi-id{color:var(--hint);font-size:11px;font-weight:600;letter-spacing:.04em}
+.ba-partner-info .pi-sep{color:var(--hint)}
+.ba-partner-info .pi-name{font-weight:600;color:var(--text)}
+.ba-partner-info .pi-role{color:var(--muted)}
+.ba-partner-info .pi-warn{color:var(--amber);cursor:help;font-size:13px;margin-left:2px}
+.ba-partner-info.has-role-warning .pi-role{color:var(--amber)}
+
+/* Validierungs-Markierung für leeres Lieferant-Feld (nur nach Save-Versuch) */
+#ba-lieferant.ba-lieferant-invalid{border-color:var(--accent);background:rgba(230,57,70,.08);box-shadow:0 0 0 1px var(--accent)}
 </style>
 </head>
 <body>
@@ -331,8 +344,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v1.8.0</span>
-      <span>SW rd-hub-v45</span>
+      <span>APP v1.9.0</span>
+      <span>SW rd-hub-v46</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -365,7 +378,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.8.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.9.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1183,11 +1196,13 @@ function navTo(screenId, onShow) {
 var BA_LIST_FIELDS = ['BA_ID','BA_Datum','BA_Lieferant','BA_Brutto','BA_Status','BA_Beleg','BA_Notizen'];
 var baList = [];
 var baCurrentRec = null;
+var baCurrentPartner = null;   // verknüpfter Partner-Record (lazy fetch nach openBaDetail)
 var baSortMode = 'date_asc';
 var baSelectedPartnerId = null;
 var baNettoOverride = false;
 var baUstOverride = false;
 var baPartnerSearchTimer = null;
+var baPartnerSearchRecords = []; // cache der zuletzt angezeigten Dropdown-Records (für Click-Handler)
 
 function showBaListView() {
   document.getElementById('ba-list-view').style.display = '';
@@ -1308,6 +1323,15 @@ function populateBaForm(rec) {
   baNettoOverride = false;
   baUstOverride = false;
   baSelectedPartnerId = null;
+  baCurrentPartner = null;
+  updatePartnerInfoLine();
+  setLieferantInvalid(false);
+
+  // Verknüpften Partner lazy nachladen (Rolle für Info-Zeile + ggf. Auto-Upgrade beim Speichern)
+  var partnerLinks = f['BA_PartnerID'];
+  if (Array.isArray(partnerLinks) && partnerLinks.length > 0) {
+    fetchPartner(partnerLinks[0]);
+  }
 
   document.getElementById('ba-id-display').textContent = f['BA_ID'] || '—';
   var statusEl = document.getElementById('ba-status-display');
@@ -1399,6 +1423,59 @@ function partnerLabel(f) {
   return loc ? main + ' · ' + loc : main;
 }
 
+// Holt einen Partner-Record asynchron und aktualisiert baCurrentPartner + Info-Zeile.
+function fetchPartner(recId) {
+  if (!recId) return;
+  fetch('https://api.airtable.com/v0/' + AT_BASE + '/Partnerdaten_2026/' + recId, {
+    headers: { 'Authorization': 'Bearer ' + AT_TOKEN }
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(rec){
+      if (rec && rec.id && !rec.error) {
+        baCurrentPartner = rec;
+        updatePartnerInfoLine();
+      }
+    })
+    .catch(function(){});
+}
+
+// Rendert die kleine Info-Zeile unter dem Lieferant-Feld.
+// Zeigt: "PD-XXX · Firmenname · Rolle" + ggf. ⚠️ wenn Rolle nicht BA-passend.
+function updatePartnerInfoLine() {
+  var el = document.getElementById('ba-partner-info');
+  if (!el) return;
+  if (!baCurrentPartner) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  var f = baCurrentPartner.fields || {};
+  var pdId = f['PD_ID'] || '';
+  var firma = partnerDisplayName(f);
+  var rolle = f['PD_Rolle'] || '—';
+  var needsUpgrade = !f['PD_Rolle'] || (f['PD_Rolle'] !== 'BA-Lieferant' && f['PD_Rolle'] !== 'Mehrfach');
+  var html = '';
+  if (pdId) html += '<span class="pi-id">'+escHtml(pdId)+'</span><span class="pi-sep">·</span>';
+  html += '<span class="pi-name">'+escHtml(firma)+'</span>';
+  html += '<span class="pi-sep">·</span><span class="pi-role">'+escHtml(rolle)+'</span>';
+  if (needsUpgrade) {
+    html += '<span class="pi-warn" title="Rolle sollte BA-Lieferant oder Mehrfach sein – beim nächsten Speichern wird sie automatisch auf Mehrfach gesetzt">⚠️</span>';
+  }
+  el.className = 'ba-partner-info' + (needsUpgrade ? ' has-role-warning' : '');
+  el.innerHTML = html;
+  el.style.display = '';
+}
+
+// Single source of truth: ist aktuell ein Partner an die BA verknüpft?
+function baHasLinkedPartner() {
+  if (baSelectedPartnerId) return true;
+  if (baCurrentPartner && baCurrentPartner.id) return true;
+  if (baCurrentRec && baCurrentRec.fields && Array.isArray(baCurrentRec.fields['BA_PartnerID']) && baCurrentRec.fields['BA_PartnerID'].length > 0) return true;
+  return false;
+}
+
+function setLieferantInvalid(invalid) {
+  var el = document.getElementById('ba-lieferant');
+  if (!el) return;
+  el.classList.toggle('ba-lieferant-invalid', !!invalid);
+}
+
 function searchPartners(query) {
   var safe = query.replace(/"/g,'\\"');
   var textClauses = PARTNER_SEARCH_FIELDS.map(function(f){
@@ -1416,6 +1493,7 @@ function searchPartners(query) {
 }
 
 function showPartnerDropdown(records, query) {
+  baPartnerSearchRecords = records || [];
   var dd = document.getElementById('ba-lieferant-dropdown');
   var html = '';
   if (!records.length) {
@@ -1432,8 +1510,15 @@ function showPartnerDropdown(records, query) {
   dd.querySelectorAll('.ba-dd-item').forEach(function(item){
     item.addEventListener('mousedown', function(e){
       e.preventDefault();
-      baSelectedPartnerId = item.getAttribute('data-id');
+      var pickedId = item.getAttribute('data-id');
+      baSelectedPartnerId = pickedId;
+      var rec = baPartnerSearchRecords.filter(function(r){ return r.id === pickedId; })[0];
+      if (rec) {
+        baCurrentPartner = rec;
+        updatePartnerInfoLine();
+      }
       document.getElementById('ba-lieferant').value = item.getAttribute('data-name') || item.textContent;
+      setLieferantInvalid(false);
       hidePartnerDropdown();
     });
   });
@@ -1455,7 +1540,7 @@ function hidePartnerDropdown() {
 // ── PARTNER ANLEGEN PANEL (ersetzt rechts neben dem PDF die BA-Form-Pane) ──
 function openPartnerModal(prefillName) {
   // Reset fields
-  ['pm-typ','pm-rolle','pm-ust-status','pm-plattform','pm-firmenname','pm-name','pm-vorname','pm-ka-name','pm-plz','pm-ort','pm-strasse','pm-email','pm-telefon','pm-notizen'].forEach(function(id){
+  ['pm-typ','pm-rolle','pm-ust-status','pm-plattform','pm-firmenname','pm-name','pm-vorname','pm-ka-name','pm-plz','pm-ort','pm-strasse','pm-land','pm-email','pm-telefon','pm-iban','pm-notizen'].forEach(function(id){
     document.getElementById(id).value = '';
   });
   document.getElementById('pm-error').style.display = 'none';
@@ -1465,6 +1550,7 @@ function openPartnerModal(prefillName) {
   // Defaults
   document.getElementById('pm-typ').value = 'Unternehmen';
   document.getElementById('pm-rolle').value = 'BA-Lieferant';
+  document.getElementById('pm-land').value = 'Deutschland';
 
   // USt-Status aus aktueller BA übernehmen — BA_USt_Satz kann "0%"/"7%"/"19%"/"0% / Reverse Charge" sein.
   // PD_USt_Status kennt nur "0%","7%","19%" → Reverse Charge fällt auf "0%" zurück.
@@ -1615,7 +1701,10 @@ function renderDuplicates(hits) {
 function useExistingPartner(rec) {
   var f = rec.fields;
   baSelectedPartnerId = rec.id;
+  baCurrentPartner = rec;
   document.getElementById('ba-lieferant').value = partnerDisplayName(f);
+  setLieferantInvalid(false);
+  updatePartnerInfoLine();
   var msg = document.getElementById('ba-save-msg');
   var displayName = partnerDisplayName(f);
   var currentRolle = f['PD_Rolle'];
@@ -1638,6 +1727,11 @@ function useExistingPartner(rec) {
         document.getElementById('ba-save-msg').textContent = '⚠️ Partner verknüpft, Rolle-Update fehlgeschlagen: ' + (err ? err.message : data.error.message);
         document.getElementById('ba-save-msg').style.color = 'var(--amber)';
         return;
+      }
+      if (baCurrentPartner && baCurrentPartner.id === rec.id) {
+        baCurrentPartner.fields = baCurrentPartner.fields || {};
+        baCurrentPartner.fields['PD_Rolle'] = 'Mehrfach';
+        updatePartnerInfoLine();
       }
       finishUp(true);
     });
@@ -1672,8 +1766,10 @@ function savePartner(skipDupCheck) {
     add('PD_PLZ','pm-plz');
     add('PD_Ort','pm-ort');
     add('PD_Strasse','pm-strasse');
+    add('PD_Land','pm-land');
     add('PD_Email','pm-email');
     add('PD_Telefon','pm-telefon');
+    add('PD_IBAN','pm-iban');
     add('PD_Plattform','pm-plattform');
     add('PD_Notizen','pm-notizen');
 
@@ -1687,9 +1783,12 @@ function savePartner(skipDupCheck) {
       if (!data || !data.id) { pmShowError('Unerwartete Antwort von Airtable.'); return; }
 
       baSelectedPartnerId = data.id;
-      var f = data.fields || fields;
+      baCurrentPartner = { id: data.id, fields: data.fields || fields };
+      var f = baCurrentPartner.fields;
       var displayName = partnerDisplayName(f);
       document.getElementById('ba-lieferant').value = displayName;
+      setLieferantInvalid(false);
+      updatePartnerInfoLine();
       closePartnerModal();
 
       var msg = document.getElementById('ba-save-msg');
@@ -1744,6 +1843,17 @@ function collectBaFields() {
 // opts: { targetStatus, afterSave: 'stay'|'list'|'next', removeFromList, noNextMsg, successMsg }
 function baSave(opts) {
   if (!baCurrentRec) return;
+
+  // Validierung: Mindestens ein Lieferant muss verknüpft sein.
+  if (!baHasLinkedPartner()) {
+    setLieferantInvalid(true);
+    var msgErr = document.getElementById('ba-save-msg');
+    msgErr.textContent = 'Bitte einen Lieferanten auswählen oder anlegen.';
+    msgErr.style.color = 'var(--accent)';
+    document.getElementById('ba-lieferant').focus();
+    return;
+  }
+
   var fields = collectBaFields();
   fields['BA_Status'] = opts.targetStatus;
 
@@ -1763,50 +1873,70 @@ function baSave(opts) {
   // Disable buttons during save
   setBaButtonsDisabled(true);
 
-  atPatch('Betriebsausgaben_2026', baCurrentRec.id, fields, function(err, data) {
-    setBaButtonsDisabled(false);
-    if (err || (data && data.error)) {
-      msg.textContent = 'Fehler: ' + (err ? err.message : data.error.message);
-      msg.style.color = 'var(--accent)';
-      return;
-    }
-
-    var currentId = baCurrentRec.id;
-
-    if (opts.removeFromList) {
-      baList = baList.filter(function(r){ return r.id !== currentId; });
-    } else {
-      var local = baList.filter(function(r){ return r.id === currentId; })[0];
-      if (local) local.fields['BA_Status'] = opts.targetStatus;
-    }
-    baCurrentRec.fields['BA_Status'] = opts.targetStatus;
-    var statusEl = document.getElementById('ba-status-display');
-    statusEl.textContent = opts.targetStatus;
-    statusEl.className = 'ba-status-pill ' + (opts.targetStatus === 'offen' ? 'ba-status-offen' : 'ba-status-bearbeitung');
-
-    if (opts.afterSave === 'stay') {
-      msg.textContent = opts.successMsg || '✓ Gespeichert';
-      msg.style.color = 'var(--green)';
-      setTimeout(function(){ if (msg.textContent === (opts.successMsg || '✓ Gespeichert')) msg.textContent = ''; }, 2000);
-      return;
-    }
-
-    if (opts.afterSave === 'list') {
-      baGoToList(null);
-      return;
-    }
-
-    if (opts.afterSave === 'next') {
-      var nextRec = baFindNext(currentId, originalIdx);
-      if (nextRec) {
-        msg.textContent = (opts.successMsg || '✓ Gespeichert') + '. Lade nächste…';
-        msg.style.color = 'var(--green)';
-        setTimeout(function(){ openBaDetail(nextRec.id); }, 350);
-      } else {
-        baGoToList(opts.noNextMsg || null);
+  function doBaPatch() {
+    atPatch('Betriebsausgaben_2026', baCurrentRec.id, fields, function(err, data) {
+      setBaButtonsDisabled(false);
+      if (err || (data && data.error)) {
+        msg.textContent = 'Fehler: ' + (err ? err.message : data.error.message);
+        msg.style.color = 'var(--accent)';
+        return;
       }
-    }
-  });
+
+      var currentId = baCurrentRec.id;
+
+      if (opts.removeFromList) {
+        baList = baList.filter(function(r){ return r.id !== currentId; });
+      } else {
+        var local = baList.filter(function(r){ return r.id === currentId; })[0];
+        if (local) local.fields['BA_Status'] = opts.targetStatus;
+      }
+      baCurrentRec.fields['BA_Status'] = opts.targetStatus;
+      var statusEl = document.getElementById('ba-status-display');
+      statusEl.textContent = opts.targetStatus;
+      statusEl.className = 'ba-status-pill ' + (opts.targetStatus === 'offen' ? 'ba-status-offen' : 'ba-status-bearbeitung');
+
+      if (opts.afterSave === 'stay') {
+        msg.textContent = opts.successMsg || '✓ Gespeichert';
+        msg.style.color = 'var(--green)';
+        setTimeout(function(){ if (msg.textContent === (opts.successMsg || '✓ Gespeichert')) msg.textContent = ''; }, 2000);
+        return;
+      }
+
+      if (opts.afterSave === 'list') {
+        baGoToList(null);
+        return;
+      }
+
+      if (opts.afterSave === 'next') {
+        var nextRec = baFindNext(currentId, originalIdx);
+        if (nextRec) {
+          msg.textContent = (opts.successMsg || '✓ Gespeichert') + '. Lade nächste…';
+          msg.style.color = 'var(--green)';
+          setTimeout(function(){ openBaDetail(nextRec.id); }, 350);
+        } else {
+          baGoToList(opts.noNextMsg || null);
+        }
+      }
+    });
+  }
+
+  // Auto-Upgrade: Wenn der verlinkte Partner aktuell eine nicht-BA-passende Rolle hat,
+  // VOR dem BA-PATCH die Partner-Rolle auf "Mehrfach" hochpatchen. Bei Fehler trotzdem speichern.
+  var rolle = baCurrentPartner && baCurrentPartner.fields && baCurrentPartner.fields['PD_Rolle'];
+  var partnerNeedsRoleUpgrade = baCurrentPartner && (!rolle || (rolle !== 'BA-Lieferant' && rolle !== 'Mehrfach'));
+  if (partnerNeedsRoleUpgrade) {
+    atPatch('Partnerdaten_2026', baCurrentPartner.id, { 'PD_Rolle': 'Mehrfach' }, function(err, data) {
+      if (!err && !(data && data.error)) {
+        baCurrentPartner.fields = baCurrentPartner.fields || {};
+        baCurrentPartner.fields['PD_Rolle'] = 'Mehrfach';
+        updatePartnerInfoLine();
+      }
+      // Bei Fehler trotzdem mit BA-Save fortfahren — Partner-Rolle ist nicht kritisch.
+      doBaPatch();
+    });
+  } else {
+    doBaPatch();
+  }
 }
 
 // Liefert die nächste BA zum aktuell bearbeiteten Datensatz.
@@ -1856,8 +1986,11 @@ function setBaButtonsDisabled(disabled) {
 
 function baCancel() {
   baCurrentRec = null;
+  baCurrentPartner = null;
   baSelectedPartnerId = null;
   hidePartnerDropdown();
+  setLieferantInvalid(false);
+  updatePartnerInfoLine();
   showBaListView();
 }
 
@@ -1889,12 +2022,14 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
 
   var lief = document.getElementById('ba-lieferant');
   lief.addEventListener('input', function() {
+    setLieferantInvalid(false); // Markierung beim Tippen entfernen
     var q = lief.value.trim();
     baSelectedPartnerId = null;
     if (baPartnerSearchTimer) clearTimeout(baPartnerSearchTimer);
     if (q.length < 2) { hidePartnerDropdown(); return; }
     baPartnerSearchTimer = setTimeout(function(){ searchPartners(q); }, 250);
   });
+  lief.addEventListener('focus', function(){ setLieferantInvalid(false); });
   lief.addEventListener('blur', function(){ setTimeout(hidePartnerDropdown, 200); });
 
   addNav('btn-back-ba', 'screen-home');
@@ -2035,6 +2170,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <label>Lieferant</label>
           <input type="text" id="ba-lieferant" autocomplete="off" placeholder="Tippen, ab 2 Zeichen Vorschläge…" />
           <div id="ba-lieferant-dropdown" class="ba-dropdown"></div>
+          <div id="ba-partner-info" class="ba-partner-info" style="display:none"></div>
         </div>
       </div>
 
@@ -2205,9 +2341,31 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <div class="ba-field"><label>Ort</label><input type="text" id="pm-ort" /></div>
           <div class="ba-field"><label>Straße</label><input type="text" id="pm-strasse" /></div>
         </div>
+        <div class="ba-form-row" style="grid-template-columns:1fr">
+          <div class="ba-field"><label>Land</label>
+            <select id="pm-land">
+              <option>Deutschland</option>
+              <option>Österreich</option>
+              <option>Niederlande</option>
+              <option>Frankreich</option>
+              <option>Italien</option>
+              <option>Belgien</option>
+              <option>Spanien</option>
+              <option>Schweiz</option>
+              <option>Großbritannien</option>
+              <option>USA</option>
+              <option>Japan</option>
+              <option>China</option>
+              <option>Sonstige</option>
+            </select>
+          </div>
+        </div>
         <div class="ba-form-row">
           <div class="ba-field"><label>E-Mail</label><input type="email" id="pm-email" /></div>
           <div class="ba-field"><label>Telefon</label><input type="text" id="pm-telefon" /></div>
+        </div>
+        <div class="ba-form-row" style="grid-template-columns:1fr">
+          <div class="ba-field"><label>IBAN</label><input type="text" id="pm-iban" autocomplete="off" /></div>
         </div>
         <div class="ba-form-row" style="grid-template-columns:1fr">
           <div class="ba-field"><label>Notizen</label><textarea id="pm-notizen" rows="2"></textarea></div>
@@ -2238,7 +2396,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.8.0 / rd-hub-v45</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.9.0 / rd-hub-v46</div>
 </div>
 </body>
 </html>
