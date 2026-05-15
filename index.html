@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  1.9.0
-  SW Cache: rd-hub-v46
+  Version:  1.10.0
+  SW Cache: rd-hub-v47
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v1.10.0 (2026-05-15)  Partner-Info gefixt, Hinweis-Icon bei unvollständigem Partner, Partner bearbeiten, Zurück-Pfeil Navigation
   v1.9.0  (2026-05-15)  IBAN+Land im Partner-Panel, Partner-Info-Anzeige mit Rolle-Auto-Upgrade, Lieferant-Markierung gefixt
   v1.8.0  (2026-05-15)  Netto-Berechnung gefixt, Lieferant-Suche auf BA-Rollen gefiltert, Partner-Panel statt Vollbild, Duplikat-Erkennung
   v1.7.1  (2026-05-15)  Dropdown-Optionen an Airtable angeglichen, Abschließen-Navigation gefixt
@@ -328,8 +329,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ba-partner-info .pi-sep{color:var(--hint)}
 .ba-partner-info .pi-name{font-weight:600;color:var(--text)}
 .ba-partner-info .pi-role{color:var(--muted)}
-.ba-partner-info .pi-warn{color:var(--amber);cursor:help;font-size:13px;margin-left:2px}
+.ba-partner-info .pi-warn{cursor:help;font-size:11px;margin-left:4px;padding:1px 5px;border-radius:4px;white-space:nowrap;border:.5px solid transparent;line-height:1.4}
+.ba-partner-info .pi-warn-pflicht{background:rgba(255,140,66,.22);border-color:#FF8C42}
+.ba-partner-info .pi-warn-rolle{background:rgba(239,168,39,.20);border-color:var(--amber)}
+.ba-partner-info .pi-warn-optional{background:rgba(239,168,39,.12);border-color:rgba(239,168,39,.6)}
 .ba-partner-info.has-role-warning .pi-role{color:var(--amber)}
+.ba-edit-partner-btn{background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;padding:3px 0;margin-top:2px;text-decoration:underline;font-family:inherit;display:inline-block}
+.ba-edit-partner-btn:hover{filter:brightness(1.2)}
 
 /* Validierungs-Markierung für leeres Lieferant-Feld (nur nach Save-Versuch) */
 #ba-lieferant.ba-lieferant-invalid{border-color:var(--accent);background:rgba(230,57,70,.08);box-shadow:0 0 0 1px var(--accent)}
@@ -344,8 +350,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v1.9.0</span>
-      <span>SW rd-hub-v46</span>
+      <span>APP v1.10.0</span>
+      <span>SW rd-hub-v47</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -378,7 +384,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.9.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v1.10.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -622,7 +628,7 @@ addNav('tile-artikel', 'screen-artikel');
 addNav('tile-sku', 'screen-sku', loadPimp);
 addNav('btn-back-jp', 'screen-home');
 addNav('btn-back-artikel', null, goBack);
-addNav('btn-back-sku', 'screen-home');
+addNav('btn-back-sku', null, goBack);
 addNav('btn-sku-reload', 'screen-sku', loadPimp);
 addNav('tile-ek', 'screen-ek');
 addNav('btn-back-ek', null, goBack);
@@ -1406,15 +1412,23 @@ function baCalc() {
 }
 
 var PARTNER_SEARCH_FIELDS = ['PD_ID','PD_Firmenname','PD_Name','PD_Vorname','PD_PLZ','PD_Ort'];
-var PARTNER_DISPLAY_FIELDS = ['PD_ID','PD_Firmenname','PD_Name','PD_Vorname','PD_PLZ','PD_Ort','PD_Rolle'];
+// Fields die für Info-Zeile + Vollständigkeits-Check + Duplikat-Anzeige gebraucht werden.
+var PARTNER_DISPLAY_FIELDS = ['PD_ID','PD_Firmenname','PD_Name','PD_Vorname','PD_KA_Name','PD_PLZ','PD_Ort','PD_Rolle','PD_Land','PD_USt_Status','PD_IBAN'];
 // In der BA-Lieferant-Suche werden nur Partner mit diesen Rollen angezeigt.
 var BA_RELEVANT_ROLES = ['BA-Lieferant','Mehrfach'];
 
 function partnerDisplayName(f) {
   return f['PD_Firmenname']
     || ((f['PD_Vorname']||'') + ' ' + (f['PD_Name']||'')).trim()
+    || f['PD_KA_Name']
     || f['PD_ID']
     || '—';
+}
+
+// Striktes Naming für die Info-Zeile: Firmenname → Name → KA-Name → '—'.
+// Bewusst ohne Vorname-Konkat und ohne PD_ID-Fallback, damit die ID nicht doppelt erscheint.
+function partnerInfoName(f) {
+  return f['PD_Firmenname'] || f['PD_Name'] || f['PD_KA_Name'] || '—';
 }
 
 function partnerLabel(f) {
@@ -1439,27 +1453,72 @@ function fetchPartner(recId) {
     .catch(function(){});
 }
 
+// Prüft Pflicht- und Optional-Felder eines Partners.
+// Pflicht: PD_Land, PD_USt_Status, Name (Firmenname ODER Name ODER KA-Name).
+// Optional: PD_IBAN, PD_PLZ, PD_Ort.
+// Rolle wird gesondert geprüft (wird beim Speichern automatisch behoben).
+function partnerWarnings(f) {
+  var pflicht = [];
+  var optional = [];
+  if (!f['PD_Land']) pflicht.push('Land');
+  if (!f['PD_USt_Status']) pflicht.push('USt-Status');
+  if (!f['PD_Firmenname'] && !f['PD_Name'] && !f['PD_KA_Name']) pflicht.push('Name');
+  if (!f['PD_IBAN']) optional.push('IBAN');
+  if (!f['PD_PLZ']) optional.push('PLZ');
+  if (!f['PD_Ort']) optional.push('Ort');
+  var rolle = f['PD_Rolle'];
+  var roleNeedsUpgrade = !rolle || (rolle !== 'BA-Lieferant' && rolle !== 'Mehrfach');
+  // Höchste Schwere bestimmt die Icon-Farbe.
+  // pflicht > rolle > optional. Keine Warnung wenn nichts fehlt.
+  var level = null;
+  if (pflicht.length) level = 'pflicht';
+  else if (roleNeedsUpgrade) level = 'rolle';
+  else if (optional.length) level = 'optional';
+  return {
+    pflicht: pflicht,
+    optional: optional,
+    roleNeedsUpgrade: roleNeedsUpgrade,
+    level: level,
+    hasAny: !!level
+  };
+}
+
 // Rendert die kleine Info-Zeile unter dem Lieferant-Feld.
-// Zeigt: "PD-XXX · Firmenname · Rolle" + ggf. ⚠️ wenn Rolle nicht BA-passend.
+// Format: "PD-XXX · [Firmenname/Name/KA-Name] · [Rolle]" + ggf. kombiniertes ⚠️ Icon.
 function updatePartnerInfoLine() {
   var el = document.getElementById('ba-partner-info');
+  var editBtn = document.getElementById('btn-ba-edit-partner');
   if (!el) return;
-  if (!baCurrentPartner) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  if (!baCurrentPartner) {
+    el.style.display = 'none';
+    el.innerHTML = '';
+    if (editBtn) editBtn.style.display = 'none';
+    return;
+  }
   var f = baCurrentPartner.fields || {};
   var pdId = f['PD_ID'] || '';
-  var firma = partnerDisplayName(f);
+  var firma = partnerInfoName(f);
   var rolle = f['PD_Rolle'] || '—';
-  var needsUpgrade = !f['PD_Rolle'] || (f['PD_Rolle'] !== 'BA-Lieferant' && f['PD_Rolle'] !== 'Mehrfach');
+  var w = partnerWarnings(f);
+
   var html = '';
   if (pdId) html += '<span class="pi-id">'+escHtml(pdId)+'</span><span class="pi-sep">·</span>';
   html += '<span class="pi-name">'+escHtml(firma)+'</span>';
   html += '<span class="pi-sep">·</span><span class="pi-role">'+escHtml(rolle)+'</span>';
-  if (needsUpgrade) {
-    html += '<span class="pi-warn" title="Rolle sollte BA-Lieferant oder Mehrfach sein – beim nächsten Speichern wird sie automatisch auf Mehrfach gesetzt">⚠️</span>';
+
+  if (w.hasAny) {
+    var tooltipParts = [];
+    if (w.pflicht.length) tooltipParts.push('Pflichtfelder fehlen: ' + w.pflicht.join(', '));
+    if (w.roleNeedsUpgrade) tooltipParts.push('Rolle: wird beim nächsten Speichern automatisch auf Mehrfach gesetzt');
+    if (w.optional.length) tooltipParts.push('Optional fehlen: ' + w.optional.join(', '));
+    var tooltip = tooltipParts.join('\n');
+    html += '<span class="pi-warn pi-warn-'+w.level+'" title="'+escHtml(tooltip)+'">⚠️</span>';
   }
-  el.className = 'ba-partner-info' + (needsUpgrade ? ' has-role-warning' : '');
+
+  el.className = 'ba-partner-info' + (w.roleNeedsUpgrade ? ' has-role-warning' : '');
   el.innerHTML = html;
   el.style.display = '';
+  if (editBtn) editBtn.style.display = '';
 }
 
 // Single source of truth: ist aktuell ein Partner an die BA verknüpft?
@@ -1537,9 +1596,13 @@ function hidePartnerDropdown() {
   document.getElementById('ba-lieferant-dropdown').style.display = 'none';
 }
 
-// ── PARTNER ANLEGEN PANEL (ersetzt rechts neben dem PDF die BA-Form-Pane) ──
-function openPartnerModal(prefillName) {
-  // Reset fields
+// ── PARTNER ANLEGEN / BEARBEITEN PANEL (ersetzt rechts neben dem PDF die BA-Form-Pane) ──
+var pmEditMode = false;  // true = bestehenden Partner bearbeiten (PATCH), false = neuen Partner anlegen (POST)
+
+function openPartnerModal(prefillName, editMode) {
+  pmEditMode = !!editMode;
+
+  // Reset alle Felder
   ['pm-typ','pm-rolle','pm-ust-status','pm-plattform','pm-firmenname','pm-name','pm-vorname','pm-ka-name','pm-plz','pm-ort','pm-strasse','pm-land','pm-email','pm-telefon','pm-iban','pm-notizen'].forEach(function(id){
     document.getElementById(id).value = '';
   });
@@ -1547,21 +1610,45 @@ function openPartnerModal(prefillName) {
   document.getElementById('pm-dup-section').style.display = 'none';
   document.getElementById('pm-form-section').style.display = '';
 
-  // Defaults
-  document.getElementById('pm-typ').value = 'Unternehmen';
-  document.getElementById('pm-rolle').value = 'BA-Lieferant';
-  document.getElementById('pm-land').value = 'Deutschland';
+  if (pmEditMode && baCurrentPartner) {
+    var f = baCurrentPartner.fields || {};
+    document.getElementById('pm-typ').value = f['PD_Typ'] || '';
+    document.getElementById('pm-rolle').value = f['PD_Rolle'] || '';
+    document.getElementById('pm-ust-status').value = f['PD_USt_Status'] || '';
+    document.getElementById('pm-plattform').value = f['PD_Plattform'] || '';
+    document.getElementById('pm-firmenname').value = f['PD_Firmenname'] || '';
+    document.getElementById('pm-name').value = f['PD_Name'] || '';
+    document.getElementById('pm-vorname').value = f['PD_Vorname'] || '';
+    document.getElementById('pm-ka-name').value = f['PD_KA_Name'] || '';
+    document.getElementById('pm-plz').value = f['PD_PLZ'] || '';
+    document.getElementById('pm-ort').value = f['PD_Ort'] || '';
+    document.getElementById('pm-strasse').value = f['PD_Strasse'] || '';
+    document.getElementById('pm-land').value = f['PD_Land'] || 'Deutschland';
+    document.getElementById('pm-email').value = f['PD_Email'] || '';
+    document.getElementById('pm-telefon').value = f['PD_Telefon'] || '';
+    document.getElementById('pm-iban').value = f['PD_IBAN'] || '';
+    document.getElementById('pm-notizen').value = f['PD_Notizen'] || '';
+    document.getElementById('pm-panel-eyebrow').textContent = 'Bestehender Partner';
+    document.getElementById('pm-panel-title').textContent = 'Partner bearbeiten';
+  } else {
+    // Create-Mode: Defaults
+    document.getElementById('pm-typ').value = 'Unternehmen';
+    document.getElementById('pm-rolle').value = 'BA-Lieferant';
+    document.getElementById('pm-land').value = 'Deutschland';
+    document.getElementById('pm-panel-eyebrow').textContent = 'Neuer Partner';
+    document.getElementById('pm-panel-title').textContent = 'Partner anlegen';
 
-  // USt-Status aus aktueller BA übernehmen — BA_USt_Satz kann "0%"/"7%"/"19%"/"0% / Reverse Charge" sein.
-  // PD_USt_Status kennt nur "0%","7%","19%" → Reverse Charge fällt auf "0%" zurück.
-  var baSatzVal = document.getElementById('ba-ust-satz').value;
-  var pmMatch = baSatzVal.match(/^(\d+)%/);
-  if (pmMatch && ['0','7','19'].indexOf(pmMatch[1]) >= 0) {
-    document.getElementById('pm-ust-status').value = pmMatch[1] + '%';
+    // USt-Status aus aktueller BA übernehmen — BA_USt_Satz kann "0%"/"7%"/"19%"/"0% / Reverse Charge" sein.
+    // PD_USt_Status kennt nur "0%","7%","19%" → Reverse Charge fällt auf "0%" zurück.
+    var baSatzVal = document.getElementById('ba-ust-satz').value;
+    var pmMatch = baSatzVal.match(/^(\d+)%/);
+    if (pmMatch && ['0','7','19'].indexOf(pmMatch[1]) >= 0) {
+      document.getElementById('pm-ust-status').value = pmMatch[1] + '%';
+    }
+
+    // Firmenname aus Suchbegriff vorbefüllen
+    if (prefillName) document.getElementById('pm-firmenname').value = prefillName;
   }
-
-  // Firmenname aus Suchbegriff vorbefüllen
-  if (prefillName) document.getElementById('pm-firmenname').value = prefillName;
 
   // Panel toggeln: BA-Form-Pane aus, Partner-Pane an
   document.getElementById('ba-form-pane-main').style.display = 'none';
@@ -1626,7 +1713,7 @@ function similarity(a, b) {
 // PLZ-Match boostet die Ähnlichkeit um 0.15 (cap 1.0). Threshold 0.75 für Treffer.
 // Sucht über ALLE Rollen (auch VK-Kunde etc.), weil ein bestehender Partner Mehrfach-Rollen haben kann.
 function checkPartnerDuplicates(input, cb) {
-  var queryFields = ['PD_ID','PD_Firmenname','PD_Name','PD_Vorname','PD_KA_Name','PD_PLZ','PD_Ort','PD_Rolle'];
+  var queryFields = ['PD_ID','PD_Firmenname','PD_Name','PD_Vorname','PD_KA_Name','PD_PLZ','PD_Ort','PD_Rolle','PD_Land','PD_USt_Status','PD_IBAN'];
   // Lade Partner, die irgendeinen Namen haben.
   var formula = 'OR(NOT({PD_Firmenname}=""),NOT({PD_Name}=""),NOT({PD_KA_Name}=""))';
   atGet('Partnerdaten_2026', formula, queryFields, function(err, data) {
@@ -1740,6 +1827,30 @@ function useExistingPartner(rec) {
   }
 }
 
+// Sammelt die Pflicht- + befüllten Optional-Felder aus dem Partner-Panel.
+function collectPartnerFields() {
+  var fields = {
+    'PD_Typ': document.getElementById('pm-typ').value,
+    'PD_Rolle': document.getElementById('pm-rolle').value,
+    'PD_USt_Status': document.getElementById('pm-ust-status').value
+  };
+  function add(field, id) { var v = document.getElementById(id).value.trim(); if (v) fields[field] = v; }
+  add('PD_Firmenname','pm-firmenname');
+  add('PD_Name','pm-name');
+  add('PD_Vorname','pm-vorname');
+  add('PD_KA_Name','pm-ka-name');
+  add('PD_PLZ','pm-plz');
+  add('PD_Ort','pm-ort');
+  add('PD_Strasse','pm-strasse');
+  add('PD_Land','pm-land');
+  add('PD_Email','pm-email');
+  add('PD_Telefon','pm-telefon');
+  add('PD_IBAN','pm-iban');
+  add('PD_Plattform','pm-plattform');
+  add('PD_Notizen','pm-notizen');
+  return fields;
+}
+
 function savePartner(skipDupCheck) {
   var typ = document.getElementById('pm-typ').value;
   var rolle = document.getElementById('pm-rolle').value;
@@ -1756,23 +1867,38 @@ function savePartner(skipDupCheck) {
   if (!firmenname && !name && !kaName) missing.push('Firmenname/Name/KA-Name (mind. eins)');
   if (missing.length) { pmShowError('Pflichtfelder fehlen: ' + missing.join(', ')); return; }
 
-  function doSave() {
-    var fields = { 'PD_Typ': typ, 'PD_Rolle': rolle, 'PD_USt_Status': ust };
-    function add(field, id) { var v = document.getElementById(id).value.trim(); if (v) fields[field] = v; }
-    add('PD_Firmenname','pm-firmenname');
-    add('PD_Name','pm-name');
-    add('PD_Vorname','pm-vorname');
-    add('PD_KA_Name','pm-ka-name');
-    add('PD_PLZ','pm-plz');
-    add('PD_Ort','pm-ort');
-    add('PD_Strasse','pm-strasse');
-    add('PD_Land','pm-land');
-    add('PD_Email','pm-email');
-    add('PD_Telefon','pm-telefon');
-    add('PD_IBAN','pm-iban');
-    add('PD_Plattform','pm-plattform');
-    add('PD_Notizen','pm-notizen');
+  // Edit-Mode: PATCH bestehenden Partner, keine Duplikat-Prüfung.
+  if (pmEditMode && baCurrentPartner) {
+    var editFields = collectPartnerFields();
+    pmSetSaving(true);
+    atPatch('Partnerdaten_2026', baCurrentPartner.id, editFields, function(err, data) {
+      pmSetSaving(false);
+      if (err || (data && data.error)) {
+        pmShowError('Fehler: ' + (err ? err.message : data.error.message));
+        return;
+      }
+      if (data && data.fields) {
+        baCurrentPartner.fields = data.fields;
+      } else {
+        // Fallback: merge gesendete Felder
+        baCurrentPartner.fields = baCurrentPartner.fields || {};
+        for (var k in editFields) { baCurrentPartner.fields[k] = editFields[k]; }
+      }
+      var displayName = partnerInfoName(baCurrentPartner.fields);
+      document.getElementById('ba-lieferant').value = displayName;
+      setLieferantInvalid(false);
+      updatePartnerInfoLine();
+      closePartnerModal();
+      var msg = document.getElementById('ba-save-msg');
+      msg.textContent = '✓ Partner „' + displayName + '" aktualisiert';
+      msg.style.color = 'var(--green)';
+      setTimeout(function(){ if (msg.textContent.indexOf('aktualisiert') !== -1) msg.textContent = ''; }, 3000);
+    });
+    return;
+  }
 
+  function doSave() {
+    var fields = collectPartnerFields();
     pmSetSaving(true);
     atPost('Partnerdaten_2026', fields, function(err, data) {
       pmSetSaving(false);
@@ -2032,7 +2158,16 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
   lief.addEventListener('focus', function(){ setLieferantInvalid(false); });
   lief.addEventListener('blur', function(){ setTimeout(hidePartnerDropdown, 200); });
 
-  addNav('btn-back-ba', 'screen-home');
+  // Zurück-Pfeil im BA-Screen: erst von Detail zur Liste, dann eine Stufe in der History zurück.
+  addNav('btn-back-ba', null, function(){
+    if (baCurrentRec) {
+      // aktuell in Detail-View → zurück zur Liste (Sort + Cache bleiben erhalten)
+      baCancel();
+    } else {
+      // bereits in Liste → eine History-Stufe zurück (i.d.R. Home)
+      goBack();
+    }
+  });
 
   // Partner-Anlage-Panel
   document.getElementById('btn-pm-cancel').addEventListener('click', closePartnerModal);
@@ -2045,6 +2180,37 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
     document.getElementById('pm-dup-section').style.display = 'none';
     document.getElementById('pm-form-section').style.display = '';
     savePartner(true); // skipDupCheck
+  });
+
+  // "Partner bearbeiten" — frischen Datensatz holen, dann Edit-Mode-Panel öffnen
+  document.getElementById('btn-ba-edit-partner').addEventListener('click', function(){
+    if (!baCurrentPartner) return;
+    var btn = document.getElementById('btn-ba-edit-partner');
+    var origText = btn.textContent;
+    btn.textContent = 'Lade…';
+    btn.disabled = true;
+    fetch('https://api.airtable.com/v0/' + AT_BASE + '/Partnerdaten_2026/' + baCurrentPartner.id, {
+      headers: { 'Authorization': 'Bearer ' + AT_TOKEN }
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(rec){
+        btn.textContent = origText;
+        btn.disabled = false;
+        if (rec && rec.id && !rec.error) {
+          baCurrentPartner = rec;
+          updatePartnerInfoLine();
+          openPartnerModal(null, true);
+        } else {
+          document.getElementById('ba-save-msg').textContent = 'Partner konnte nicht geladen werden.';
+          document.getElementById('ba-save-msg').style.color = 'var(--accent)';
+        }
+      })
+      .catch(function(){
+        btn.textContent = origText;
+        btn.disabled = false;
+        document.getElementById('ba-save-msg').textContent = 'Netzwerkfehler beim Laden des Partners.';
+        document.getElementById('ba-save-msg').style.color = 'var(--accent)';
+      });
   });
 });
 
@@ -2171,6 +2337,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <input type="text" id="ba-lieferant" autocomplete="off" placeholder="Tippen, ab 2 Zeichen Vorschläge…" />
           <div id="ba-lieferant-dropdown" class="ba-dropdown"></div>
           <div id="ba-partner-info" class="ba-partner-info" style="display:none"></div>
+          <button type="button" id="btn-ba-edit-partner" class="ba-edit-partner-btn" style="display:none">Partner bearbeiten</button>
         </div>
       </div>
 
@@ -2268,8 +2435,8 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div class="ba-form-pane" id="ba-partner-pane" style="display:none">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
         <div>
-          <div style="font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em">Neuer Partner</div>
-          <div style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.3px">Partner anlegen</div>
+          <div id="pm-panel-eyebrow" style="font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em">Neuer Partner</div>
+          <div id="pm-panel-title" style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.3px">Partner anlegen</div>
         </div>
       </div>
 
@@ -2396,7 +2563,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.9.0 / rd-hub-v46</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v1.10.0 / rd-hub-v47</div>
 </div>
 </body>
 </html>
