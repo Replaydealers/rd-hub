@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.1.0
-  SW Cache: rd-hub-v50
+  Version:  2.1.1
+  SW Cache: rd-hub-v51
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.1.1  (2026-05-16)  Pflichtfeld-Validierung als Hinweis statt Blocker, Partner-Anlage sofort verlinken, Dropdown-Kontrast bei markierten Feldern
   v2.1.0  (2026-05-16)  Klärfall-Markierung pro Feld, Lieferant-Layout, Partner-Hinweis ausgeschrieben
   v2.0.1  (2026-05-16)  Echte ITEM-Feldnamen, Marge statt Reingewinn, Listing-Preis statt Mindest-VK
   v2.0.0  (2026-05-15)  Artikelsuche überarbeitet — Cache, Status-Filter, Trefferliste-Info, Sortierung, Scroll-Fix, Zurück-Pfeil, Detail-Cleanup
@@ -345,11 +346,32 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 /* Validierungs-Markierung für leeres Lieferant-Feld (nur nach Save-Versuch) */
 #ba-lieferant.ba-lieferant-invalid{border-color:var(--accent);background:rgba(230,57,70,.08);box-shadow:0 0 0 1px var(--accent)}
 
-/* Feld-Markierung: ROT = Pflichtfeld leer, GELB = Klärfall/optional erwünscht */
+/* Feld-Markierung: ROT = Pflichtfeld leer, GELB = Klärfall/optional erwünscht.
+   <select> bekommt NUR Rahmen/Schatten — KEIN Hintergrund-Tint, da sich sonst
+   die aufgeklappte Optionsliste mit einfärbt und unlesbar wird. */
+.ba-field input.ba-mark-red,.ba-field textarea.ba-mark-red,
+#ba-lieferant.ba-mark-red{background:rgba(230,57,70,.08)}
+.ba-field input.ba-mark-yellow,.ba-field textarea.ba-mark-yellow,
+#ba-lieferant.ba-mark-yellow{background:rgba(239,168,39,.07)}
 .ba-field input.ba-mark-red,.ba-field select.ba-mark-red,.ba-field textarea.ba-mark-red,
-#ba-lieferant.ba-mark-red{border-color:var(--accent);background:rgba(230,57,70,.08);box-shadow:0 0 0 1px var(--accent)}
+#ba-lieferant.ba-mark-red{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .ba-field input.ba-mark-yellow,.ba-field select.ba-mark-yellow,.ba-field textarea.ba-mark-yellow,
-#ba-lieferant.ba-mark-yellow{border-color:rgba(239,168,39,.7);background:rgba(239,168,39,.07)}
+#ba-lieferant.ba-mark-yellow{border-color:rgba(239,168,39,.7)}
+/* Optionsliste immer dunkel + hell lesbar, unabhängig von der Markierung */
+.ba-field select.ba-mark-red,.ba-field select.ba-mark-yellow{background-color:var(--card2);color:var(--text)}
+.ba-field select option{background-color:var(--card2);color:var(--text)}
+
+/* Bestätigungsdialog "Trotzdem abschließen?" */
+#ba-confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
+#ba-confirm-overlay.show{display:flex}
+.ba-confirm-box{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);padding:20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.ba-confirm-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px}
+.ba-confirm-text{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px}
+.ba-confirm-text b{color:var(--amber);font-weight:600}
+.ba-confirm-actions{display:flex;flex-direction:column;gap:8px}
+.ba-confirm-actions button{padding:11px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
+.btn-ba-confirm-yes{background:var(--green);color:white}
+.btn-ba-confirm-no{background:var(--card2);color:var(--text);border:.5px solid var(--border)}
 
 /* ─────────────────── ARTIKELSUCHE — Mobile-First Refactor ─────────────────── */
 .artikel-list-view{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
@@ -405,8 +427,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.1.0</span>
-      <span>SW rd-hub-v50</span>
+      <span>APP v2.1.1</span>
+      <span>SW rd-hub-v51</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -439,7 +461,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.1.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.1.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1985,9 +2007,16 @@ function hidePartnerDropdown() {
 
 // ── PARTNER ANLEGEN / BEARBEITEN PANEL (ersetzt rechts neben dem PDF die BA-Form-Pane) ──
 var pmEditMode = false;  // true = bestehenden Partner bearbeiten (PATCH), false = neuen Partner anlegen (POST)
+// Partner wurde per POST angelegt, aber die BA-Verknüpfung (PATCH) schlug fehl.
+// Verhindert beim erneuten "Speichern" ein doppeltes Anlegen — es wird dann nur
+// noch verknüpft.
+var pmCreatedPartnerId = null;
+var pmCreatedPartnerFields = null;
 
 function openPartnerModal(prefillName, editMode) {
   pmEditMode = !!editMode;
+  pmCreatedPartnerId = null;
+  pmCreatedPartnerFields = null;
 
   // Reset alle Felder
   ['pm-typ','pm-rolle','pm-ust-status','pm-plattform','pm-firmenname','pm-name','pm-vorname','pm-ka-name','pm-plz','pm-ort','pm-strasse','pm-land','pm-email','pm-telefon','pm-iban','pm-notizen'].forEach(function(id){
@@ -2284,30 +2313,67 @@ function savePartner(skipDupCheck) {
     return;
   }
 
-  function doSave() {
-    var fields = collectPartnerFields();
-    pmSetSaving(true);
-    atPost('Partnerdaten_2026', fields, function(err, data) {
-      pmSetSaving(false);
-      if (err || (data && data.error)) {
-        pmShowError('Fehler: ' + (err ? err.message : data.error.message));
-        return;
-      }
-      if (!data || !data.id) { pmShowError('Unerwartete Antwort von Airtable.'); return; }
+  // Verknüpft einen bereits angelegten Partner persistent mit der aktuellen BA
+  // (PATCH BA_PartnerID). Modal schließt erst, wenn auch dieser PATCH ok ist.
+  function linkNewPartnerToBa(partnerId, pFields) {
+    baSelectedPartnerId = partnerId;
+    baCurrentPartner = { id: partnerId, fields: pFields };
+    var displayName = partnerDisplayName(pFields);
 
-      baSelectedPartnerId = data.id;
-      baCurrentPartner = { id: data.id, fields: data.fields || fields };
-      var f = baCurrentPartner.fields;
-      var displayName = partnerDisplayName(f);
+    function finishOk() {
+      pmCreatedPartnerId = null;
+      pmCreatedPartnerFields = null;
       document.getElementById('ba-lieferant').value = displayName;
       setLieferantInvalid(false);
       updatePartnerInfoLine();
       closePartnerModal();
-
       var msg = document.getElementById('ba-save-msg');
       msg.textContent = '✓ Partner „' + displayName + '" angelegt und verknüpft';
       msg.style.color = 'var(--green)';
       setTimeout(function(){ if (msg.textContent.indexOf('Partner') !== -1) msg.textContent = ''; }, 3000);
+    }
+
+    // Kein BA-Kontext (sollte nicht vorkommen): Partner existiert, nur lokal merken.
+    if (!baCurrentRec) { updatePartnerInfoLine(); finishOk(); return; }
+
+    pmSetSaving(true);
+    document.getElementById('btn-pm-save').textContent = 'Verknüpfe…';
+    atPatch('Betriebsausgaben_2026', baCurrentRec.id, { 'BA_PartnerID': [partnerId] }, function(err, data) {
+      pmSetSaving(false);
+      if (err || (data && data.error)) {
+        // Partner ist angelegt, aber die Verknüpfung fehlt — Modal bleibt offen.
+        updatePartnerInfoLine();
+        pmShowError('Partner „' + displayName + '" wurde angelegt, aber die Verknüpfung zur BA ist fehlgeschlagen: '
+          + (err ? err.message : data.error.message)
+          + '. Bitte erneut auf „Speichern" klicken — es wird KEIN neuer Partner erstellt, nur erneut verknüpft.');
+        return;
+      }
+      if (baCurrentRec.fields) baCurrentRec.fields['BA_PartnerID'] = [partnerId];
+      finishOk();
+    });
+  }
+
+  // Retry: Partner wurde zuvor angelegt, nur die Verknüpfung schlug fehl →
+  // KEIN erneutes POST, nur die BA-Verknüpfung wiederholen.
+  if (pmCreatedPartnerId) {
+    linkNewPartnerToBa(pmCreatedPartnerId, pmCreatedPartnerFields);
+    return;
+  }
+
+  function doSave() {
+    var fields = collectPartnerFields();
+    pmSetSaving(true);
+    atPost('Partnerdaten_2026', fields, function(err, data) {
+      if (err || (data && data.error)) {
+        pmSetSaving(false);
+        pmShowError('Fehler: ' + (err ? err.message : data.error.message));
+        return;
+      }
+      if (!data || !data.id) { pmSetSaving(false); pmShowError('Unerwartete Antwort von Airtable.'); return; }
+
+      pmCreatedPartnerId = data.id;
+      pmCreatedPartnerFields = data.fields || fields;
+      linkNewPartnerToBa(pmCreatedPartnerId, pmCreatedPartnerFields);
     });
   }
 
@@ -2353,20 +2419,41 @@ function collectBaFields() {
   return fields;
 }
 
-// opts: { targetStatus, afterSave: 'stay'|'list'|'next', removeFromList, noNextMsg, successMsg }
+// Zeigt den "Trotzdem abschließen?"-Dialog. onConfirm wird bei "Ja" gerufen.
+var baConfirmCb = null;
+function showBaIncompleteDialog(missing, onConfirm) {
+  baConfirmCb = onConfirm;
+  document.getElementById('ba-confirm-text').innerHTML =
+    'Folgende Pflichtfelder sind leer: <b>' + escHtml(missing.join(', ')) +
+    '</b>. Trotzdem abschließen?';
+  document.getElementById('ba-confirm-overlay').classList.add('show');
+}
+function hideBaIncompleteDialog() {
+  document.getElementById('ba-confirm-overlay').classList.remove('show');
+  baConfirmCb = null;
+}
+
+// opts: { targetStatus, afterSave: 'stay'|'list'|'next', removeFromList, noNextMsg,
+//         successMsg, confirmIfIncomplete }
+// Pflichtfelder sind nur ein visueller Hinweis (rot/gelb). Speichern wird NIE
+// blockiert. Beim Abschließen (confirmIfIncomplete) erscheint bei leeren
+// Pflichtfeldern ein Bestätigungsdialog statt einer harten Blockade.
 function baSave(opts) {
   if (!baCurrentRec) return;
 
-  // Validierung: alle Pflichtfelder müssen befüllt sein.
   var missing = baMissingRequired();
   if (missing.length) {
-    if (!baHasLinkedPartner()) setLieferantInvalid(true);
-    updateBaFieldMarkings();
-    var msgErr = document.getElementById('ba-save-msg');
-    msgErr.textContent = 'Bitte alle Pflichtfelder ausfüllen: ' + missing.join(', ');
-    msgErr.style.color = 'var(--accent)';
-    return;
+    updateBaFieldMarkings(); // visuellen Hinweis aktuell halten
+    if (opts.confirmIfIncomplete) {
+      showBaIncompleteDialog(missing, function(){ baSaveProceed(opts); });
+      return;
+    }
   }
+  baSaveProceed(opts);
+}
+
+function baSaveProceed(opts) {
+  if (!baCurrentRec) return;
 
   var fields = collectBaFields();
   fields['BA_Status'] = opts.targetStatus;
@@ -2531,8 +2618,15 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
     baSave({ targetStatus:'in Bearbeitung', afterSave:'next', noNextMsg:'Keine weiteren offenen BAs', successMsg:'✓ Gespeichert' });
   });
   document.getElementById('btn-ba-approve').addEventListener('click', function(){
-    baSave({ targetStatus:'freigegeben', afterSave:'next', removeFromList:true, noNextMsg:'Alle BAs durchgearbeitet 🎉', successMsg:'✓ Abgeschlossen' });
+    baSave({ targetStatus:'freigegeben', afterSave:'next', removeFromList:true, noNextMsg:'Alle BAs durchgearbeitet 🎉', successMsg:'✓ Abgeschlossen', confirmIfIncomplete:true });
   });
+
+  document.getElementById('btn-ba-confirm-yes').addEventListener('click', function(){
+    var cb = baConfirmCb;
+    hideBaIncompleteDialog();
+    if (cb) cb();
+  });
+  document.getElementById('btn-ba-confirm-no').addEventListener('click', hideBaIncompleteDialog);
 
   document.getElementById('ba-brutto').addEventListener('input', baCalc);
   document.getElementById('ba-ust-satz').addEventListener('change', baCalc);
@@ -2953,6 +3047,18 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   </div>
 </div>
 
+<!-- BA: Bestätigung "Trotzdem abschließen?" -->
+<div id="ba-confirm-overlay">
+  <div class="ba-confirm-box">
+    <div class="ba-confirm-title">Pflichtfelder unvollständig</div>
+    <div class="ba-confirm-text" id="ba-confirm-text"></div>
+    <div class="ba-confirm-actions">
+      <button type="button" class="btn-ba-confirm-yes" id="btn-ba-confirm-yes">Ja, trotzdem abschließen</button>
+      <button type="button" class="btn-ba-confirm-no" id="btn-ba-confirm-no">Zurück zur Bearbeitung</button>
+    </div>
+  </div>
+</div>
+
 <!-- MENU OVERLAY -->
 <div id="menu-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;touch-action:none" onclick="closeMenu()"></div>
 <div id="menu-drawer" style="display:none;position:fixed;top:0;left:0;bottom:0;width:260px;background:var(--card);z-index:101;flex-direction:column;padding-top:env(safe-area-inset-top);box-shadow:4px 0 24px rgba(0,0,0,.4)">
@@ -2969,7 +3075,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.1.0 / rd-hub-v50</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.1.1 / rd-hub-v51</div>
 </div>
 </body>
 </html>
