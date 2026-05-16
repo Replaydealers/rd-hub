@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.1.1
-  SW Cache: rd-hub-v51
+  Version:  2.2.0
+  SW Cache: rd-hub-v52
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.2.0  (2026-05-16)  Manuelle BA-Anlage (+ Neue BA, POST), PDF-Upload/-Ersetzen aus der BA-Maske
   v2.1.1  (2026-05-16)  Pflichtfeld-Validierung als Hinweis statt Blocker, Partner-Anlage sofort verlinken, Dropdown-Kontrast bei markierten Feldern
   v2.1.0  (2026-05-16)  Klärfall-Markierung pro Feld, Lieferant-Layout, Partner-Hinweis ausgeschrieben
   v2.0.1  (2026-05-16)  Echte ITEM-Feldnamen, Marge statt Reingewinn, Listing-Preis statt Mindest-VK
@@ -274,7 +275,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 #ba-detail-view:not(.ba-detail-hidden){display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;flex:1;overflow:hidden;min-height:0}
 .ba-pdf-pane{background:var(--card);border-radius:var(--radius);border:.5px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;min-height:0}
 .ba-pdf-pane iframe{width:100%;height:100%;border:none;background:white;display:block}
-.ba-pdf-empty{font-size:14px;color:var(--muted);text-align:center;padding:20px}
+.ba-pdf-empty{font-size:14px;color:var(--muted);text-align:center;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.ba-new-btn{background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;margin-left:6px;touch-action:manipulation}
+.ba-pdf-toolbar{position:absolute;top:8px;right:8px;z-index:6}
+.ba-pdf-btn{background:rgba(0,0,0,.55);color:#fff;border:.5px solid rgba(255,255,255,.25);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;touch-action:manipulation}
+.ba-pdf-btn:hover{background:rgba(0,0,0,.75)}
+.ba-pdf-upload-btn{margin-top:8px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
+.ba-pdf-uploading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;background:rgba(15,15,26,.72);color:var(--text);font-size:13px;z-index:8}
 .ba-form-pane{background:var(--card);border-radius:var(--radius);border:.5px solid var(--border);padding:18px;overflow-y:auto;min-height:0}
 .ba-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .ba-field{display:flex;flex-direction:column;gap:4px}
@@ -427,8 +434,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.1.1</span>
-      <span>SW rd-hub-v51</span>
+      <span>APP v2.2.0</span>
+      <span>SW rd-hub-v52</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -461,7 +468,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.1.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.2.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1515,6 +1522,8 @@ var baCurrentRec = null;
 var baCurrentPartner = null;   // verknüpfter Partner-Record (lazy fetch nach openBaDetail)
 var baSortMode = 'date_asc';
 var baSelectedPartnerId = null;
+// true = neue BA im Anlage-Modus (noch kein Airtable-Record). Erster Save = POST.
+var baNewMode = false;
 var baNettoOverride = false;
 var baUstOverride = false;
 var baPartnerSearchTimer = null;
@@ -1562,6 +1571,7 @@ function showBaListView() {
   document.getElementById('ba-header-title').textContent = 'BA-Review';
   document.getElementById('ba-sort').style.display = '';
   document.getElementById('btn-ba-reload').style.display = '';
+  document.getElementById('btn-ba-new').style.display = '';
 }
 
 function showBaDetailView() {
@@ -1570,6 +1580,7 @@ function showBaDetailView() {
   document.getElementById('ba-header-title').textContent = 'BA bearbeiten';
   document.getElementById('ba-sort').style.display = 'none';
   document.getElementById('btn-ba-reload').style.display = 'none';
+  document.getElementById('btn-ba-new').style.display = 'none';
 }
 
 function loadBaList() {
@@ -1651,6 +1662,7 @@ function renderBaTable() {
 }
 
 function openBaDetail(recId) {
+  baNewMode = false;
   showBaDetailView();
   var msg = document.getElementById('ba-save-msg');
   msg.textContent = 'Lade…';
@@ -1686,7 +1698,9 @@ function populateBaForm(rec) {
     fetchPartner(partnerLinks[0]);
   }
 
-  document.getElementById('ba-id-display').textContent = f['BA_ID'] || '—';
+  var idEl0 = document.getElementById('ba-id-display');
+  idEl0.textContent = f['BA_ID'] || '—';
+  idEl0.style.fontSize = '22px';
   var statusEl = document.getElementById('ba-status-display');
   var status = f['BA_Status'] || '—';
   statusEl.textContent = status;
@@ -1722,20 +1736,126 @@ function populateBaForm(rec) {
   document.getElementById('ba-zahlperiode').value = f['BA_Zahlperiode'] || '';
   document.getElementById('ba-notizen').value = notizen;
 
-  var beleg = f['BA_Beleg'];
+  updateBaPdfControls();
+  updateBaFieldMarkings();
+}
+
+// Steuert PDF-Viewer, "PDF hochladen"-/"PDF ersetzen"-Buttons je nach Zustand:
+// - kein Record (Anlage-Modus, noch nicht gespeichert): Upload erst nach 1. Save
+// - Record + PDF: Viewer + "PDF ersetzen"
+// - Record ohne PDF: Platzhalter + "PDF hochladen"
+function updateBaPdfControls() {
   var iframe = document.getElementById('ba-pdf-frame');
   var emptyDiv = document.getElementById('ba-pdf-empty');
-  if (Array.isArray(beleg) && beleg.length > 0 && beleg[0].url) {
+  var emptyText = document.getElementById('ba-pdf-empty-text');
+  var toolbar = document.getElementById('ba-pdf-toolbar');
+  var uploadBtn = document.getElementById('btn-ba-pdf-upload');
+  var f = (baCurrentRec && baCurrentRec.fields) || {};
+  var beleg = f['BA_Beleg'];
+  var hasPdf = Array.isArray(beleg) && beleg.length > 0 && beleg[0].url;
+  var saved = !!(baCurrentRec && baCurrentRec.id);
+
+  if (hasPdf) {
     iframe.src = beleg[0].url;
     iframe.style.display = '';
     emptyDiv.style.display = 'none';
+    toolbar.style.display = saved ? '' : 'none';
   } else {
     iframe.src = 'about:blank';
     iframe.style.display = 'none';
     emptyDiv.style.display = '';
+    toolbar.style.display = 'none';
+    if (saved) {
+      emptyText.textContent = 'Kein Beleg hochgeladen';
+      uploadBtn.style.display = '';
+    } else {
+      emptyText.textContent = 'Beleg-Upload nach dem ersten Speichern möglich';
+      uploadBtn.style.display = 'none';
+    }
   }
+}
 
-  updateBaFieldMarkings();
+// Öffnet eine leere BA-Detail-Maske im Anlage-Modus (kein Airtable-Record).
+function openBaNew() {
+  baNewMode = true;
+  baCurrentRec = { id: null, fields: {} };
+  showBaDetailView();
+  var t = new Date();
+  var iso = t.getFullYear() + '-' + ('0'+(t.getMonth()+1)).slice(-2) + '-' + ('0'+t.getDate()).slice(-2);
+  populateBaForm({ fields: { BA_Datum: iso } });
+  document.getElementById('ba-header-title').textContent = 'Neue BA anlegen';
+  document.getElementById('ba-id-display').textContent = 'wird beim Speichern vergeben';
+  document.getElementById('ba-id-display').style.fontSize = '15px';
+  var st = document.getElementById('ba-status-display');
+  st.textContent = 'neu';
+  st.className = 'ba-status-pill ba-status-bearbeitung';
+  var m = document.getElementById('ba-save-msg');
+  m.textContent = '';
+}
+
+// Schreibt eine Statusmeldung in die BA-Save-Zeile (für PDF-Upload-Feedback).
+function baPdfMsg(text, isErr) {
+  var m = document.getElementById('ba-save-msg');
+  m.textContent = text;
+  m.style.color = isErr ? 'var(--accent)' : 'var(--green)';
+  if (!isErr) setTimeout(function(){ if (m.textContent === text) m.textContent = ''; }, 2500);
+}
+
+// Lädt ein PDF via Airtable Content-Upload-API (Base64) hoch und verknüpft es
+// mit BA_Beleg. Funktioniert nur für bereits gespeicherte BAs (Record-ID nötig).
+function baUploadPdf(file) {
+  if (!file) return;
+  if (!baCurrentRec || !baCurrentRec.id) {
+    baPdfMsg('Bitte die BA zuerst speichern, dann den Beleg hochladen.', true);
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    baPdfMsg('Datei zu groß (max. 5 MB).', true);
+    return;
+  }
+  var reader = new FileReader();
+  reader.onerror = function(){ baPdfMsg('Datei konnte nicht gelesen werden.', true); };
+  reader.onload = function() {
+    var b64 = String(reader.result).split(',')[1] || '';
+    var recId = baCurrentRec.id;
+    document.getElementById('ba-pdf-uploading').style.display = 'flex';
+    fetch('https://content.airtable.com/v0/' + AT_BASE + '/' + recId + '/' +
+          encodeURIComponent('BA_Beleg') + '/uploadAttachment', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + AT_TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contentType: file.type || 'application/pdf',
+        filename: file.name || 'beleg.pdf',
+        file: b64
+      })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.error) {
+        throw new Error((d.error && (d.error.message || d.error.type)) || 'Upload-Fehler');
+      }
+      // Frischen Record nachladen → zuverlässige BA_Beleg-URL für den Viewer.
+      return fetch('https://api.airtable.com/v0/' + AT_BASE + '/Betriebsausgaben_2026/' + recId,
+                   { headers: { 'Authorization': 'Bearer ' + AT_TOKEN } }).then(function(r){ return r.json(); });
+    })
+    .then(function(rec){
+      document.getElementById('ba-pdf-uploading').style.display = 'none';
+      if (rec && rec.id && !rec.error) {
+        baCurrentRec.fields = rec.fields || baCurrentRec.fields;
+        var local = baList.filter(function(r){ return r.id === recId; })[0];
+        if (local) local.fields['BA_Beleg'] = baCurrentRec.fields['BA_Beleg'];
+        updateBaPdfControls();
+        baPdfMsg('✓ Beleg hochgeladen', false);
+      } else {
+        baPdfMsg('Upload ok, aber Record konnte nicht neu geladen werden.', true);
+      }
+    })
+    .catch(function(e){
+      document.getElementById('ba-pdf-uploading').style.display = 'none';
+      baPdfMsg('Upload fehlgeschlagen: ' + e.message, true);
+    });
+  };
+  reader.readAsDataURL(file);
 }
 
 // Single-Select-String → Dezimal-Faktor.
@@ -2474,13 +2594,30 @@ function baSaveProceed(opts) {
   // Disable buttons during save
   setBaButtonsDisabled(true);
 
+  // Anlage-Modus → POST (neuer Record), sonst PATCH (Update).
+  var isCreate = baNewMode || !baCurrentRec.id;
+  function persist(cb2) {
+    if (isCreate) atPost('Betriebsausgaben_2026', fields, cb2);
+    else atPatch('Betriebsausgaben_2026', baCurrentRec.id, fields, cb2);
+  }
+
   function doBaPatch() {
-    atPatch('Betriebsausgaben_2026', baCurrentRec.id, fields, function(err, data) {
+    persist(function(err, data) {
       setBaButtonsDisabled(false);
       if (err || (data && data.error)) {
         msg.textContent = 'Fehler: ' + (err ? err.message : data.error.message);
         msg.style.color = 'var(--accent)';
         return;
+      }
+
+      if (isCreate) {
+        // Neuer Record ist da → Anlage-Modus verlassen, echte BA-ID anzeigen.
+        baCurrentRec = (data && data.id) ? data : { id: (data && data.id) || null, fields: fields };
+        baNewMode = false;
+        document.getElementById('ba-header-title').textContent = 'BA bearbeiten';
+        var idEl = document.getElementById('ba-id-display');
+        idEl.textContent = (baCurrentRec.fields && baCurrentRec.fields['BA_ID']) || '—';
+        idEl.style.fontSize = '22px';
       }
 
       var currentId = baCurrentRec.id;
@@ -2490,12 +2627,15 @@ function baSaveProceed(opts) {
       baYellowCleared = true;
       updateBaFieldMarkings();
 
+      baCurrentRec.fields = baCurrentRec.fields || {};
       if (opts.removeFromList) {
         baList = baList.filter(function(r){ return r.id !== currentId; });
       } else {
         var local = baList.filter(function(r){ return r.id === currentId; })[0];
         if (local) local.fields['BA_Status'] = opts.targetStatus;
+        else baList.push({ id: currentId, fields: baCurrentRec.fields });
       }
+      updateBaPdfControls();
       baCurrentRec.fields['BA_Status'] = opts.targetStatus;
       var statusEl = document.getElementById('ba-status-display');
       statusEl.textContent = opts.targetStatus;
@@ -2591,6 +2731,7 @@ function setBaButtonsDisabled(disabled) {
 }
 
 function baCancel() {
+  baNewMode = false;
   baCurrentRec = null;
   baCurrentPartner = null;
   baSelectedPartnerId = null;
@@ -2607,7 +2748,18 @@ addNav('tile-ba', 'screen-ba', loadBaList);
 document.addEventListener('DOMContentLoaded', function setupBa() {
   document.getElementById('ba-sort').addEventListener('change', function(){ baSortMode = this.value; renderBaTable(); });
   document.getElementById('btn-ba-reload').addEventListener('click', loadBaList);
+  document.getElementById('btn-ba-new').addEventListener('click', openBaNew);
   document.getElementById('btn-ba-cancel').addEventListener('click', baCancel);
+
+  // PDF-Upload / -Ersetzen
+  var pdfFileInput = document.getElementById('ba-pdf-file');
+  document.getElementById('btn-ba-pdf-upload').addEventListener('click', function(){ pdfFileInput.click(); });
+  document.getElementById('btn-ba-pdf-replace').addEventListener('click', function(){ pdfFileInput.click(); });
+  pdfFileInput.addEventListener('change', function(){
+    var file = pdfFileInput.files && pdfFileInput.files[0];
+    pdfFileInput.value = ''; // erneute Auswahl derselben Datei ermöglichen
+    baUploadPdf(file);
+  });
   document.getElementById('btn-ba-save').addEventListener('click', function(){
     baSave({ targetStatus:'in Bearbeitung', afterSave:'stay', successMsg:'✓ Gespeichert' });
   });
@@ -2803,6 +2955,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
       <option value="amount_desc">Brutto absteigend</option>
     </select>
     <button class="refresh-btn" id="btn-ba-reload" style="margin-left:6px;width:32px;height:32px;padding:0;font-size:14px;">↻</button>
+    <button class="ba-new-btn" id="btn-ba-new" type="button">+ Neue BA</button>
   </div>
 
   <div class="sub-content" id="ba-list-view">
@@ -2816,8 +2969,18 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
   <div id="ba-detail-view" class="ba-detail-hidden">
     <div class="ba-pdf-pane">
+      <div class="ba-pdf-toolbar" id="ba-pdf-toolbar" style="display:none">
+        <button type="button" class="ba-pdf-btn" id="btn-ba-pdf-replace">✏️ PDF ersetzen</button>
+      </div>
       <iframe id="ba-pdf-frame" style="display:none"></iframe>
-      <div id="ba-pdf-empty" class="ba-pdf-empty">Kein Beleg vorhanden</div>
+      <div id="ba-pdf-empty" class="ba-pdf-empty">
+        <div id="ba-pdf-empty-text">Kein Beleg vorhanden</div>
+        <button type="button" class="ba-pdf-upload-btn" id="btn-ba-pdf-upload" style="display:none">📎 PDF hochladen</button>
+      </div>
+      <div class="ba-pdf-uploading" id="ba-pdf-uploading" style="display:none">
+        <div class="artikel-spinner"></div><span>PDF wird hochgeladen…</span>
+      </div>
+      <input type="file" id="ba-pdf-file" accept="application/pdf,.pdf" style="display:none" />
     </div>
     <div class="ba-form-pane" id="ba-form-pane-main">
       <div id="ba-klaer-banner" class="ba-klaer-banner" style="display:none"></div>
@@ -3075,7 +3238,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.1.1 / rd-hub-v51</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.2.0 / rd-hub-v52</div>
 </div>
 </body>
 </html>
