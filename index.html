@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.2.1
-  SW Cache: rd-hub-v53
+  Version:  2.2.2
+  SW Cache: rd-hub-v54
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.2.2  (2026-05-16)  Beleg-fehlt-Dialog ehrlicher formuliert (kein Auto-Verlinken bei Mail)
   v2.2.1  (2026-05-16)  Beleg-fehlt-Dialog beim Abschließen, PDF entfernen, Mail-Workflow-Hinweis
   v2.2.0  (2026-05-16)  Manuelle BA-Anlage (+ Neue BA, POST), PDF-Upload/-Ersetzen aus der BA-Maske
   v2.1.1  (2026-05-16)  Pflichtfeld-Validierung als Hinweis statt Blocker, Partner-Anlage sofort verlinken, Dropdown-Kontrast bei markierten Feldern
@@ -439,8 +440,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.2.1</span>
-      <span>SW rd-hub-v53</span>
+      <span>APP v2.2.2</span>
+      <span>SW rd-hub-v54</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -473,7 +474,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.2.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.2.2</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -3060,7 +3061,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
       <div id="ba-pdf-empty" class="ba-pdf-empty">
         <div id="ba-pdf-empty-text">Kein Beleg vorhanden</div>
         <button type="button" class="ba-pdf-upload-btn" id="btn-ba-pdf-upload" style="display:none">📎 PDF hochladen</button>
-        <div id="ba-pdf-hint" class="ba-pdf-hint" style="display:none">💡 Empfohlen: Belege per Mail an rdrechnungen@gmail.com – sie werden automatisch in Drive abgelegt und in die BA verlinkt. Manueller Upload nur für Sonderfälle (Eigenbelege etc.).</div>
+        <div id="ba-pdf-hint" class="ba-pdf-hint" style="display:none">💡 Hinweis: Du kannst entweder hier PDF hochladen (landet in Airtable) ODER stattdessen das Original an rdrechnungen@gmail.com schicken – dann legt Apps Script eine separate BA an. Beides gleichzeitig erzeugt Duplikate.</div>
       </div>
       <div class="ba-pdf-uploading" id="ba-pdf-uploading" style="display:none">
         <div class="artikel-spinner"></div><span id="ba-pdf-uploading-text">PDF wird hochgeladen…</span>
@@ -3310,8 +3311,8 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 <!-- BA: Bestätigung "Beleg fehlt" -->
 <div id="ba-beleg-overlay">
   <div class="ba-confirm-box">
-    <div class="ba-confirm-title">Kein Beleg vorhanden</div>
-    <div class="ba-confirm-text">Diese BA hat kein PDF/Beleg. Empfohlen: Beleg per Mail an <b>rdrechnungen@gmail.com</b> weiterleiten, damit das Apps Script ihn in Drive ablegt und automatisch in die BA verlinkt. Trotzdem abschließen?</div>
+    <div class="ba-confirm-title">⚠️ Kein Beleg vorhanden</div>
+    <div class="ba-confirm-text">Diese BA hat kein PDF/Beleg.<br><br>Mögliche Wege mit Beleg:<br>– PDF jetzt hier hochladen (landet in Airtable)<br>– Oder: BA hier abbrechen, Beleg per Mail an <b>rdrechnungen@gmail.com</b> schicken – Apps Script legt eine <b>NEUE</b> BA an (kein Verlinken mit dieser!)<br><br><b>Achtung: Mail + manuelle BA ergibt Duplikate.</b></div>
     <div class="ba-confirm-actions">
       <button type="button" class="btn-ba-confirm-warn" id="btn-ba-beleg-yes">Ja, trotzdem abschließen</button>
       <button type="button" class="btn-ba-confirm-yes" id="btn-ba-beleg-upload">PDF jetzt hochladen</button>
@@ -3348,7 +3349,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.2.1 / rd-hub-v53</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.2.2 / rd-hub-v54</div>
 </div>
 </body>
 </html>
