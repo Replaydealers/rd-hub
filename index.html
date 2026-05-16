@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.2.0
-  SW Cache: rd-hub-v52
+  Version:  2.2.1
+  SW Cache: rd-hub-v53
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.2.1  (2026-05-16)  Beleg-fehlt-Dialog beim Abschließen, PDF entfernen, Mail-Workflow-Hinweis
   v2.2.0  (2026-05-16)  Manuelle BA-Anlage (+ Neue BA, POST), PDF-Upload/-Ersetzen aus der BA-Maske
   v2.1.1  (2026-05-16)  Pflichtfeld-Validierung als Hinweis statt Blocker, Partner-Anlage sofort verlinken, Dropdown-Kontrast bei markierten Feldern
   v2.1.0  (2026-05-16)  Klärfall-Markierung pro Feld, Lieferant-Layout, Partner-Hinweis ausgeschrieben
@@ -277,10 +278,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ba-pdf-pane iframe{width:100%;height:100%;border:none;background:white;display:block}
 .ba-pdf-empty{font-size:14px;color:var(--muted);text-align:center;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
 .ba-new-btn{background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;margin-left:6px;touch-action:manipulation}
-.ba-pdf-toolbar{position:absolute;top:8px;right:8px;z-index:6}
+.ba-pdf-toolbar{position:absolute;top:8px;right:8px;z-index:6;display:flex;gap:6px}
 .ba-pdf-btn{background:rgba(0,0,0,.55);color:#fff;border:.5px solid rgba(255,255,255,.25);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;touch-action:manipulation}
 .ba-pdf-btn:hover{background:rgba(0,0,0,.75)}
+.ba-pdf-btn-del{background:rgba(230,57,70,.7);border-color:rgba(230,57,70,.5)}
+.ba-pdf-btn-del:hover{background:rgba(230,57,70,.9)}
 .ba-pdf-upload-btn{margin-top:8px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
+.ba-pdf-hint{font-size:11px;color:var(--hint);line-height:1.45;max-width:340px;margin-top:10px}
 .ba-pdf-uploading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;background:rgba(15,15,26,.72);color:var(--text);font-size:13px;z-index:8}
 .ba-form-pane{background:var(--card);border-radius:var(--radius);border:.5px solid var(--border);padding:18px;overflow-y:auto;min-height:0}
 .ba-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
@@ -368,9 +372,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ba-field select.ba-mark-red,.ba-field select.ba-mark-yellow{background-color:var(--card2);color:var(--text)}
 .ba-field select option{background-color:var(--card2);color:var(--text)}
 
-/* Bestätigungsdialog "Trotzdem abschließen?" */
-#ba-confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
-#ba-confirm-overlay.show{display:flex}
+/* Bestätigungsdialoge (Pflichtfeld / Beleg fehlt / PDF entfernen) */
+#ba-confirm-overlay,#ba-beleg-overlay,#ba-pdfdel-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
+#ba-confirm-overlay.show,#ba-beleg-overlay.show,#ba-pdfdel-overlay.show{display:flex}
 .ba-confirm-box{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);padding:20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .ba-confirm-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px}
 .ba-confirm-text{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px}
@@ -378,6 +382,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ba-confirm-actions{display:flex;flex-direction:column;gap:8px}
 .ba-confirm-actions button{padding:11px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
 .btn-ba-confirm-yes{background:var(--green);color:white}
+.btn-ba-confirm-warn{background:#FF8C42;color:#1a1a2e}
 .btn-ba-confirm-no{background:var(--card2);color:var(--text);border:.5px solid var(--border)}
 
 /* ─────────────────── ARTIKELSUCHE — Mobile-First Refactor ─────────────────── */
@@ -434,8 +439,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.2.0</span>
-      <span>SW rd-hub-v52</span>
+      <span>APP v2.2.1</span>
+      <span>SW rd-hub-v53</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -468,7 +473,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.2.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.2.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1750,6 +1755,7 @@ function updateBaPdfControls() {
   var emptyText = document.getElementById('ba-pdf-empty-text');
   var toolbar = document.getElementById('ba-pdf-toolbar');
   var uploadBtn = document.getElementById('btn-ba-pdf-upload');
+  var hint = document.getElementById('ba-pdf-hint');
   var f = (baCurrentRec && baCurrentRec.fields) || {};
   var beleg = f['BA_Beleg'];
   var hasPdf = Array.isArray(beleg) && beleg.length > 0 && beleg[0].url;
@@ -1760,6 +1766,7 @@ function updateBaPdfControls() {
     iframe.style.display = '';
     emptyDiv.style.display = 'none';
     toolbar.style.display = saved ? '' : 'none';
+    hint.style.display = 'none';
   } else {
     iframe.src = 'about:blank';
     iframe.style.display = 'none';
@@ -1768,9 +1775,11 @@ function updateBaPdfControls() {
     if (saved) {
       emptyText.textContent = 'Kein Beleg hochgeladen';
       uploadBtn.style.display = '';
+      hint.style.display = '';
     } else {
       emptyText.textContent = 'Beleg-Upload nach dem ersten Speichern möglich';
       uploadBtn.style.display = 'none';
+      hint.style.display = 'none';
     }
   }
 }
@@ -1818,6 +1827,7 @@ function baUploadPdf(file) {
   reader.onload = function() {
     var b64 = String(reader.result).split(',')[1] || '';
     var recId = baCurrentRec.id;
+    document.getElementById('ba-pdf-uploading-text').textContent = 'PDF wird hochgeladen…';
     document.getElementById('ba-pdf-uploading').style.display = 'flex';
     fetch('https://content.airtable.com/v0/' + AT_BASE + '/' + recId + '/' +
           encodeURIComponent('BA_Beleg') + '/uploadAttachment', {
@@ -2553,6 +2563,49 @@ function hideBaIncompleteDialog() {
   baConfirmCb = null;
 }
 
+// "Beleg fehlt"-Dialog (nur beim Abschließen, wenn BA_Beleg leer).
+var baBelegCb = null;
+function baBelegMissing() {
+  var b = baCurrentRec && baCurrentRec.fields && baCurrentRec.fields['BA_Beleg'];
+  return !(Array.isArray(b) && b.length > 0);
+}
+function showBaBelegDialog(onConfirm) {
+  baBelegCb = onConfirm;
+  document.getElementById('ba-beleg-overlay').classList.add('show');
+}
+function hideBaBelegDialog() {
+  document.getElementById('ba-beleg-overlay').classList.remove('show');
+  baBelegCb = null;
+}
+
+// Bestätigungsdialog "PDF dauerhaft entfernen?"
+function showBaPdfDelDialog() {
+  document.getElementById('ba-pdfdel-overlay').classList.add('show');
+}
+function hideBaPdfDelDialog() {
+  document.getElementById('ba-pdfdel-overlay').classList.remove('show');
+}
+// Entfernt das verknüpfte PDF (PATCH BA_Beleg = []).
+function baRemovePdf() {
+  if (!baCurrentRec || !baCurrentRec.id) return;
+  var recId = baCurrentRec.id;
+  document.getElementById('ba-pdf-uploading-text').textContent = 'PDF wird entfernt…';
+  document.getElementById('ba-pdf-uploading').style.display = 'flex';
+  atPatch('Betriebsausgaben_2026', recId, { 'BA_Beleg': [] }, function(err, data){
+    document.getElementById('ba-pdf-uploading').style.display = 'none';
+    if (err || (data && data.error)) {
+      baPdfMsg('Entfernen fehlgeschlagen: ' + (err ? err.message : data.error.message), true);
+      return;
+    }
+    baCurrentRec.fields = baCurrentRec.fields || {};
+    baCurrentRec.fields['BA_Beleg'] = [];
+    var local = baList.filter(function(r){ return r.id === recId; })[0];
+    if (local) local.fields['BA_Beleg'] = [];
+    updateBaPdfControls();
+    baPdfMsg('✓ PDF entfernt', false);
+  });
+}
+
 // opts: { targetStatus, afterSave: 'stay'|'list'|'next', removeFromList, noNextMsg,
 //         successMsg, confirmIfIncomplete }
 // Pflichtfelder sind nur ein visueller Hinweis (rot/gelb). Speichern wird NIE
@@ -2561,15 +2614,25 @@ function hideBaIncompleteDialog() {
 function baSave(opts) {
   if (!baCurrentRec) return;
 
+  // Schritt 2: beim Abschließen ohne PDF noch der "Beleg fehlt"-Dialog.
+  function afterPflicht() {
+    if (opts.confirmIfIncomplete && baBelegMissing()) {
+      showBaBelegDialog(function(){ baSaveProceed(opts); });
+      return;
+    }
+    baSaveProceed(opts);
+  }
+
+  // Schritt 1: Pflichtfeld-Dialog (nur beim Abschließen, wenn Felder leer).
   var missing = baMissingRequired();
   if (missing.length) {
     updateBaFieldMarkings(); // visuellen Hinweis aktuell halten
     if (opts.confirmIfIncomplete) {
-      showBaIncompleteDialog(missing, function(){ baSaveProceed(opts); });
+      showBaIncompleteDialog(missing, afterPflicht);
       return;
     }
   }
-  baSaveProceed(opts);
+  afterPflicht();
 }
 
 function baSaveProceed(opts) {
@@ -2780,6 +2843,26 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
   });
   document.getElementById('btn-ba-confirm-no').addEventListener('click', hideBaIncompleteDialog);
 
+  // "Beleg fehlt"-Dialog
+  document.getElementById('btn-ba-beleg-yes').addEventListener('click', function(){
+    var cb = baBelegCb;
+    hideBaBelegDialog();
+    if (cb) cb();
+  });
+  document.getElementById('btn-ba-beleg-upload').addEventListener('click', function(){
+    hideBaBelegDialog();
+    document.getElementById('ba-pdf-file').click();
+  });
+  document.getElementById('btn-ba-beleg-no').addEventListener('click', hideBaBelegDialog);
+
+  // "PDF entfernen"-Dialog
+  document.getElementById('btn-ba-pdf-remove').addEventListener('click', showBaPdfDelDialog);
+  document.getElementById('btn-ba-pdfdel-yes').addEventListener('click', function(){
+    hideBaPdfDelDialog();
+    baRemovePdf();
+  });
+  document.getElementById('btn-ba-pdfdel-no').addEventListener('click', hideBaPdfDelDialog);
+
   document.getElementById('ba-brutto').addEventListener('input', baCalc);
   document.getElementById('ba-ust-satz').addEventListener('change', baCalc);
 
@@ -2971,14 +3054,16 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div class="ba-pdf-pane">
       <div class="ba-pdf-toolbar" id="ba-pdf-toolbar" style="display:none">
         <button type="button" class="ba-pdf-btn" id="btn-ba-pdf-replace">✏️ PDF ersetzen</button>
+        <button type="button" class="ba-pdf-btn ba-pdf-btn-del" id="btn-ba-pdf-remove">🗑 PDF entfernen</button>
       </div>
       <iframe id="ba-pdf-frame" style="display:none"></iframe>
       <div id="ba-pdf-empty" class="ba-pdf-empty">
         <div id="ba-pdf-empty-text">Kein Beleg vorhanden</div>
         <button type="button" class="ba-pdf-upload-btn" id="btn-ba-pdf-upload" style="display:none">📎 PDF hochladen</button>
+        <div id="ba-pdf-hint" class="ba-pdf-hint" style="display:none">💡 Empfohlen: Belege per Mail an rdrechnungen@gmail.com – sie werden automatisch in Drive abgelegt und in die BA verlinkt. Manueller Upload nur für Sonderfälle (Eigenbelege etc.).</div>
       </div>
       <div class="ba-pdf-uploading" id="ba-pdf-uploading" style="display:none">
-        <div class="artikel-spinner"></div><span>PDF wird hochgeladen…</span>
+        <div class="artikel-spinner"></div><span id="ba-pdf-uploading-text">PDF wird hochgeladen…</span>
       </div>
       <input type="file" id="ba-pdf-file" accept="application/pdf,.pdf" style="display:none" />
     </div>
@@ -3222,6 +3307,31 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   </div>
 </div>
 
+<!-- BA: Bestätigung "Beleg fehlt" -->
+<div id="ba-beleg-overlay">
+  <div class="ba-confirm-box">
+    <div class="ba-confirm-title">Kein Beleg vorhanden</div>
+    <div class="ba-confirm-text">Diese BA hat kein PDF/Beleg. Empfohlen: Beleg per Mail an <b>rdrechnungen@gmail.com</b> weiterleiten, damit das Apps Script ihn in Drive ablegt und automatisch in die BA verlinkt. Trotzdem abschließen?</div>
+    <div class="ba-confirm-actions">
+      <button type="button" class="btn-ba-confirm-warn" id="btn-ba-beleg-yes">Ja, trotzdem abschließen</button>
+      <button type="button" class="btn-ba-confirm-yes" id="btn-ba-beleg-upload">PDF jetzt hochladen</button>
+      <button type="button" class="btn-ba-confirm-no" id="btn-ba-beleg-no">Zurück zur Bearbeitung</button>
+    </div>
+  </div>
+</div>
+
+<!-- BA: Bestätigung "PDF entfernen" -->
+<div id="ba-pdfdel-overlay">
+  <div class="ba-confirm-box">
+    <div class="ba-confirm-title">PDF entfernen</div>
+    <div class="ba-confirm-text">PDF dauerhaft entfernen?</div>
+    <div class="ba-confirm-actions">
+      <button type="button" class="btn-ba-confirm-warn" id="btn-ba-pdfdel-yes">Ja, entfernen</button>
+      <button type="button" class="btn-ba-confirm-no" id="btn-ba-pdfdel-no">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
 <!-- MENU OVERLAY -->
 <div id="menu-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;touch-action:none" onclick="closeMenu()"></div>
 <div id="menu-drawer" style="display:none;position:fixed;top:0;left:0;bottom:0;width:260px;background:var(--card);z-index:101;flex-direction:column;padding-top:env(safe-area-inset-top);box-shadow:4px 0 24px rgba(0,0,0,.4)">
@@ -3238,7 +3348,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.2.0 / rd-hub-v52</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.2.1 / rd-hub-v53</div>
 </div>
 </body>
 </html>
