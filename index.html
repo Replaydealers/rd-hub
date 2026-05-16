@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.0.1
-  SW Cache: rd-hub-v49
+  Version:  2.1.0
+  SW Cache: rd-hub-v50
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.1.0  (2026-05-16)  Klärfall-Markierung pro Feld, Lieferant-Layout, Partner-Hinweis ausgeschrieben
   v2.0.1  (2026-05-16)  Echte ITEM-Feldnamen, Marge statt Reingewinn, Listing-Preis statt Mindest-VK
   v2.0.0  (2026-05-15)  Artikelsuche überarbeitet — Cache, Status-Filter, Trefferliste-Info, Sortierung, Scroll-Fix, Zurück-Pfeil, Detail-Cleanup
   v1.10.0 (2026-05-15)  Partner-Info gefixt, Hinweis-Icon bei unvollständigem Partner, Partner bearbeiten, Zurück-Pfeil Navigation
@@ -331,16 +332,24 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ba-partner-info .pi-sep{color:var(--hint)}
 .ba-partner-info .pi-name{font-weight:600;color:var(--text)}
 .ba-partner-info .pi-role{color:var(--muted)}
-.ba-partner-info .pi-warn{cursor:help;font-size:11px;margin-left:4px;padding:1px 5px;border-radius:4px;white-space:nowrap;border:.5px solid transparent;line-height:1.4}
-.ba-partner-info .pi-warn-pflicht{background:rgba(255,140,66,.22);border-color:#FF8C42}
-.ba-partner-info .pi-warn-rolle{background:rgba(239,168,39,.20);border-color:var(--amber)}
-.ba-partner-info .pi-warn-optional{background:rgba(239,168,39,.12);border-color:rgba(239,168,39,.6)}
 .ba-partner-info.has-role-warning .pi-role{color:var(--amber)}
-.ba-edit-partner-btn{background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;padding:3px 0;margin-top:2px;text-decoration:underline;font-family:inherit;display:inline-block}
+/* Ausgeschriebener Unvollständig-Hinweis — eigene Zeile, dezentes Orange */
+.ba-partner-info .pi-incomplete{flex-basis:100%;color:#FF8C42;font-size:11.5px;line-height:1.4;margin-top:1px}
+
+/* Lieferant: Suchfeld + Partner-bearbeiten-Button nebeneinander */
+.ba-lieferant-row{display:flex;align-items:stretch;gap:6px;position:relative}
+.ba-lieferant-row #ba-lieferant{flex:1;min-width:0;width:auto}
+.ba-edit-partner-btn{flex:0 0 28%;border:.5px solid var(--border);background:var(--card2);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;border-radius:var(--radius-sm);padding:0 8px;font-family:inherit;white-space:nowrap;touch-action:manipulation}
 .ba-edit-partner-btn:hover{filter:brightness(1.2)}
 
 /* Validierungs-Markierung für leeres Lieferant-Feld (nur nach Save-Versuch) */
 #ba-lieferant.ba-lieferant-invalid{border-color:var(--accent);background:rgba(230,57,70,.08);box-shadow:0 0 0 1px var(--accent)}
+
+/* Feld-Markierung: ROT = Pflichtfeld leer, GELB = Klärfall/optional erwünscht */
+.ba-field input.ba-mark-red,.ba-field select.ba-mark-red,.ba-field textarea.ba-mark-red,
+#ba-lieferant.ba-mark-red{border-color:var(--accent);background:rgba(230,57,70,.08);box-shadow:0 0 0 1px var(--accent)}
+.ba-field input.ba-mark-yellow,.ba-field select.ba-mark-yellow,.ba-field textarea.ba-mark-yellow,
+#ba-lieferant.ba-mark-yellow{border-color:rgba(239,168,39,.7);background:rgba(239,168,39,.07)}
 
 /* ─────────────────── ARTIKELSUCHE — Mobile-First Refactor ─────────────────── */
 .artikel-list-view{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
@@ -396,8 +405,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.0.1</span>
-      <span>SW rd-hub-v49</span>
+      <span>APP v2.1.0</span>
+      <span>SW rd-hub-v50</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -430,7 +439,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.0.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.1.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1488,6 +1497,42 @@ var baNettoOverride = false;
 var baUstOverride = false;
 var baPartnerSearchTimer = null;
 var baPartnerSearchRecords = []; // cache der zuletzt angezeigten Dropdown-Records (für Click-Handler)
+// Wird beim ersten erfolgreichen Speichern einer BA gesetzt → unterdrückt die
+// gelbe Klärfall-Markierung (User hat die Felder bewusst geprüft).
+var baYellowCleared = false;
+
+// Pflichtfelder der BA-Detail-Maske. `partner` = Spezialfall (Lieferant via BA_PartnerID),
+// `nonzero` = Brutto darf nicht 0 sein, `requiredIf` = nur unter Bedingung Pflicht.
+var BA_REQUIRED_FIELDS = [
+  { id:'ba-lieferant',     label:'Lieferant',           type:'partner' },
+  { id:'ba-datum',         label:'Datum' },
+  { id:'ba-bezeichnung',   label:'Bezeichnung' },
+  { id:'ba-brutto',        label:'Brutto', nonzero:true },
+  { id:'ba-ust-satz',      label:'USt-Satz' },
+  { id:'ba-kategorie',     label:'Kategorie' },
+  { id:'ba-zahlweg',       label:'Zahlweg' },
+  { id:'ba-vorsteuer',     label:'Vorsteuer absetzbar' },
+  { id:'ba-wiederkehrend', label:'Wiederkehrend' },
+  { id:'ba-zahlperiode',   label:'Zahlperiode',
+    requiredIf:function(){ return document.getElementById('ba-wiederkehrend').value === 'ja'; } }
+];
+// Keyword → Feld-ID. Wird case-insensitive im gesamten BA_Notizen-Text gesucht
+// (Trigger: "bitte ergänzen" enthalten ODER Notiz beginnt mit "klärfall:").
+var BA_NOTE_KEYWORDS = [
+  { id:'ba-lieferant',     kw:['lieferant','partner'] },
+  { id:'ba-datum',         kw:['datum'] },
+  { id:'ba-bezeichnung',   kw:['bezeichnung'] },
+  { id:'ba-brutto',        kw:['brutto','rechnungsbetrag','gesamtbetrag'] },
+  { id:'ba-ust-satz',      kw:['ust-satz','ust satz','ustsatz','steuersatz','mwst','umsatzsteuer'] },
+  { id:'ba-netto',         kw:['netto'] },
+  { id:'ba-ust-betrag',    kw:['ust-betrag','ust betrag','steuerbetrag'] },
+  { id:'ba-kategorie',     kw:['kategorie'] },
+  { id:'ba-zahlweg',       kw:['zahlweg','zahlungsweg','zahlart','zahlungsart'] },
+  { id:'ba-beleg-nr',      kw:['rechnungsnummer','rechnungsnr','rechnungs-nr','belegnummer','beleg-nr','beleg nr'] },
+  { id:'ba-vorsteuer',     kw:['vorsteuer'] },
+  { id:'ba-wiederkehrend', kw:['wiederkehrend'] },
+  { id:'ba-zahlperiode',   kw:['zahlperiode','zahlungsperiode'] }
+];
 
 function showBaListView() {
   document.getElementById('ba-list-view').style.display = '';
@@ -1609,6 +1654,7 @@ function populateBaForm(rec) {
   baUstOverride = false;
   baSelectedPartnerId = null;
   baCurrentPartner = null;
+  baYellowCleared = false;
   updatePartnerInfoLine();
   setLieferantInvalid(false);
 
@@ -1666,6 +1712,8 @@ function populateBaForm(rec) {
     iframe.style.display = 'none';
     emptyDiv.style.display = '';
   }
+
+  updateBaFieldMarkings();
 }
 
 // Single-Select-String → Dezimal-Faktor.
@@ -1785,19 +1833,18 @@ function updatePartnerInfoLine() {
   html += '<span class="pi-name">'+escHtml(firma)+'</span>';
   html += '<span class="pi-sep">·</span><span class="pi-role">'+escHtml(rolle)+'</span>';
 
-  if (w.hasAny) {
-    var tooltipParts = [];
-    if (w.pflicht.length) tooltipParts.push('Pflichtfelder fehlen: ' + w.pflicht.join(', '));
-    if (w.roleNeedsUpgrade) tooltipParts.push('Rolle: wird beim nächsten Speichern automatisch auf Mehrfach gesetzt');
-    if (w.optional.length) tooltipParts.push('Optional fehlen: ' + w.optional.join(', '));
-    var tooltip = tooltipParts.join('\n');
-    html += '<span class="pi-warn pi-warn-'+w.level+'" title="'+escHtml(tooltip)+'">⚠️</span>';
+  // Ausgeschriebener Hinweis statt Tooltip-Icon: nur echte Pflichtfelder
+  // (Land, USt-Status, Name). IBAN ist optional → kein Hinweis. Rolle wird
+  // beim Speichern automatisch hochgestuft → kein Hinweis nötig.
+  if (w.pflicht.length) {
+    html += '<span class="pi-incomplete">Daten unvollständig: '+escHtml(w.pflicht.join(', '))+'</span>';
   }
 
   el.className = 'ba-partner-info' + (w.roleNeedsUpgrade ? ' has-role-warning' : '');
   el.innerHTML = html;
   el.style.display = '';
   if (editBtn) editBtn.style.display = '';
+  updateBaFieldMarkings();
 }
 
 // Single source of truth: ist aktuell ein Partner an die BA verknüpft?
@@ -1812,6 +1859,67 @@ function setLieferantInvalid(invalid) {
   var el = document.getElementById('ba-lieferant');
   if (!el) return;
   el.classList.toggle('ba-lieferant-invalid', !!invalid);
+}
+
+// Ist das genannte Pflichtfeld aktuell leer (= rot zu markieren)?
+function baFieldIsEmpty(spec) {
+  if (spec.type === 'partner') return !baHasLinkedPartner();
+  var el = document.getElementById(spec.id);
+  if (!el) return false;
+  var v = (el.value || '').trim();
+  if (!v) return true;
+  if (spec.nonzero && (parseFloat(v) || 0) === 0) return true;
+  return false;
+}
+
+// Liefert die Labels aller aktuell leeren Pflichtfelder (für Save-Validierung).
+function baMissingRequired() {
+  var missing = [];
+  BA_REQUIRED_FIELDS.forEach(function(spec){
+    if (spec.requiredIf && !spec.requiredIf()) return;
+    if (baFieldIsEmpty(spec)) missing.push(spec.label);
+  });
+  return missing;
+}
+
+// Setzt rote (Pflichtfeld leer) und gelbe (Klärfall/optional) Markierungen.
+// Rot hat Vorrang vor Gelb. Rot verschwindet sofort bei Eingabe, Gelb erst
+// nach dem ersten erfolgreichen Speichern (baYellowCleared).
+function updateBaFieldMarkings() {
+  var redIds = {};
+  BA_REQUIRED_FIELDS.forEach(function(spec){
+    var required = !spec.requiredIf || spec.requiredIf();
+    if (required && baFieldIsEmpty(spec)) redIds[spec.id] = true;
+  });
+
+  var yellowIds = {};
+  if (!baYellowCleared) {
+    var notizen = (document.getElementById('ba-notizen').value || '').toLowerCase();
+    var noteTrigger = notizen.indexOf('bitte ergänzen') !== -1 ||
+                      notizen.indexOf('klärfall:') === 0;
+    if (noteTrigger) {
+      BA_NOTE_KEYWORDS.forEach(function(spec){
+        if (spec.kw.some(function(k){ return notizen.indexOf(k) !== -1; })) {
+          yellowIds[spec.id] = true;
+        }
+      });
+    }
+    // Rechnungsnummer: optional, aber für KIMP-Matching erwünscht → gelb wenn leer.
+    var belegEl = document.getElementById('ba-beleg-nr');
+    if (belegEl && !(belegEl.value || '').trim()) yellowIds['ba-beleg-nr'] = true;
+  }
+
+  var allIds = ['ba-lieferant','ba-datum','ba-bezeichnung','ba-brutto','ba-ust-satz',
+    'ba-netto','ba-ust-betrag','ba-kategorie','ba-zahlweg','ba-beleg-nr',
+    'ba-vorsteuer','ba-wiederkehrend','ba-zahlperiode'];
+  allIds.forEach(function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    var red = !!redIds[id];
+    var yellow = !red && !!yellowIds[id];
+    el.classList.toggle('ba-mark-red', red);
+    el.classList.toggle('ba-mark-yellow', yellow);
+  });
 }
 
 function searchPartners(query) {
@@ -2249,13 +2357,14 @@ function collectBaFields() {
 function baSave(opts) {
   if (!baCurrentRec) return;
 
-  // Validierung: Mindestens ein Lieferant muss verknüpft sein.
-  if (!baHasLinkedPartner()) {
-    setLieferantInvalid(true);
+  // Validierung: alle Pflichtfelder müssen befüllt sein.
+  var missing = baMissingRequired();
+  if (missing.length) {
+    if (!baHasLinkedPartner()) setLieferantInvalid(true);
+    updateBaFieldMarkings();
     var msgErr = document.getElementById('ba-save-msg');
-    msgErr.textContent = 'Bitte einen Lieferanten auswählen oder anlegen.';
+    msgErr.textContent = 'Bitte alle Pflichtfelder ausfüllen: ' + missing.join(', ');
     msgErr.style.color = 'var(--accent)';
-    document.getElementById('ba-lieferant').focus();
     return;
   }
 
@@ -2288,6 +2397,11 @@ function baSave(opts) {
       }
 
       var currentId = baCurrentRec.id;
+
+      // Erstes erfolgreiches Speichern → gelbe Klärfall-Markierung entfällt
+      // (User hat die Felder bewusst geprüft).
+      baYellowCleared = true;
+      updateBaFieldMarkings();
 
       if (opts.removeFromList) {
         baList = baList.filter(function(r){ return r.id !== currentId; });
@@ -2422,6 +2536,16 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
 
   document.getElementById('ba-brutto').addEventListener('input', baCalc);
   document.getElementById('ba-ust-satz').addEventListener('change', baCalc);
+
+  // Live-Markierung: rote Pflichtfeld-Umrandung verschwindet sofort bei Eingabe.
+  ['ba-datum','ba-bezeichnung','ba-brutto','ba-ust-satz','ba-kategorie',
+   'ba-zahlweg','ba-beleg-nr','ba-vorsteuer','ba-wiederkehrend','ba-zahlperiode',
+   'ba-notizen'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', updateBaFieldMarkings);
+    el.addEventListener('change', updateBaFieldMarkings);
+  });
   document.getElementById('ba-netto').addEventListener('input', function(e){ if (e.isTrusted) baNettoOverride = true; });
   document.getElementById('ba-ust-betrag').addEventListener('input', function(e){ if (e.isTrusted) baUstOverride = true; });
 
@@ -2431,6 +2555,7 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
     var q = lief.value.trim();
     baSelectedPartnerId = null;
     if (baPartnerSearchTimer) clearTimeout(baPartnerSearchTimer);
+    updateBaFieldMarkings();
     if (q.length < 2) { hidePartnerDropdown(); return; }
     baPartnerSearchTimer = setTimeout(function(){ searchPartners(q); }, 250);
   });
@@ -2611,12 +2736,14 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
       </div>
 
       <div class="ba-form-row">
-        <div class="ba-field" style="position:relative;grid-column:span 2">
+        <div class="ba-field" style="grid-column:span 2">
           <label>Lieferant</label>
-          <input type="text" id="ba-lieferant" autocomplete="off" placeholder="Tippen, ab 2 Zeichen Vorschläge…" />
-          <div id="ba-lieferant-dropdown" class="ba-dropdown"></div>
+          <div class="ba-lieferant-row">
+            <input type="text" id="ba-lieferant" autocomplete="off" placeholder="Tippen, ab 2 Zeichen Vorschläge…" />
+            <button type="button" id="btn-ba-edit-partner" class="ba-edit-partner-btn" style="display:none">Partner bearbeiten</button>
+            <div id="ba-lieferant-dropdown" class="ba-dropdown"></div>
+          </div>
           <div id="ba-partner-info" class="ba-partner-info" style="display:none"></div>
-          <button type="button" id="btn-ba-edit-partner" class="ba-edit-partner-btn" style="display:none">Partner bearbeiten</button>
         </div>
       </div>
 
@@ -2842,7 +2969,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.0.1 / rd-hub-v49</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.1.0 / rd-hub-v50</div>
 </div>
 </body>
 </html>
