@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.4.1
-  SW Cache: rd-hub-v60
+  Version:  2.5.0
+  SW Cache: rd-hub-v61
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.5.0  (2026-05-17)  VK-Rechnungen direkt aus dem Clearing erzeugen
   v2.4.1  (2026-05-17)  Vorschlags-Karten: Rechnungsnr + Partner-Namen + Cache-Refresh
   v2.4.0  (2026-05-17)  Auto-Vorschläge für BA/EK/VK-Verknüpfungen mit Match-Score
   v2.3.3  (2026-05-17)  Header-Lesbarkeit + Text-Selektion-Bug
@@ -480,7 +481,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-link-section{margin-bottom:14px}
 .kimp-link-section .kls-title{font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 .kimp-link-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;margin-bottom:5px;color:var(--text)}
+.kimp-link-chip .klc-lbl{flex:1;min-width:0}
 .kimp-link-chip .klc-x{border:none;background:none;color:var(--accent);font-size:15px;cursor:pointer;padding:0 4px;touch-action:manipulation;flex-shrink:0}
+.kimp-link-chip .klc-rech{flex-shrink:0;border:none;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:#fff;white-space:nowrap;touch-action:manipulation}
+.kimp-link-chip .klc-rech:disabled{opacity:.6;cursor:default}
+.kimp-link-chip .klc-rech-view{background:#2D6CDF}
+.kimp-link-chip .klc-rech-gen{background:var(--green)}
 .kimp-link-search-wrap{position:relative}
 .kimp-link-input{width:100%;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
 .kimp-link-input:focus{border-color:var(--accent)}
@@ -520,8 +526,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.4.1</span>
-      <span>SW rd-hub-v60</span>
+      <span>APP v2.5.0</span>
+      <span>SW rd-hub-v61</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -554,7 +560,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.4.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.5.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -734,6 +740,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 var AT_BASE = 'appwhhRzsznu1LTRX';
 var AT_TABLE = 'Artikel_2026';
 var AT_TOKEN = 'patNPI9NMOZC3ZJgh.5815eddd9a34b7821d4eebcd67395c1707f49ac7bc12ecf1910e7f0ba38bd7ec';
+// VK-Rechnungs-Web-App (Apps Script). Klartext analog AT_TOKEN — Cloud-Run-Migration im Backlog.
+var VK_RECHNUNG_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzcsKXRFqr2UaNXatz9IXt7fi9m_LOgzRRb48nieApAmuFqK3z47FWHaeK9iTV2KJsQkg/exec';
+var VK_RECHNUNG_HUB_SECRET = 'K7pX9mZqW8nY2vR5tL3aB6cE4dH1jU0o';
 var PIN = '082024';
 var lastArtikel = null;
 var skuRecordId = null;
@@ -3379,7 +3388,9 @@ function renderKimpBelegPane(){
   });
   kimpDetailLinks.vk.forEach(function(x){
     var f=x.fields;
-    entries.push({ label:(f['VK_Lot']||'VK')+' – '+kimpJoin(f['VK_Name']), amount:f['VK_Preis'], hasBeleg:false, url:null });
+    var rUrl=kimpVkRechnungUrl(x.id, f);
+    entries.push({ label:(f['VK_Lot']||'VK')+' – '+kimpJoin(f['VK_Name']), amount:f['VK_Preis'],
+      hasBeleg:!!rUrl, url:rUrl?kimpDriveEmbed(rUrl):null, yesLabel:'Rechnung vorhanden' });
   });
 
   if (!entries.length){
@@ -3392,7 +3403,7 @@ function renderKimpBelegPane(){
     var amt=(e.amount!=null&&e.amount!=='') ? kimpNum(e.amount)+' EUR' : '—';
     html+='<div class="kimp-beleg-item">'+
       '<span class="kb-id">'+escHtml(e.label)+'</span> · '+escHtml(amt)+' · '+
-      (e.hasBeleg?'<span class="kb-beleg-yes">Beleg vorhanden</span>':'<span class="kb-beleg-no">kein Beleg</span>')+
+      (e.hasBeleg?'<span class="kb-beleg-yes">'+escHtml(e.yesLabel||'Beleg vorhanden')+'</span>':'<span class="kb-beleg-no">kein Beleg</span>')+
       '</div>';
   });
   listEl.innerHTML=html;
@@ -3424,8 +3435,16 @@ function renderKimpLinkSection(type){
       else if (type==='ek') lbl=(rf['EK_Lot']||id)+' – '+kimpJoin(rf['EK_PartnerID']);
       else                  lbl=(rf['VK_Lot']||id)+' – '+kimpJoin(rf['VK_Name']);
     } else lbl=id;
-    html+='<div class="kimp-link-chip"><span>'+escHtml(lbl)+'</span>'+
-      '<button type="button" class="klc-x" data-type="'+type+'" data-id="'+escHtml(id)+'" title="Entfernen">✕</button></div>';
+    var rechBtn='';
+    if (type==='vk'){
+      var vkLot=(rf&&rf['VK_Lot'])||(kimpVkCacheFields(id)&&kimpVkCacheFields(id)['VK_Lot'])||'';
+      var rUrl=kimpVkRechnungUrl(id, rf);
+      if (rUrl) rechBtn='<button type="button" class="klc-rech klc-rech-view" data-id="'+escHtml(id)+'" data-url="'+escHtml(rUrl)+'" title="Rechnung anzeigen">📄 Rechnung anzeigen</button>';
+      else      rechBtn='<button type="button" class="klc-rech klc-rech-gen" data-id="'+escHtml(id)+'" data-lot="'+escHtml(vkLot)+'" title="Rechnung erzeugen">📝 Rechnung erzeugen</button>';
+    }
+    html+='<div class="kimp-link-chip"><span class="klc-lbl">'+escHtml(lbl)+'</span>'+
+      '<button type="button" class="klc-x" data-type="'+type+'" data-id="'+escHtml(id)+'" title="Entfernen">✕</button>'+
+      rechBtn+'</div>';
   });
   html+='<div class="kimp-link-search-wrap">'+
     '<input type="text" class="kimp-link-input" id="kimp-search-'+type+'" autocomplete="off" placeholder="+ '+def.label+' verknüpfen…" />'+
@@ -3434,6 +3453,12 @@ function renderKimpLinkSection(type){
 
   container.querySelectorAll('.klc-x').forEach(function(b){
     attachTouchClickHandler(b, function(){ kimpRemoveLink(b.getAttribute('data-type'), b.getAttribute('data-id')); });
+  });
+  container.querySelectorAll('.klc-rech-view').forEach(function(b){
+    attachTouchClickHandler(b, function(){ window.open(b.getAttribute('data-url'), '_blank'); });
+  });
+  container.querySelectorAll('.klc-rech-gen').forEach(function(b){
+    attachTouchClickHandler(b, function(){ kimpGenerateRechnung(b.getAttribute('data-lot'), b.getAttribute('data-id'), b); });
   });
   var input=document.getElementById('kimp-search-'+type);
   input.addEventListener('input', function(){
@@ -3511,6 +3536,71 @@ function kimpRemoveLink(type,recId){
   kimpPatchLinks(type,ids,function(){ resolveKimpLinked(kimpCurrentRec,null); });
 }
 
+// ── VK-Rechnung (Web-App-Erzeugung + Anzeige im Clearing) ──
+// VK-Felder aus dem Match-Cache (Quelle der Wahrheit nach lokalem Update); null wenn nicht im Cache.
+function kimpVkCacheFields(vkRecId){
+  if (!kimpMatchCache || !kimpMatchCache.vk) return null;
+  for (var i=0;i<kimpMatchCache.vk.length;i++){
+    if (kimpMatchCache.vk[i].id===vkRecId) return kimpMatchCache.vk[i].fields||null;
+  }
+  return null;
+}
+// Drive-URL der VK-Rechnung: Match-Cache bevorzugt (wird lokal aktualisiert), sonst gefetchte Fields.
+function kimpVkRechnungUrl(vkRecId, fallbackFields){
+  var mcf=kimpVkCacheFields(vkRecId);
+  var u = (mcf && mcf['VK_Rechnung_Drive_ID']) || (fallbackFields && fallbackFields['VK_Rechnung_Drive_ID']) || '';
+  return u ? String(u) : '';
+}
+// Drive-View-URL → einbettbare /preview-Variante (iframe-Embedding).
+function kimpDriveEmbed(url){
+  var s=String(url||'');
+  var m=s.match(/\/file\/d\/([^/]+)/) || s.match(/[?&]id=([^&]+)/);
+  if (m) return 'https://drive.google.com/file/d/'+m[1]+'/preview';
+  return s.replace(/\/view(\?[^#]*)?$/, '/preview');
+}
+
+// POST an die Web-App, PDF erzeugen, lokal in Match-Cache schreiben, Detail neu rendern.
+function kimpGenerateRechnung(vkLot, vkRecordId, btn){
+  if (btn){
+    btn.disabled=true;
+    btn.innerHTML='<span class="artikel-spinner" style="display:inline-block;vertical-align:middle"></span> Erzeuge…';
+  }
+  function fail(msg){
+    kimpSetMsg(msg,'err');
+    if (btn){ btn.disabled=false; btn.textContent='📝 Rechnung erzeugen'; }
+  }
+  kimpSetMsg('Erzeuge Rechnung für '+vkLot+'…');
+  fetch(VK_RECHNUNG_WEBAPP_URL, {
+    method:'POST',
+    // text/plain vermeidet CORS-Preflight (Apps Script liest e.postData.contents als JSON-String).
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    redirect:'follow',
+    body:JSON.stringify({ vkLot:vkLot, secret:VK_RECHNUNG_HUB_SECRET })
+  }).then(function(r){
+    return r.text();
+  }).then(function(txt){
+    var res;
+    try { res=JSON.parse(txt); }
+    catch(e){ fail('Fehler: Ungültige Antwort'); return; }
+    if (res && res.ok===true && res.url){
+      // Match-Cache lokal erweitern (kein Full-Refresh).
+      var mcf=kimpVkCacheFields(vkRecordId);
+      if (mcf) mcf['VK_Rechnung_Drive_ID']=res.url;
+      else if (kimpMatchCache && kimpMatchCache.vk)
+        kimpMatchCache.vk.push({ id:vkRecordId, fields:{ VK_Lot:vkLot, VK_Rechnung_Drive_ID:res.url } });
+      // Detail-View neu rendern: Button wechselt auf "anzeigen", PDF erscheint links.
+      if (kimpCurrentRec) populateKimpDetail(kimpCurrentRec);
+      kimpSetMsg('✓ Rechnung erzeugt: '+vkLot,'ok');
+    } else {
+      var errTxt = res && res.error ? String(res.error) : '';
+      if (errTxt==='forbidden') fail('Fehler: Authentifizierung. Hub-Secret prüfen.');
+      else fail('Fehler: '+(errTxt||'unbekannt'));
+    }
+  }).catch(function(){
+    fail('Fehler: Web App nicht erreichbar');
+  });
+}
+
 // ── KIMP Auto-Vorschläge (Match-Score) ──
 var KIMP_MATCH_DEFS = {
   ba:{ table:'Betriebsausgaben_2026', filter:"NOT({BA_ID}='')",
@@ -3520,7 +3610,7 @@ var KIMP_MATCH_DEFS = {
        fields:['EK_Lot','EK_PartnerID','EK_Gesamtbetrag','EK_Kaufdatum'],
        linkField:'KIMP_EK_Link', idF:'EK_Lot', nameF:'EK_PartnerID', amtF:'EK_Gesamtbetrag', dateF:'EK_Kaufdatum' },
   vk:{ table:'Verkauf_2026', filter:"NOT({VK_Lot}='')",
-       fields:['VK_Lot','VK_Name','VK_PartnerID','VK_Preis','VK_Versandkosten','VK_Datum'],
+       fields:['VK_Lot','VK_Name','VK_PartnerID','VK_Preis','VK_Versandkosten','VK_Datum','VK_Rechnung_Drive_ID'],
        linkField:'KIMP_VK_Link', idF:'VK_Lot', nameF:'VK_Name', amtF:'VK_Preis', dateF:'VK_Datum' }
 };
 
@@ -3898,7 +3988,9 @@ function kimpSaveAndGo(opts){
 function kimpApproveValidationOk(){
   var total=kimpDetailLinks.ba.length+kimpDetailLinks.ek.length+kimpDetailLinks.vk.length;
   if (total<1) return false;
-  return kimpDetailLinks.ba.some(function(x){ return kimpBaHasBeleg(x.fields); });
+  if (kimpDetailLinks.ba.some(function(x){ return kimpBaHasBeleg(x.fields); })) return true;
+  // Ein verknüpfter VK mit erzeugter Rechnung zählt ebenfalls als Beleg.
+  return kimpDetailLinks.vk.some(function(x){ return !!kimpVkRechnungUrl(x.id, x.fields); });
 }
 function kimpDoApprove(){
   kimpSaveAndGo({ status:'abgeschlossen', after:'next', noNextMsg:'Alle KIMPs durchgearbeitet 🎉', okMsg:'✓ Abgeschlossen' });
@@ -4446,7 +4538,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.4.1 / rd-hub-v60</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.5.0 / rd-hub-v61</div>
 </div>
 </body>
 </html>
