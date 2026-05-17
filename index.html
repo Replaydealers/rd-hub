@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.3.0
-  SW Cache: rd-hub-v55
+  Version:  2.3.1
+  SW Cache: rd-hub-v56
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.3.1  (2026-05-17)  Spalten-Header-Sortierung, Klärfall-Status entfernt
   v2.3.0  (2026-05-17)  KIMP-Clearing V1.0
   v2.2.2  (2026-05-16)  Beleg-fehlt-Dialog ehrlicher formuliert (kein Auto-Verlinken bei Mail)
   v2.2.1  (2026-05-16)  Beleg-fehlt-Dialog beim Abschließen, PDF entfernen, Mail-Workflow-Hinweis
@@ -432,7 +433,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .artikel-item-bottom .gewinn-neg{color:var(--accent);font-weight:600}
 
 /* ── KIMP-CLEARING ── */
-.kimp-status-klaer{background:rgba(255,140,66,.18);color:#FF8C42}
 .kimp-list-view{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .kimp-search-section{padding:10px 12px;background:var(--card);border-bottom:.5px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:8px}
 .kimp-search-section input{border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:9px 10px;font-size:15px;outline:none;font-family:inherit;-webkit-appearance:none;width:100%}
@@ -474,6 +474,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-link-input{width:100%;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
 .kimp-link-input:focus{border-color:var(--accent)}
 .btn-kimp-klaer{background:#FF8C42;color:#1a1a2e}
+.ba-table th.kimp-th-sort{cursor:pointer;user-select:none;-webkit-user-select:none;white-space:nowrap;touch-action:manipulation}
+.ba-table th.kimp-th-sort:hover{color:var(--text)}
 </style>
 </head>
 <body>
@@ -485,8 +487,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.3.0</span>
-      <span>SW rd-hub-v55</span>
+      <span>APP v2.3.1</span>
+      <span>SW rd-hub-v56</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -519,7 +521,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.3.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.3.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -3003,7 +3005,10 @@ var KIMP_OPT_FIELDS  = ['KIMP_EK_Link','KIMP_Notizen'];
 
 var kimpList = [];
 var kimpCurrentRec = null;
-var kimpSortMode = 'date_asc';
+// null = Default (Datum aufsteigend, kein Header-Icon). Sonst aktive Spalte:
+// 'id'|'date'|'amount'|'name'|'kat' + kimpSortDir 'asc'|'desc'.
+var kimpSortCol = null;
+var kimpSortDir = 'asc';
 var kimpStatusFilter = 'all';
 var kimpSearchDebounce = null;
 var kimpHasEk = true;        // KIMP_EK_Link existiert in Airtable
@@ -3029,7 +3034,7 @@ function kimpDateDE(s){ if(!s) return '—'; var d=String(s).substring(0,10).spl
 function kimpTrunc(s,n){ s=String(s==null?'':s); return s.length>n ? s.substring(0,n)+'…' : s; }
 function kimpLinkIds(f,field){ var v=f&&f[field]; return Array.isArray(v) ? v.slice() : []; }
 function kimpJoin(v){ if (Array.isArray(v)) return v.join(', '); return (v==null||v==='') ? '—' : String(v); }
-function kimpStatusCls(s){ return s==='offen' ? 'ba-status-offen' : (s==='Klärfall' ? 'kimp-status-klaer' : 'ba-status-bearbeitung'); }
+function kimpStatusCls(s){ return s==='offen' ? 'ba-status-offen' : 'ba-status-bearbeitung'; }
 function kimpBaHasBeleg(f){ var b=f&&f['BA_Beleg']; return Array.isArray(b)&&b.length>0; }
 
 function kimpSetMsg(t,kind){
@@ -3043,14 +3048,12 @@ function showKimpListView(){
   document.getElementById('kimp-list-view').style.display='';
   document.getElementById('kimp-detail-view').classList.remove('kimp-detail-show');
   document.getElementById('kimp-header-title').textContent='KIMP-Clearing';
-  document.getElementById('kimp-sort').style.display='';
   document.getElementById('btn-kimp-reload').style.display='';
 }
 function showKimpDetailView(){
   document.getElementById('kimp-list-view').style.display='none';
   document.getElementById('kimp-detail-view').classList.add('kimp-detail-show');
   document.getElementById('kimp-header-title').textContent='KIMP bearbeiten';
-  document.getElementById('kimp-sort').style.display='none';
   document.getElementById('btn-kimp-reload').style.display='none';
 }
 
@@ -3109,15 +3112,20 @@ function loadKimpList(){
   atGet(KIMP_TABLE, filter, KIMP_CORE_FIELDS.concat(KIMP_OPT_FIELDS), function(err,data){ done(err,data,true); });
 }
 
+function kimpCmpId(a,b){ return String(a.fields['KIMP_ID']||'').localeCompare(String(b.fields['KIMP_ID']||'')); }
 function kimpSortRecords(list){
+  var col = kimpSortCol || 'date';            // Default = Datum
+  var mul = (kimpSortCol && kimpSortDir==='desc') ? -1 : 1;
   return list.slice().sort(function(a,b){
-    var af=a.fields, bf=b.fields;
-    if (kimpSortMode==='date_asc')   return String(af['KIMP_Buchungstag']||'').localeCompare(String(bf['KIMP_Buchungstag']||''));
-    if (kimpSortMode==='date_desc')  return String(bf['KIMP_Buchungstag']||'').localeCompare(String(af['KIMP_Buchungstag']||''));
-    if (kimpSortMode==='amount_desc')return (Math.abs(parseFloat(bf['KIMP_Betrag'])||0)) - (Math.abs(parseFloat(af['KIMP_Betrag'])||0));
-    if (kimpSortMode==='kat_az')     return String(af['KIMP_Kategorie']||'').localeCompare(String(bf['KIMP_Kategorie']||''));
-    if (kimpSortMode==='name_az')    return String(af['KIMP_Name']||'').localeCompare(String(bf['KIMP_Name']||''));
-    return 0;
+    var af=a.fields, bf=b.fields, p=0;
+    if (col==='id')          p = String(af['KIMP_ID']||'').localeCompare(String(bf['KIMP_ID']||''));
+    else if (col==='date')   p = String(af['KIMP_Buchungstag']||'').localeCompare(String(bf['KIMP_Buchungstag']||''));
+    else if (col==='amount') p = (Math.abs(parseFloat(af['KIMP_Betrag'])||0)) - (Math.abs(parseFloat(bf['KIMP_Betrag'])||0));
+    else if (col==='name')   p = String(af['KIMP_Name']||'').localeCompare(String(bf['KIMP_Name']||''));
+    else if (col==='kat')    p = String(af['KIMP_Kategorie']||'').localeCompare(String(bf['KIMP_Kategorie']||''));
+    if (p!==0) return p*mul;
+    // Zweitsortierung: KIMP-ID immer aufsteigend (wichtig bei gleichem Buchungstag)
+    return kimpCmpId(a,b);
   });
 }
 
@@ -3148,14 +3156,20 @@ function kimpHasLinkedBeleg(f){
 function renderKimpTable(){
   var rows=kimpFilteredRecords();
   document.getElementById('kimp-list-count').textContent = rows.length + ' KIMP' + (rows.length===1?'':'s');
+  function arr(col){ return kimpSortCol===col ? (kimpSortDir==='asc'?' ↑':' ↓') : ''; }
   var html='<table class="ba-table"><thead><tr>'+
-    '<th style="width:24px"></th><th>KIMP-ID</th><th>Datum</th><th style="text-align:right">Betrag</th>'+
-    '<th>Name</th><th>Verwendungszweck</th><th>Status</th><th style="text-align:center">Beleg</th>'+
+    '<th style="width:24px"></th>'+
+    '<th class="kimp-th-sort" data-col="id">KIMP-ID'+arr('id')+'</th>'+
+    '<th class="kimp-th-sort" data-col="date">Datum'+arr('date')+'</th>'+
+    '<th class="kimp-th-sort" data-col="amount" style="text-align:right">Betrag'+arr('amount')+'</th>'+
+    '<th class="kimp-th-sort" data-col="name">Name'+arr('name')+'</th>'+
+    '<th class="kimp-th-sort" data-col="kat">Kategorie'+arr('kat')+'</th>'+
+    '<th>Verwendungszweck</th><th>Status</th><th style="text-align:center">Beleg</th>'+
     '</tr></thead><tbody>';
   rows.forEach(function(rec){
     var f=rec.fields;
     var status=f['KIMP_Status']||'—';
-    var isKlaer = status==='Klärfall' || String(f['KIMP_Notizen']||'').toUpperCase().indexOf('KLÄRFALL:')===0;
+    var isKlaer = String(f['KIMP_Notizen']||'').toUpperCase().indexOf('KLÄRFALL:')===0;
     var betrag=parseFloat(f['KIMP_Betrag']);
     var betCls=isNaN(betrag)?'':(betrag<0?'kimp-betrag-neg':'kimp-betrag-pos');
     var betTxt=isNaN(betrag)?'—':kimpNum(betrag)+' €';
@@ -3166,6 +3180,7 @@ function renderKimpTable(){
       '<td>'+escHtml(kimpDateDE(f['KIMP_Buchungstag']))+'</td>'+
       '<td style="text-align:right" class="'+betCls+'">'+escHtml(betTxt)+'</td>'+
       '<td>'+escHtml(kimpTrunc(f['KIMP_Name'],30))+'</td>'+
+      '<td>'+escHtml(f['KIMP_Kategorie']||'—')+'</td>'+
       '<td>'+escHtml(kimpTrunc(f['KIMP_Verwendungszweck'],50))+'</td>'+
       '<td><span class="ba-status-pill '+kimpStatusCls(status)+'">'+escHtml(status)+'</span></td>'+
       '<td style="text-align:center">'+(hasBeleg?'<span class="ba-pdf-yes">●</span>':'<span class="ba-pdf-no">○</span>')+'</td>'+
@@ -3177,6 +3192,18 @@ function renderKimpTable(){
   wrap.querySelectorAll('tbody tr').forEach(function(tr){
     attachTouchClickHandler(tr, function(){ openKimpDetail(tr.getAttribute('data-id')); });
   });
+  wrap.querySelectorAll('th.kimp-th-sort').forEach(function(th){
+    attachTouchClickHandler(th, function(){ kimpHeaderClick(th.getAttribute('data-col')); });
+  });
+}
+
+// Header-Klick-Zyklus: 1. asc (↑) · 2. desc (↓) · 3. zurück auf Default (Datum aufst., kein Icon).
+// Klick auf andere Spalte → diese asc, alle anderen Icons weg.
+function kimpHeaderClick(col){
+  if (kimpSortCol !== col){ kimpSortCol = col; kimpSortDir = 'asc'; }
+  else if (kimpSortDir === 'asc'){ kimpSortDir = 'desc'; }
+  else { kimpSortCol = null; kimpSortDir = 'asc'; }
+  renderKimpTable();
 }
 
 function openKimpDetail(recId){
@@ -3198,7 +3225,7 @@ function populateKimpDetail(rec){
 
   var notizen=String(f['KIMP_Notizen']||'');
   var banner=document.getElementById('kimp-klaer-banner');
-  if (status==='Klärfall' || notizen.toUpperCase().indexOf('KLÄRFALL:')===0){
+  if (notizen.toUpperCase().indexOf('KLÄRFALL:')===0){
     banner.textContent='⚠️ '+(notizen||'Klärfall');
     banner.style.display='';
   } else banner.style.display='none';
@@ -3548,7 +3575,6 @@ addNav('tile-kimp','screen-kimp', loadKimpList);
 
 // Detail-Elemente liegen im DOM nach diesem Script → auf DOMContentLoaded verdrahten.
 document.addEventListener('DOMContentLoaded', function setupKimp(){
-  document.getElementById('kimp-sort').addEventListener('change', function(){ kimpSortMode=this.value; renderKimpTable(); });
   document.getElementById('btn-kimp-reload').addEventListener('click', loadKimpList);
   document.getElementById('kimp-search').addEventListener('input', scheduleKimpSearch);
 
@@ -3563,7 +3589,16 @@ document.addEventListener('DOMContentLoaded', function setupKimp(){
 
   document.getElementById('btn-kimp-cancel').addEventListener('click', kimpCancel);
   document.getElementById('btn-kimp-klaer').addEventListener('click', function(){
-    kimpSaveAndGo({ status:'Klärfall', after:'list', okMsg:'✓ Als Klärfall markiert' });
+    // Kein eigener Status mehr — Klärfall wird über das KIMP_Notizen-Prefix erkannt
+    // (analog BA-Review). Status auf "in Bearbeitung", Notizen ggf. prefixen.
+    if (kimpHasNotizen){
+      var ta=document.getElementById('kimp-notizen');
+      var v=ta.value||'';
+      if (v.replace(/^\s+/,'').toUpperCase().indexOf('KLÄRFALL:')!==0){
+        ta.value='KLÄRFALL: '+v;
+      }
+    }
+    kimpSaveAndGo({ status:'in Bearbeitung', after:'list', okMsg:'✓ Als Klärfall markiert' });
   });
   document.getElementById('btn-kimp-list').addEventListener('click', function(){
     kimpSaveAndGo({ after:'list' });
@@ -3941,14 +3976,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <button class="menu-btn" onclick="openMenu()">☰</button>
     <button class="back-btn" id="btn-back-kimp">←</button>
     <div class="sub-header-title" id="kimp-header-title">KIMP-Clearing</div>
-    <select id="kimp-sort" class="ba-sort-select">
-      <option value="date_asc">Datum (älteste zuerst)</option>
-      <option value="date_desc">Datum (neueste zuerst)</option>
-      <option value="amount_desc">Betrag absteigend</option>
-      <option value="kat_az">Kategorie A-Z</option>
-      <option value="name_az">Name A-Z</option>
-    </select>
-    <button class="refresh-btn" id="btn-kimp-reload" style="margin-left:6px;width:32px;height:32px;padding:0;font-size:14px;">↻</button>
+    <button class="refresh-btn" id="btn-kimp-reload" style="margin-left:auto;width:32px;height:32px;padding:0;font-size:14px;">↻</button>
   </div>
 
   <div id="kimp-list-view" class="kimp-list-view">
@@ -3958,7 +3986,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <button class="kimp-pill kimp-pill-active" data-status="all" type="button">Alle</button>
         <button class="kimp-pill" data-status="offen" type="button">Offen</button>
         <button class="kimp-pill" data-status="in Bearbeitung" type="button">In Bearbeitung</button>
-        <button class="kimp-pill" data-status="Klärfall" type="button">Klärfall</button>
       </div>
     </div>
     <div class="kimp-list-scroll">
@@ -4078,7 +4105,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.3.0 / rd-hub-v55</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.3.1 / rd-hub-v56</div>
 </div>
 </body>
 </html>
