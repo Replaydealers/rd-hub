@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.3.2
-  SW Cache: rd-hub-v57
+  Version:  2.3.3
+  SW Cache: rd-hub-v58
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.3.3  (2026-05-17)  Header-Lesbarkeit + Text-Selektion-Bug
   v2.3.2  (2026-05-17)  Tabellen-Lesbarkeit, Verwendungszweck sortierbar, Weiter-Bug, Klärfall raus
   v2.3.1  (2026-05-17)  Spalten-Header-Sortierung, Klärfall-Status entfernt
   v2.3.0  (2026-05-17)  KIMP-Clearing V1.0
@@ -449,6 +450,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 #kimp-list-table-wrap .ba-table td{color:var(--text)}
 #kimp-list-table-wrap .ba-table td.kimp-betrag-pos{color:#3FD99B}
 #kimp-list-table-wrap .ba-table td.kimp-betrag-neg{color:#FF6B6B}
+#kimp-list-table-wrap .ba-table th{color:var(--text)}
+#kimp-list-table-wrap .ba-table th .kimp-sort-arr{color:var(--hint)}
+#kimp-list-count{color:var(--text)}
 #kimp-detail-view{display:none}
 #kimp-detail-view.kimp-detail-show{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;flex:1;overflow:hidden;min-height:0}
 .kimp-left-pane,.kimp-right-pane{background:var(--card);border-radius:var(--radius);border:.5px solid var(--border);min-height:0;display:flex;flex-direction:column}
@@ -491,8 +495,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.3.2</span>
-      <span>SW rd-hub-v57</span>
+      <span>APP v2.3.3</span>
+      <span>SW rd-hub-v58</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -525,7 +529,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.3.2</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.3.3</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -3161,7 +3165,7 @@ function kimpHasLinkedBeleg(f){
 function renderKimpTable(){
   var rows=kimpFilteredRecords();
   document.getElementById('kimp-list-count').textContent = rows.length + ' KIMP' + (rows.length===1?'':'s');
-  function arr(col){ return kimpSortCol===col ? (kimpSortDir==='asc'?' ↑':' ↓') : ''; }
+  function arr(col){ return kimpSortCol===col ? '<span class="kimp-sort-arr">'+(kimpSortDir==='asc'?' ↑':' ↓')+'</span>' : ''; }
   var html='<table class="ba-table"><thead><tr>'+
     '<th class="kimp-th-sort" data-col="id">KIMP-ID'+arr('id')+'</th>'+
     '<th class="kimp-th-sort" data-col="date">Datum'+arr('date')+'</th>'+
@@ -3193,7 +3197,18 @@ function renderKimpTable(){
   var wrap=document.getElementById('kimp-list-table-wrap');
   wrap.innerHTML=html;
   wrap.querySelectorAll('tbody tr').forEach(function(tr){
-    attachTouchClickHandler(tr, function(){ openKimpDetail(tr.getAttribute('data-id')); });
+    // Maus-Drag (Text-Selektion im Verwendungszweck o.ä.) darf NICHT den Detail-View
+    // öffnen. Gleiches Prinzip wie attachTouchClickHandler (moved-Flag), nur für Maus:
+    // mousedown merkt Position, mousemove >5px setzt dragged, fn() bricht dann ab.
+    var downX=0, downY=0, dragged=false;
+    tr.addEventListener('mousedown', function(e){ downX=e.clientX; downY=e.clientY; dragged=false; });
+    tr.addEventListener('mousemove', function(e){
+      if (Math.abs(e.clientX-downX)>5 || Math.abs(e.clientY-downY)>5) dragged=true;
+    });
+    attachTouchClickHandler(tr, function(){
+      if (dragged){ dragged=false; return; }
+      openKimpDetail(tr.getAttribute('data-id'));
+    });
   });
   wrap.querySelectorAll('th.kimp-th-sort').forEach(function(th){
     attachTouchClickHandler(th, function(){ kimpHeaderClick(th.getAttribute('data-col')); });
@@ -4101,7 +4116,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.3.2 / rd-hub-v57</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.3.3 / rd-hub-v58</div>
 </div>
 </body>
 </html>
