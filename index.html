@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.4.0
-  SW Cache: rd-hub-v59
+  Version:  2.4.1
+  SW Cache: rd-hub-v60
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.4.1  (2026-05-17)  Vorschlags-Karten: Rechnungsnr + Partner-Namen + Cache-Refresh
   v2.4.0  (2026-05-17)  Auto-Vorschläge für BA/EK/VK-Verknüpfungen mit Match-Score
   v2.3.3  (2026-05-17)  Header-Lesbarkeit + Text-Selektion-Bug
   v2.3.2  (2026-05-17)  Tabellen-Lesbarkeit, Verwendungszweck sortierbar, Weiter-Bug, Klärfall raus
@@ -500,6 +501,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-sug-src.src-vk{background:var(--green)}
 .kimp-sug-id{font-weight:700}
 .kimp-sug-line2{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+.kimp-sug-rnr{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+.kimp-sug-rnr.match{color:var(--green);font-weight:700;text-decoration:underline}
 .kimp-sug-expl{font-size:10px;color:var(--hint);margin-top:2px;line-height:1.3}
 .kimp-sug-link-btn{align-self:center;flex-shrink:0;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
 .kimp-sug-link-btn:disabled{opacity:.5;cursor:wait}
@@ -517,8 +520,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.4.0</span>
-      <span>SW rd-hub-v59</span>
+      <span>APP v2.4.1</span>
+      <span>SW rd-hub-v60</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -551,7 +554,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.4.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.4.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -3053,6 +3056,8 @@ var kimpConfirmCb = null;
 var kimpMatchCache = null;     // { ba:[rec], ek:[rec], vk:[rec] } | null
 var kimpMatchLoading = false;
 var kimpMatchError = false;
+var kimpMatchCacheTime = 0;    // Zeitstempel des letzten erfolgreichen Cache-Builds (Stale-Check)
+var kimpPartnerCache = null;   // { partnerRecId: PD-fields } für EK/VK-Namensauflösung
 var kimpSuggestions = [];      // berechnete Vorschläge der aktuell offenen Detail-Ansicht
 
 var KIMP_LINK_DEFS = {
@@ -3114,7 +3119,7 @@ function loadKimpList(){
   loadEl.style.display=''; errEl.style.display='none'; errEl.style.color='';
   document.getElementById('kimp-list-table-wrap').innerHTML='';
   ensureKimpBaBelegSet();
-  ensureKimpMatchCache();   // Match-Datenbasis (BA/EK/VK) einmalig pro Session vorladen
+  kimpRefreshMatchCacheIfStale();   // Match-Datenbasis neu laden, wenn fehlt/älter als 60 s
   var filter = "NOT({KIMP_Status}='abgeschlossen')";
 
   function done(err,data,wasFull){
@@ -3509,13 +3514,13 @@ function kimpRemoveLink(type,recId){
 // ── KIMP Auto-Vorschläge (Match-Score) ──
 var KIMP_MATCH_DEFS = {
   ba:{ table:'Betriebsausgaben_2026', filter:"NOT({BA_ID}='')",
-       fields:['BA_ID','BA_Lieferant','BA_Brutto','BA_Datum','BA_Beleg_Nr'],
+       fields:['BA_ID','BA_Lieferant','BA_Bezeichnung','BA_Brutto','BA_Datum','BA_Beleg_Nr'],
        linkField:'KIMP_BA_Link', idF:'BA_ID', nameF:'BA_Lieferant', amtF:'BA_Brutto', dateF:'BA_Datum', belegF:'BA_Beleg_Nr' },
   ek:{ table:'Einkauf_2026', filter:"NOT({EK_Lot}='')",
        fields:['EK_Lot','EK_PartnerID','EK_Gesamtbetrag','EK_Kaufdatum'],
        linkField:'KIMP_EK_Link', idF:'EK_Lot', nameF:'EK_PartnerID', amtF:'EK_Gesamtbetrag', dateF:'EK_Kaufdatum' },
   vk:{ table:'Verkauf_2026', filter:"NOT({VK_Lot}='')",
-       fields:['VK_Lot','VK_Name','VK_Preis','VK_Versandkosten','VK_Datum'],
+       fields:['VK_Lot','VK_Name','VK_PartnerID','VK_Preis','VK_Versandkosten','VK_Datum'],
        linkField:'KIMP_VK_Link', idF:'VK_Lot', nameF:'VK_Name', amtF:'VK_Preis', dateF:'VK_Datum' }
 };
 
@@ -3559,20 +3564,51 @@ function ensureKimpMatchCache(force){
   if (kimpMatchCache && !force) return;
   kimpMatchLoading=true; kimpMatchError=false;
   if (force) kimpMatchCache=null;
-  var res={ba:[],ek:[],vk:[]}, keys=['ba','ek','vk'], pending=keys.length, failed=false;
-  keys.forEach(function(k){
+  var res={ba:[],ek:[],vk:[]}, pMap={}, pending=4, failed=false;
+  function finish(){
+    if (--pending>0) return;
+    kimpMatchLoading=false;
+    if (failed){ kimpMatchError=true; kimpMatchCache=null; }
+    else { kimpMatchCache=res; kimpMatchError=false; kimpMatchCacheTime=Date.now(); }
+    kimpPartnerCache=pMap;   // Partner ist Anreicherung — fehlt sie, bleiben Namen leer, Vorschläge bleiben gültig
+    if (kimpCurrentRec && document.getElementById('kimp-detail-view').classList.contains('kimp-detail-show'))
+      renderKimpSuggestions();
+  }
+  ['ba','ek','vk'].forEach(function(k){
     var d=KIMP_MATCH_DEFS[k];
     kimpMatchFetch(d.table, d.filter, d.fields.slice(), function(err,recs){
       if (err) failed=true; else res[k]=recs;
-      if (--pending===0){
-        kimpMatchLoading=false;
-        if (failed){ kimpMatchError=true; kimpMatchCache=null; }
-        else { kimpMatchCache=res; kimpMatchError=false; }
-        if (kimpCurrentRec && document.getElementById('kimp-detail-view').classList.contains('kimp-detail-show'))
-          renderKimpSuggestions();
-      }
+      finish();
     });
   });
+  // Globaler Partner-Cache für EK/VK-Namensauflösung (Linked-Record → PD-Felder).
+  kimpMatchFetch('Partnerdaten_2026', "NOT({PD_ID}='')",
+    ['PD_ID','PD_Firmenname','PD_Name','PD_Vorname','PD_KA_Name'], function(err,recs){
+    if (!err && recs) recs.forEach(function(r){ pMap[r.id]=r.fields; });
+    else console.warn('[KIMP] Partner-Cache konnte nicht geladen werden:', err && err.message);
+    finish();
+  });
+}
+
+// EK/VK: Linked-Record-ID(s) → Anzeigename (Logik analog BA-Review).
+function kimpPartnerName(idOrArr){
+  var id = Array.isArray(idOrArr) ? idOrArr[0] : idOrArr;
+  if (!id || !kimpPartnerCache) return '';
+  var f = kimpPartnerCache[id];
+  if (!f) return '';
+  if (f['PD_Firmenname']) return f['PD_Firmenname'];
+  var vn = ((f['PD_Vorname']||'')+' '+(f['PD_Name']||'')).trim();
+  if (vn) return vn;
+  if (f['PD_KA_Name']) return f['PD_KA_Name'];
+  return '';
+}
+
+// Bei Listen-Reload / Screen-Eintritt: Cache nur neu laden, wenn er fehlt oder
+// älter als 60 s ist (verhindert Doppelladen bei schnellen Tab-Wechseln, lädt
+// aber zuverlässig neu, wenn der User nach einer BA-Anlage zurückkommt).
+function kimpRefreshMatchCacheIfStale(){
+  if (kimpMatchLoading) return;
+  if (!kimpMatchCache || (Date.now()-kimpMatchCacheTime) > 60000) ensureKimpMatchCache(true);
 }
 
 // Betrags-Score gegen einen positiven Zielbetrag. null = Kandidat verwerfen.
@@ -3634,11 +3670,12 @@ function kimpComputeSuggestions(){
           else if (hit>=1){ nPts=15; nLbl='Lieferant teilweise'; }
         }
       }
-      // Belegnummer (Bonus, nur BA)
-      var blPts=0, blLbl=null;
+      // Belegnummer (Bonus, nur BA) + Match-Flag für optische Hervorhebung
+      var blPts=0, blLbl=null, belegNr=null, belegMatch=false;
       if (src==='ba'){
+        belegNr = (cf[d.belegF]!=null && String(cf[d.belegF]).trim()!=='') ? String(cf[d.belegF]) : null;
         var bn=kimpNorm(cf[d.belegF]);
-        if (bn.length>=4 && kVZ.indexOf(bn)!==-1){ blPts=50; blLbl='Belegnr im Zweck'; }
+        if (bn.length>=4 && kVZ.indexOf(bn)!==-1){ blPts=50; blLbl='Belegnr im Zweck'; belegMatch=true; }
       }
       var signB = (sign==='out') ? ((src==='ba'||src==='ek')?10:0) : (src==='vk'?10:0);
       var total = bs.pts + dPts + nPts + blPts + signB;
@@ -3646,10 +3683,27 @@ function kimpComputeSuggestions(){
       var parts=[bs.lbl, 'Datum Δ'+Math.round(dd)+'d'];
       if (nLbl) parts.push(nLbl);
       if (blLbl) parts.push(blLbl);
+
+      // Anzeigename: BA → Lieferant | Bezeichnung | "(kein Lieferant)";
+      //              EK → Partner-Name; VK → VK_Name sonst Partner-Name.
+      var dispName;
+      if (src==='ba'){
+        dispName = kimpRawName(cf['BA_Lieferant']).trim()
+                || kimpRawName(cf['BA_Bezeichnung']).trim()
+                || '(kein Lieferant)';
+      } else if (src==='ek'){
+        dispName = kimpPartnerName(cf['EK_PartnerID']) || '—';
+      } else {
+        var vkName = kimpRawName(cf['VK_Name']).trim();
+        dispName = vkName || kimpPartnerName(cf['VK_PartnerID']) || '—';
+      }
+
       kimpSuggestions.push({
         src:src, id:rec.id,
         idLabel: cf[d.idF] || rec.id,
-        name: kimpRawName(cf[d.nameF]) || '—',
+        name: dispName,
+        belegNr: belegNr,
+        belegMatch: belegMatch,
         amount: cf[d.amtF],
         date: cf[d.dateF],
         score: total,
@@ -3703,6 +3757,7 @@ function renderKimpSuggestions(){
       '<div class="kimp-sug-body">'+
         '<div class="kimp-sug-line1"><span class="kimp-sug-src src-'+s.src+'">'+s.src.toUpperCase()+'</span>'+
           '<span class="kimp-sug-id">'+escHtml(s.idLabel)+'</span> · '+escHtml(s.name)+'</div>'+
+        ((s.src==='ba' && s.belegNr) ? '<div class="kimp-sug-rnr'+(s.belegMatch?' match':'')+'">Rechnungs-Nr.: '+escHtml(s.belegNr)+'</div>' : '')+
         '<div class="kimp-sug-line2">'+escHtml(amt)+' · '+escHtml(kimpDateDE(s.date))+'</div>'+
         '<div class="kimp-sug-expl">'+escHtml(s.expl)+'</div>'+
       '</div>'+
@@ -3871,7 +3926,10 @@ addNav('tile-kimp','screen-kimp', loadKimpList);
 
 // Detail-Elemente liegen im DOM nach diesem Script → auf DOMContentLoaded verdrahten.
 document.addEventListener('DOMContentLoaded', function setupKimp(){
-  document.getElementById('btn-kimp-reload').addEventListener('click', loadKimpList);
+  document.getElementById('btn-kimp-reload').addEventListener('click', function(){
+    ensureKimpMatchCache(true);   // manueller Refresh erzwingt frischen Match-Cache (BA/EK/VK + Partner)
+    loadKimpList();
+  });
   document.getElementById('kimp-search').addEventListener('input', scheduleKimpSearch);
 
   document.querySelectorAll('#kimp-list-view .kimp-pill').forEach(function(btn){
@@ -4388,7 +4446,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.4.0 / rd-hub-v59</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.4.1 / rd-hub-v60</div>
 </div>
 </body>
 </html>
