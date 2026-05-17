@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.2.2
-  SW Cache: rd-hub-v54
+  Version:  2.3.0
+  SW Cache: rd-hub-v55
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.3.0  (2026-05-17)  KIMP-Clearing V1.0
   v2.2.2  (2026-05-16)  Beleg-fehlt-Dialog ehrlicher formuliert (kein Auto-Verlinken bei Mail)
   v2.2.1  (2026-05-16)  Beleg-fehlt-Dialog beim Abschließen, PDF entfernen, Mail-Workflow-Hinweis
   v2.2.0  (2026-05-16)  Manuelle BA-Anlage (+ Neue BA, POST), PDF-Upload/-Ersetzen aus der BA-Maske
@@ -374,8 +375,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ba-field select option{background-color:var(--card2);color:var(--text)}
 
 /* Bestätigungsdialoge (Pflichtfeld / Beleg fehlt / PDF entfernen) */
-#ba-confirm-overlay,#ba-beleg-overlay,#ba-pdfdel-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
-#ba-confirm-overlay.show,#ba-beleg-overlay.show,#ba-pdfdel-overlay.show{display:flex}
+#ba-confirm-overlay,#ba-beleg-overlay,#ba-pdfdel-overlay,#kimp-confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
+#ba-confirm-overlay.show,#ba-beleg-overlay.show,#ba-pdfdel-overlay.show,#kimp-confirm-overlay.show{display:flex}
 .ba-confirm-box{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);padding:20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .ba-confirm-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px}
 .ba-confirm-text{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px}
@@ -429,6 +430,50 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .artikel-item-bottom{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .artikel-item-bottom .gewinn-pos{color:var(--green);font-weight:600}
 .artikel-item-bottom .gewinn-neg{color:var(--accent);font-weight:600}
+
+/* ── KIMP-CLEARING ── */
+.kimp-status-klaer{background:rgba(255,140,66,.18);color:#FF8C42}
+.kimp-list-view{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.kimp-search-section{padding:10px 12px;background:var(--card);border-bottom:.5px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+.kimp-search-section input{border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:9px 10px;font-size:15px;outline:none;font-family:inherit;-webkit-appearance:none;width:100%}
+.kimp-search-section input:focus{border-color:var(--accent)}
+.kimp-search-section input::placeholder{color:var(--hint)}
+.kimp-pills-row{display:flex;gap:6px}
+.kimp-pill{flex:1;padding:8px 6px;border:.5px solid var(--border);background:var(--card2);color:var(--muted);font-size:12px;font-weight:600;border-radius:999px;cursor:pointer;touch-action:manipulation;font-family:inherit;min-height:36px}
+.kimp-pill.kimp-pill-active{background:#3B82C4;color:#fff;border-color:#3B82C4}
+.kimp-list-scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px}
+.kimp-betrag-pos{color:var(--green);font-weight:600}
+.kimp-betrag-neg{color:var(--accent);font-weight:600}
+#kimp-detail-view{display:none}
+#kimp-detail-view.kimp-detail-show{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;flex:1;overflow:hidden;min-height:0}
+.kimp-left-pane,.kimp-right-pane{background:var(--card);border-radius:var(--radius);border:.5px solid var(--border);min-height:0;display:flex;flex-direction:column}
+.kimp-left-pane{overflow:hidden}
+.kimp-right-pane{padding:18px;overflow-y:auto}
+.kimp-beleg-list{padding:12px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;border-bottom:.5px solid var(--border);max-height:42%;overflow-y:auto}
+.kimp-beleg-item{background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px;font-size:12px;color:var(--text);cursor:pointer;line-height:1.4;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.kimp-beleg-item.active{border-color:var(--accent)}
+.kimp-beleg-item .kb-id{font-weight:700}
+.kimp-beleg-item .kb-beleg-yes{color:var(--green)}
+.kimp-beleg-item .kb-beleg-no{color:var(--hint)}
+.kimp-pdf-wrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;background:var(--card)}
+.kimp-pdf-wrap iframe{width:100%;height:100%;border:none;background:#fff;display:block}
+.kimp-pdf-empty{font-size:13px;color:var(--muted);text-align:center;padding:20px}
+.kimp-left-actions{padding:12px;display:flex;flex-direction:column;gap:8px;border-top:.5px solid var(--border);flex-shrink:0}
+.kimp-mail-btn{display:block;text-align:center;text-decoration:none;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
+.kimp-eigenbeleg-btn{background:var(--card2);color:var(--muted);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:11px;font-size:13px;font-weight:700;font-family:inherit;opacity:.5;cursor:not-allowed}
+.kimp-tip{font-size:11px;color:var(--hint);line-height:1.45}
+.kimp-ro-field{margin-bottom:10px}
+.kimp-ro-field .kro-label{font-size:12px;color:var(--muted);margin-bottom:3px}
+.kimp-ro-field .kro-val{font-size:14px;color:var(--text);background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px;word-break:break-word;white-space:pre-wrap}
+.kimp-ro-field .kro-val.kro-multiline{max-height:5.6em;overflow-y:auto}
+.kimp-link-section{margin-bottom:14px}
+.kimp-link-section .kls-title{font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.kimp-link-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;margin-bottom:5px;color:var(--text)}
+.kimp-link-chip .klc-x{border:none;background:none;color:var(--accent);font-size:15px;cursor:pointer;padding:0 4px;touch-action:manipulation;flex-shrink:0}
+.kimp-link-search-wrap{position:relative}
+.kimp-link-input{width:100%;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
+.kimp-link-input:focus{border-color:var(--accent)}
+.btn-kimp-klaer{background:#FF8C42;color:#1a1a2e}
 </style>
 </head>
 <body>
@@ -440,8 +485,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.2.2</span>
-      <span>SW rd-hub-v54</span>
+      <span>APP v2.3.0</span>
+      <span>SW rd-hub-v55</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -474,7 +519,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.2.2</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.3.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -484,6 +529,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="menu-tile active-tile" id="tile-sku"><div class="tile-accent"></div><div class="tile-icon">📦</div><div><div class="tile-label">SKU Eintragung</div><div class="tile-sub">Packtisch · PIMP</div></div></div>
     <div class="menu-tile active-tile" id="tile-ek"><div class="tile-accent"></div><div class="tile-icon">📊</div><div><div class="tile-label">Einkauf Auswertung</div><div class="tile-sub">Profit · Artikel · Status</div></div></div>
     <div class="menu-tile active-tile" id="tile-ba"><div class="tile-accent"></div><div class="tile-icon">📄</div><div><div class="tile-label">BA-Review</div><div class="tile-sub">Betriebsausgaben prüfen</div></div></div>
+    <div class="menu-tile active-tile" id="tile-kimp"><div class="tile-accent"></div><div class="tile-icon">🧾</div><div><div class="tile-label">KIMP-Clearing</div><div class="tile-sub">Kontoauszüge prüfen</div></div></div>
     <div class="menu-tile inactive"><div class="tile-icon">🛒</div><div><div class="tile-label">Einkauf anlegen</div><div class="tile-sub">Kommt bald</div></div></div>
     <div class="menu-tile inactive"><div class="tile-icon">⚙️</div><div><div class="tile-label">Einstellungen</div><div class="tile-sub">Kommt bald</div></div></div>
   </div>
@@ -2948,6 +2994,599 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
   });
 });
 
+// ── KIMP-CLEARING ──
+var KIMP_TABLE = 'KontoImport_2026';
+// Pflicht-Felder (immer vorhanden). KIMP_EK_Link & KIMP_Notizen werden separat
+// optional geladen — fehlen sie in Airtable, läuft das Feature defensiv ohne sie weiter.
+var KIMP_CORE_FIELDS = ['KIMP_ID','KIMP_Buchungstag','KIMP_Betrag','KIMP_Name','KIMP_Buchungstext','KIMP_Verwendungszweck','KIMP_Kategorie','KIMP_Status','KIMP_BA_Link','KIMP_VK_Link'];
+var KIMP_OPT_FIELDS  = ['KIMP_EK_Link','KIMP_Notizen'];
+
+var kimpList = [];
+var kimpCurrentRec = null;
+var kimpSortMode = 'date_asc';
+var kimpStatusFilter = 'all';
+var kimpSearchDebounce = null;
+var kimpHasEk = true;        // KIMP_EK_Link existiert in Airtable
+var kimpHasNotizen = true;   // KIMP_Notizen existiert in Airtable
+var kimpLinkedCache = {};    // 'Table/recId' → fields (Session-Cache der verknüpften Records)
+var kimpBaBelegSet = null;   // { baRecId: true } für BAs mit Beleg (Session-Cache, für Listen-Indikator)
+var kimpBaBelegLoading = false;
+var kimpDetailLinks = { ba:[], ek:[], vk:[] }; // aufgelöste verknüpfte Records der aktuellen Detail-Ansicht
+var kimpLinkSearchTimers = {};
+var kimpConfirmCb = null;
+
+var KIMP_LINK_DEFS = {
+  ba:{ field:'KIMP_BA_Link', table:'Betriebsausgaben_2026', label:'BA', el:'kimp-link-ba',
+       idF:'BA_ID', amtF:'BA_Brutto', fields:['BA_ID','BA_Lieferant','BA_Brutto','BA_Beleg'] },
+  ek:{ field:'KIMP_EK_Link', table:'Einkauf_2026', label:'EK', el:'kimp-link-ek',
+       idF:'EK_Lot', amtF:'EK_Gesamtbetrag', fields:['EK_Lot','EK_PartnerID','EK_Gesamtbetrag'] },
+  vk:{ field:'KIMP_VK_Link', table:'Verkauf_2026', label:'VK', el:'kimp-link-vk',
+       idF:'VK_Lot', amtF:'VK_Preis', fields:['VK_Lot','VK_Name','VK_Preis'] }
+};
+
+function kimpNum(n){ var x=parseFloat(n); return isNaN(x) ? '0,00' : x.toFixed(2).replace('.', ','); }
+function kimpDateDE(s){ if(!s) return '—'; var d=String(s).substring(0,10).split('-'); return d.length===3 ? d[2]+'.'+d[1]+'.'+d[0] : String(s); }
+function kimpTrunc(s,n){ s=String(s==null?'':s); return s.length>n ? s.substring(0,n)+'…' : s; }
+function kimpLinkIds(f,field){ var v=f&&f[field]; return Array.isArray(v) ? v.slice() : []; }
+function kimpJoin(v){ if (Array.isArray(v)) return v.join(', '); return (v==null||v==='') ? '—' : String(v); }
+function kimpStatusCls(s){ return s==='offen' ? 'ba-status-offen' : (s==='Klärfall' ? 'kimp-status-klaer' : 'ba-status-bearbeitung'); }
+function kimpBaHasBeleg(f){ var b=f&&f['BA_Beleg']; return Array.isArray(b)&&b.length>0; }
+
+function kimpSetMsg(t,kind){
+  var m=document.getElementById('kimp-save-msg');
+  if(!m) return;
+  m.textContent=t;
+  m.style.color = kind==='err' ? 'var(--accent)' : (kind==='ok' ? 'var(--green)' : 'var(--muted)');
+}
+
+function showKimpListView(){
+  document.getElementById('kimp-list-view').style.display='';
+  document.getElementById('kimp-detail-view').classList.remove('kimp-detail-show');
+  document.getElementById('kimp-header-title').textContent='KIMP-Clearing';
+  document.getElementById('kimp-sort').style.display='';
+  document.getElementById('btn-kimp-reload').style.display='';
+}
+function showKimpDetailView(){
+  document.getElementById('kimp-list-view').style.display='none';
+  document.getElementById('kimp-detail-view').classList.add('kimp-detail-show');
+  document.getElementById('kimp-header-title').textContent='KIMP bearbeiten';
+  document.getElementById('kimp-sort').style.display='none';
+  document.getElementById('btn-kimp-reload').style.display='none';
+}
+
+// Einmaliger Bulk-Fetch aller BAs (nur BA_Beleg) → Set der BA-Record-IDs mit Beleg.
+// Wird für den Beleg-Indikator in der KIMP-Liste gebraucht. Session-gecacht.
+function ensureKimpBaBelegSet(){
+  if (kimpBaBelegSet || kimpBaBelegLoading) return;
+  kimpBaBelegLoading=true;
+  atGet('Betriebsausgaben_2026', "NOT({BA_ID}='')", ['BA_Beleg'], function(err,data){
+    kimpBaBelegLoading=false;
+    if (err || !data){ console.warn('[KIMP] BA-Beleg-Map konnte nicht geladen werden:', err && err.message); return; }
+    var set={};
+    (data.records||[]).forEach(function(r){ if (kimpBaHasBeleg(r.fields)) set[r.id]=true; });
+    kimpBaBelegSet=set;
+    if (kimpList.length && !document.getElementById('kimp-detail-view').classList.contains('kimp-detail-show')) renderKimpTable();
+  });
+}
+
+function loadKimpList(){
+  showKimpListView();
+  var loadEl=document.getElementById('kimp-list-loading');
+  var errEl=document.getElementById('kimp-list-error');
+  loadEl.style.display=''; errEl.style.display='none'; errEl.style.color='';
+  document.getElementById('kimp-list-table-wrap').innerHTML='';
+  ensureKimpBaBelegSet();
+  var filter = "NOT({KIMP_Status}='abgeschlossen')";
+
+  function done(err,data,wasFull){
+    if (err){
+      var msg=String(err.message||'');
+      if (wasFull && /unknown field/i.test(msg)){
+        var lc=msg.toLowerCase();
+        kimpHasEk      = lc.indexOf('kimp_ek_link')===-1;
+        kimpHasNotizen = lc.indexOf('kimp_notizen')===-1;
+        var retry=KIMP_CORE_FIELDS.slice();
+        if (kimpHasEk) retry.push('KIMP_EK_Link');
+        if (kimpHasNotizen) retry.push('KIMP_Notizen');
+        console.warn('[KIMP] Unbekannte Felder in Airtable, lade defensiv ohne fehlende Felder:', msg, { kimpHasEk:kimpHasEk, kimpHasNotizen:kimpHasNotizen });
+        atGet(KIMP_TABLE, filter, retry, function(e2,d2){ done(e2,d2,false); });
+        return;
+      }
+      loadEl.style.display='none';
+      errEl.textContent='Verbindungsfehler: '+msg; errEl.style.display=''; return;
+    }
+    loadEl.style.display='none';
+    kimpList=(data&&data.records)||[];
+    if (!kimpList.length){
+      errEl.textContent='Keine offenen KIMPs.'; errEl.style.display='';
+      document.getElementById('kimp-list-count').textContent='0 offene KIMPs';
+      document.getElementById('kimp-list-table-wrap').innerHTML='';
+      return;
+    }
+    renderKimpTable();
+  }
+
+  atGet(KIMP_TABLE, filter, KIMP_CORE_FIELDS.concat(KIMP_OPT_FIELDS), function(err,data){ done(err,data,true); });
+}
+
+function kimpSortRecords(list){
+  return list.slice().sort(function(a,b){
+    var af=a.fields, bf=b.fields;
+    if (kimpSortMode==='date_asc')   return String(af['KIMP_Buchungstag']||'').localeCompare(String(bf['KIMP_Buchungstag']||''));
+    if (kimpSortMode==='date_desc')  return String(bf['KIMP_Buchungstag']||'').localeCompare(String(af['KIMP_Buchungstag']||''));
+    if (kimpSortMode==='amount_desc')return (Math.abs(parseFloat(bf['KIMP_Betrag'])||0)) - (Math.abs(parseFloat(af['KIMP_Betrag'])||0));
+    if (kimpSortMode==='kat_az')     return String(af['KIMP_Kategorie']||'').localeCompare(String(bf['KIMP_Kategorie']||''));
+    if (kimpSortMode==='name_az')    return String(af['KIMP_Name']||'').localeCompare(String(bf['KIMP_Name']||''));
+    return 0;
+  });
+}
+
+function kimpFilteredRecords(){
+  var q=(document.getElementById('kimp-search').value||'').trim().toLowerCase();
+  var useQ=q.length>=2;
+  var out=[];
+  for (var i=0;i<kimpList.length;i++){
+    var f=kimpList[i].fields;
+    if (kimpStatusFilter!=='all' && (f['KIMP_Status']||'')!==kimpStatusFilter) continue;
+    if (useQ){
+      var hay=[f['KIMP_ID'],f['KIMP_Verwendungszweck'],f['KIMP_Name'],f['KIMP_Buchungstext'],f['KIMP_Kategorie'],(f['KIMP_Betrag']!=null?String(f['KIMP_Betrag']):'')].join(' ').toLowerCase();
+      if (hay.indexOf(q)===-1) continue;
+    }
+    out.push(kimpList[i]);
+  }
+  return kimpSortRecords(out);
+}
+function scheduleKimpSearch(){ if(kimpSearchDebounce) clearTimeout(kimpSearchDebounce); kimpSearchDebounce=setTimeout(renderKimpTable,200); }
+
+function kimpHasLinkedBeleg(f){
+  if (!kimpBaBelegSet) return false;
+  var ids=kimpLinkIds(f,'KIMP_BA_Link');
+  for (var i=0;i<ids.length;i++) if (kimpBaBelegSet[ids[i]]) return true;
+  return false;
+}
+
+function renderKimpTable(){
+  var rows=kimpFilteredRecords();
+  document.getElementById('kimp-list-count').textContent = rows.length + ' KIMP' + (rows.length===1?'':'s');
+  var html='<table class="ba-table"><thead><tr>'+
+    '<th style="width:24px"></th><th>KIMP-ID</th><th>Datum</th><th style="text-align:right">Betrag</th>'+
+    '<th>Name</th><th>Verwendungszweck</th><th>Status</th><th style="text-align:center">Beleg</th>'+
+    '</tr></thead><tbody>';
+  rows.forEach(function(rec){
+    var f=rec.fields;
+    var status=f['KIMP_Status']||'—';
+    var isKlaer = status==='Klärfall' || String(f['KIMP_Notizen']||'').toUpperCase().indexOf('KLÄRFALL:')===0;
+    var betrag=parseFloat(f['KIMP_Betrag']);
+    var betCls=isNaN(betrag)?'':(betrag<0?'kimp-betrag-neg':'kimp-betrag-pos');
+    var betTxt=isNaN(betrag)?'—':kimpNum(betrag)+' €';
+    var hasBeleg=kimpHasLinkedBeleg(f);
+    html+='<tr data-id="'+rec.id+'">'+
+      '<td>'+(isKlaer?'<span class="ba-klaer-icon" title="Klärfall">⚠️</span>':'')+'</td>'+
+      '<td>'+escHtml(f['KIMP_ID']||'—')+'</td>'+
+      '<td>'+escHtml(kimpDateDE(f['KIMP_Buchungstag']))+'</td>'+
+      '<td style="text-align:right" class="'+betCls+'">'+escHtml(betTxt)+'</td>'+
+      '<td>'+escHtml(kimpTrunc(f['KIMP_Name'],30))+'</td>'+
+      '<td>'+escHtml(kimpTrunc(f['KIMP_Verwendungszweck'],50))+'</td>'+
+      '<td><span class="ba-status-pill '+kimpStatusCls(status)+'">'+escHtml(status)+'</span></td>'+
+      '<td style="text-align:center">'+(hasBeleg?'<span class="ba-pdf-yes">●</span>':'<span class="ba-pdf-no">○</span>')+'</td>'+
+      '</tr>';
+  });
+  html+='</tbody></table>';
+  var wrap=document.getElementById('kimp-list-table-wrap');
+  wrap.innerHTML=html;
+  wrap.querySelectorAll('tbody tr').forEach(function(tr){
+    attachTouchClickHandler(tr, function(){ openKimpDetail(tr.getAttribute('data-id')); });
+  });
+}
+
+function openKimpDetail(recId){
+  var rec=kimpList.filter(function(r){ return r.id===recId; })[0];
+  if (!rec) return;
+  kimpCurrentRec=rec;
+  showKimpDetailView();
+  populateKimpDetail(rec);
+}
+
+function populateKimpDetail(rec){
+  var f=rec.fields;
+  kimpSetMsg('');
+  document.getElementById('kimp-id-display').textContent=f['KIMP_ID']||'—';
+  var status=f['KIMP_Status']||'—';
+  var st=document.getElementById('kimp-status-display');
+  st.textContent=status;
+  st.className='ba-status-pill '+kimpStatusCls(status);
+
+  var notizen=String(f['KIMP_Notizen']||'');
+  var banner=document.getElementById('kimp-klaer-banner');
+  if (status==='Klärfall' || notizen.toUpperCase().indexOf('KLÄRFALL:')===0){
+    banner.textContent='⚠️ '+(notizen||'Klärfall');
+    banner.style.display='';
+  } else banner.style.display='none';
+
+  function roField(label,val,multi){
+    return '<div class="kimp-ro-field"><div class="kro-label">'+escHtml(label)+'</div>'+
+      '<div class="kro-val'+(multi?' kro-multiline':'')+'">'+escHtml((val==null||val==='')?'—':val)+'</div></div>';
+  }
+  var betrag=parseFloat(f['KIMP_Betrag']);
+  document.getElementById('kimp-ro-block').innerHTML =
+    roField('Datum', kimpDateDE(f['KIMP_Buchungstag'])) +
+    roField('Betrag', isNaN(betrag)?'—':kimpNum(betrag)+' €') +
+    roField('Name', f['KIMP_Name']) +
+    roField('Buchungstext', f['KIMP_Buchungstext']) +
+    roField('Verwendungszweck', f['KIMP_Verwendungszweck'], true) +
+    roField('Kategorie', f['KIMP_Kategorie']);
+
+  var nrow=document.getElementById('kimp-notizen-row');
+  if (kimpHasNotizen){ nrow.style.display=''; document.getElementById('kimp-notizen').value=notizen; }
+  else nrow.style.display='none';
+
+  setupKimpMailLink(f);
+  document.getElementById('kimp-link-ek').style.display = kimpHasEk ? '' : 'none';
+
+  // Beleg-Pane initial: lädt…
+  document.getElementById('kimp-beleg-list').innerHTML='<div class="kimp-pdf-empty" style="padding:8px">Belege werden geladen…</div>';
+  var frame=document.getElementById('kimp-pdf-frame');
+  frame.src='about:blank'; frame.style.display='none';
+  var empty=document.getElementById('kimp-pdf-empty');
+  empty.style.display=''; empty.textContent='Belege werden geladen…';
+
+  kimpDetailLinks={ba:[],ek:[],vk:[]};
+  renderKimpLinkSections();
+  resolveKimpLinked(rec, null);
+}
+
+function setupKimpMailLink(f){
+  var id=f['KIMP_ID']||'';
+  var betrag=parseFloat(f['KIMP_Betrag']);
+  var betTxt=isNaN(betrag)?'':kimpNum(betrag)+' EUR';
+  var nameOrZweck=f['KIMP_Name'] || kimpTrunc(f['KIMP_Verwendungszweck'],40) || '';
+  var datum=kimpDateDE(f['KIMP_Buchungstag']);
+  var subject=id+' – '+betTxt+' – '+nameOrZweck;
+  var body='Bitte Original-Beleg anhängen und absenden. KIMP-Referenz: '+id+', Buchung: '+datum+', '+betTxt+', '+(f['KIMP_Name']||'');
+  // KIMP_ID enthält einen Slash → encodeURIComponent encodiert ihn korrekt in Subject & Body.
+  document.getElementById('btn-kimp-mail').setAttribute('href',
+    'mailto:rechnungen@replaydealers.com?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body));
+}
+
+// Lädt einen verknüpften Record (BA/EK/VK) — Session-gecacht.
+function kimpFetchLinked(table, recId, cb){
+  var key=table+'/'+recId;
+  if (kimpLinkedCache[key]){ cb(kimpLinkedCache[key]); return; }
+  fetch('https://api.airtable.com/v0/'+AT_BASE+'/'+encodeURIComponent(table)+'/'+recId, { headers:{'Authorization':'Bearer '+AT_TOKEN} })
+    .then(function(r){ return r.json(); })
+    .then(function(rec){ if (rec&&rec.id&&!rec.error){ kimpLinkedCache[key]=rec.fields; cb(rec.fields); } else cb(null); })
+    .catch(function(){ cb(null); });
+}
+
+function resolveKimpLinked(rec, cb){
+  var f=rec.fields;
+  var tasks=[];
+  kimpDetailLinks={ba:[],ek:[],vk:[]};
+  kimpLinkIds(f,'KIMP_BA_Link').forEach(function(id){ tasks.push(['ba','Betriebsausgaben_2026',id]); });
+  if (kimpHasEk) kimpLinkIds(f,'KIMP_EK_Link').forEach(function(id){ tasks.push(['ek','Einkauf_2026',id]); });
+  kimpLinkIds(f,'KIMP_VK_Link').forEach(function(id){ tasks.push(['vk','Verkauf_2026',id]); });
+  var pending=tasks.length;
+  if (!pending){ renderKimpBelegPane(); renderKimpLinkSections(); if (cb) cb(); return; }
+  tasks.forEach(function(t){
+    kimpFetchLinked(t[1],t[2],function(fields){
+      if (fields) kimpDetailLinks[t[0]].push({ id:t[2], fields:fields });
+      if (--pending===0){ renderKimpBelegPane(); renderKimpLinkSections(); if (cb) cb(); }
+    });
+  });
+}
+
+function kimpShowPdf(url, el){
+  var frame=document.getElementById('kimp-pdf-frame');
+  var empty=document.getElementById('kimp-pdf-empty');
+  document.querySelectorAll('#kimp-beleg-list .kimp-beleg-item.active').forEach(function(n){ n.classList.remove('active'); });
+  if (url){
+    if (el) el.classList.add('active');
+    frame.src=url; frame.style.display=''; empty.style.display='none';
+  } else {
+    frame.src='about:blank'; frame.style.display='none';
+    empty.style.display=''; empty.textContent='Kein Beleg vorhanden';
+  }
+}
+
+function renderKimpBelegPane(){
+  var listEl=document.getElementById('kimp-beleg-list');
+  var entries=[];
+  kimpDetailLinks.ba.forEach(function(x){
+    var f=x.fields, has=kimpBaHasBeleg(f);
+    entries.push({ label:(f['BA_ID']||'BA')+' – '+(f['BA_Lieferant']||'—'), amount:f['BA_Brutto'], hasBeleg:has, url:has?f['BA_Beleg'][0].url:null });
+  });
+  kimpDetailLinks.ek.forEach(function(x){
+    var f=x.fields;
+    entries.push({ label:(f['EK_Lot']||'EK')+' – '+kimpJoin(f['EK_PartnerID']), amount:f['EK_Gesamtbetrag'], hasBeleg:false, url:null });
+  });
+  kimpDetailLinks.vk.forEach(function(x){
+    var f=x.fields;
+    entries.push({ label:(f['VK_Lot']||'VK')+' – '+kimpJoin(f['VK_Name']), amount:f['VK_Preis'], hasBeleg:false, url:null });
+  });
+
+  if (!entries.length){
+    listEl.innerHTML='<div class="kimp-pdf-empty" style="padding:8px">Keine Verknüpfungen</div>';
+    kimpShowPdf(null,null);
+    return;
+  }
+  var html='';
+  entries.forEach(function(e){
+    var amt=(e.amount!=null&&e.amount!=='') ? kimpNum(e.amount)+' EUR' : '—';
+    html+='<div class="kimp-beleg-item">'+
+      '<span class="kb-id">'+escHtml(e.label)+'</span> · '+escHtml(amt)+' · '+
+      (e.hasBeleg?'<span class="kb-beleg-yes">Beleg vorhanden</span>':'<span class="kb-beleg-no">kein Beleg</span>')+
+      '</div>';
+  });
+  listEl.innerHTML=html;
+  var items=listEl.querySelectorAll('.kimp-beleg-item');
+  var withPdf=[];
+  items.forEach(function(el,idx){
+    var e=entries[idx];
+    attachTouchClickHandler(el, function(){ if (e.url) kimpShowPdf(e.url, el); });
+    if (e.url) withPdf.push({ el:el, url:e.url });
+  });
+  if (withPdf.length===1) kimpShowPdf(withPdf[0].url, withPdf[0].el);
+  else kimpShowPdf(null,null);
+}
+
+function renderKimpLinkSection(type){
+  var def=KIMP_LINK_DEFS[type];
+  var container=document.getElementById(def.el);
+  if (!container || !kimpCurrentRec) return;
+  var ids=kimpLinkIds(kimpCurrentRec.fields,def.field);
+  var byId={};
+  kimpDetailLinks[type].forEach(function(x){ byId[x.id]=x.fields; });
+
+  var html='<div class="kls-title">'+def.label+'-Verknüpfungen</div>';
+  if (!ids.length) html+='<div style="font-size:12px;color:var(--hint);margin-bottom:5px">keine</div>';
+  ids.forEach(function(id){
+    var rf=byId[id], lbl;
+    if (rf){
+      if (type==='ba')      lbl=(rf['BA_ID']||id)+' – '+(rf['BA_Lieferant']||'—');
+      else if (type==='ek') lbl=(rf['EK_Lot']||id)+' – '+kimpJoin(rf['EK_PartnerID']);
+      else                  lbl=(rf['VK_Lot']||id)+' – '+kimpJoin(rf['VK_Name']);
+    } else lbl=id;
+    html+='<div class="kimp-link-chip"><span>'+escHtml(lbl)+'</span>'+
+      '<button type="button" class="klc-x" data-type="'+type+'" data-id="'+escHtml(id)+'" title="Entfernen">✕</button></div>';
+  });
+  html+='<div class="kimp-link-search-wrap">'+
+    '<input type="text" class="kimp-link-input" id="kimp-search-'+type+'" autocomplete="off" placeholder="+ '+def.label+' verknüpfen…" />'+
+    '<div class="ba-dropdown" id="kimp-dd-'+type+'"></div></div>';
+  container.innerHTML=html;
+
+  container.querySelectorAll('.klc-x').forEach(function(b){
+    attachTouchClickHandler(b, function(){ kimpRemoveLink(b.getAttribute('data-type'), b.getAttribute('data-id')); });
+  });
+  var input=document.getElementById('kimp-search-'+type);
+  input.addEventListener('input', function(){
+    var q=input.value.trim();
+    if (kimpLinkSearchTimers[type]) clearTimeout(kimpLinkSearchTimers[type]);
+    if (q.length<2){ document.getElementById('kimp-dd-'+type).style.display='none'; return; }
+    kimpLinkSearchTimers[type]=setTimeout(function(){ kimpSearchLinkCandidates(type,q); },250);
+  });
+  input.addEventListener('blur', function(){ setTimeout(function(){ var dd=document.getElementById('kimp-dd-'+type); if (dd) dd.style.display='none'; },200); });
+}
+function renderKimpLinkSections(){
+  renderKimpLinkSection('ba');
+  if (kimpHasEk) renderKimpLinkSection('ek');
+  renderKimpLinkSection('vk');
+}
+
+function kimpSearchLinkCandidates(type,q){
+  var def=KIMP_LINK_DEFS[type];
+  var safe=q.replace(/"/g,'\\"');
+  var formula='OR(FIND(LOWER("'+safe+'"),LOWER({'+def.idF+'}&""))>0,FIND("'+safe+'",{'+def.amtF+'}&"")>0)';
+  atGet(def.table, formula, def.fields, function(err,data){
+    var dd=document.getElementById('kimp-dd-'+type);
+    if (!dd || !kimpCurrentRec) return;
+    if (err){ dd.style.display='none'; return; }
+    var recs=((data&&data.records)||[]).slice(0,15);
+    var existing=kimpLinkIds(kimpCurrentRec.fields,def.field);
+    var html='';
+    if (!recs.length) html='<div class="ba-dd-empty">Keine Treffer</div>';
+    else recs.forEach(function(r){
+      var rf=r.fields, lbl;
+      if (type==='ba')      lbl=(rf['BA_ID']||'—')+' · '+(rf['BA_Lieferant']||'—')+' · '+(rf['BA_Brutto']!=null?kimpNum(rf['BA_Brutto'])+' €':'—');
+      else if (type==='ek') lbl=(rf['EK_Lot']||'—')+' · '+kimpJoin(rf['EK_PartnerID'])+' · '+(rf['EK_Gesamtbetrag']!=null?kimpNum(rf['EK_Gesamtbetrag'])+' €':'—');
+      else                  lbl=(rf['VK_Lot']||'—')+' · '+kimpJoin(rf['VK_Name'])+' · '+(rf['VK_Preis']!=null?kimpNum(rf['VK_Preis'])+' €':'—');
+      var dis=existing.indexOf(r.id)!==-1;
+      html+='<div class="ba-dd-item" data-id="'+r.id+'"'+(dis?' style="opacity:.45"':'')+'>'+escHtml(lbl)+(dis?' ✓':'')+'</div>';
+    });
+    dd.innerHTML=html;
+    dd.querySelectorAll('.ba-dd-item').forEach(function(it){
+      it.addEventListener('mousedown', function(e){
+        e.preventDefault();
+        var pid=it.getAttribute('data-id');
+        if (!pid || existing.indexOf(pid)!==-1) return;
+        kimpAddLink(type,pid);
+      });
+    });
+    dd.style.display='block';
+  });
+}
+
+function kimpPatchLinks(type,newIds,doneCb){
+  var def=KIMP_LINK_DEFS[type];
+  var patch={}; patch[def.field]=newIds;
+  kimpSetMsg('Speichere Verknüpfung…');
+  atPatch(KIMP_TABLE, kimpCurrentRec.id, patch, function(err,data){
+    if (err||(data&&data.error)){ kimpSetMsg('Fehler: '+(err?err.message:data.error.message),'err'); return; }
+    kimpCurrentRec.fields=kimpCurrentRec.fields||{};
+    kimpCurrentRec.fields[def.field]=newIds;
+    var local=kimpList.filter(function(r){ return r.id===kimpCurrentRec.id; })[0];
+    if (local) local.fields[def.field]=newIds;
+    kimpSetMsg('✓ Verknüpfung gespeichert','ok');
+    setTimeout(function(){ var m=document.getElementById('kimp-save-msg'); if (m && m.textContent.indexOf('Verknüpfung')!==-1) kimpSetMsg(''); },2000);
+    if (doneCb) doneCb();
+  });
+}
+function kimpAddLink(type,recId){
+  var def=KIMP_LINK_DEFS[type];
+  var ids=kimpLinkIds(kimpCurrentRec.fields,def.field);
+  if (ids.indexOf(recId)!==-1) return;
+  ids.push(recId);
+  kimpPatchLinks(type,ids,function(){ resolveKimpLinked(kimpCurrentRec,null); });
+}
+function kimpRemoveLink(type,recId){
+  var def=KIMP_LINK_DEFS[type];
+  var ids=kimpLinkIds(kimpCurrentRec.fields,def.field).filter(function(x){ return x!==recId; });
+  kimpPatchLinks(type,ids,function(){ resolveKimpLinked(kimpCurrentRec,null); });
+}
+
+function kimpFindNext(currentId){
+  var sorted=kimpFilteredRecords();
+  for (var i=0;i<sorted.length;i++){
+    if (sorted[i].id===currentId) return i+1<sorted.length ? sorted[i+1] : null;
+  }
+  return sorted.length ? sorted[0] : null; // currentId schon aus Liste entfernt → erster verbleibender
+}
+
+function kimpSetButtons(d){
+  ['btn-kimp-cancel','btn-kimp-klaer','btn-kimp-list','btn-kimp-next','btn-kimp-approve'].forEach(function(id){
+    var b=document.getElementById(id); if (b) b.disabled=d;
+  });
+}
+
+function kimpGoToList(infoMsg){
+  kimpCurrentRec=null;
+  showKimpListView();
+  if (!kimpList.length){
+    document.getElementById('kimp-list-table-wrap').innerHTML='';
+    document.getElementById('kimp-list-count').textContent='0 offene KIMPs';
+  } else renderKimpTable();
+  var errEl=document.getElementById('kimp-list-error');
+  if (infoMsg){ errEl.textContent=infoMsg; errEl.style.color='var(--green)'; errEl.style.display=''; }
+  else { errEl.style.display='none'; errEl.style.color=''; }
+}
+
+function kimpCancel(){ kimpCurrentRec=null; kimpGoToList(null); }
+
+// opts: { status?, after:'list'|'next'|'stay', okMsg, noNextMsg, infoMsg }
+function kimpSaveAndGo(opts){
+  if (!kimpCurrentRec) return;
+  var patch={};
+  if (kimpHasNotizen) patch['KIMP_Notizen']=(document.getElementById('kimp-notizen').value||'');
+  if (opts.status) patch['KIMP_Status']=opts.status;
+
+  // Kein zu schreibendes Feld (Notizen-Feld fehlt + kein Statuswechsel) → nur navigieren.
+  if (!Object.keys(patch).length){
+    if (opts.after==='list') kimpGoToList(opts.infoMsg);
+    else if (opts.after==='next'){
+      var n0=kimpFindNext(kimpCurrentRec.id);
+      if (n0 && n0.id!==kimpCurrentRec.id) openKimpDetail(n0.id); else kimpGoToList(opts.noNextMsg||null);
+    }
+    return;
+  }
+
+  kimpSetButtons(true);
+  kimpSetMsg('Speichere…');
+  atPatch(KIMP_TABLE, kimpCurrentRec.id, patch, function(err,data){
+    kimpSetButtons(false);
+    if (err||(data&&data.error)){ kimpSetMsg('Fehler: '+(err?err.message:data.error.message),'err'); return; }
+    kimpCurrentRec.fields=kimpCurrentRec.fields||{};
+    if (kimpHasNotizen) kimpCurrentRec.fields['KIMP_Notizen']=patch['KIMP_Notizen'];
+    var currentId=kimpCurrentRec.id;
+    var removeIt=opts.status==='abgeschlossen';
+
+    if (removeIt){
+      kimpList=kimpList.filter(function(r){ return r.id!==currentId; });
+    } else {
+      var local=kimpList.filter(function(r){ return r.id===currentId; })[0];
+      if (local){
+        if (kimpHasNotizen) local.fields['KIMP_Notizen']=patch['KIMP_Notizen'];
+        if (opts.status) local.fields['KIMP_Status']=opts.status;
+      }
+    }
+    if (opts.status){
+      kimpCurrentRec.fields['KIMP_Status']=opts.status;
+      var st=document.getElementById('kimp-status-display');
+      st.textContent=opts.status;
+      st.className='ba-status-pill '+kimpStatusCls(opts.status);
+    }
+
+    if (opts.after==='list'){ kimpGoToList(opts.infoMsg||null); return; }
+    if (opts.after==='next'){
+      var nx=kimpFindNext(currentId);
+      if (nx && nx.id!==currentId){
+        kimpSetMsg((opts.okMsg||'✓ Gespeichert')+'. Lade nächste…','ok');
+        setTimeout(function(){ openKimpDetail(nx.id); },350);
+      } else kimpGoToList(opts.noNextMsg||null);
+      return;
+    }
+    kimpSetMsg(opts.okMsg||'✓ Gespeichert','ok');
+  });
+}
+
+function kimpApproveValidationOk(){
+  var total=kimpDetailLinks.ba.length+kimpDetailLinks.ek.length+kimpDetailLinks.vk.length;
+  if (total<1) return false;
+  return kimpDetailLinks.ba.some(function(x){ return kimpBaHasBeleg(x.fields); });
+}
+function kimpDoApprove(){
+  kimpSaveAndGo({ status:'abgeschlossen', after:'next', noNextMsg:'Alle KIMPs durchgearbeitet 🎉', okMsg:'✓ Abgeschlossen' });
+}
+function kimpTryApprove(){
+  if (!kimpCurrentRec) return;
+  kimpSetMsg('Prüfe Belege…');
+  // Sicherstellen, dass verknüpfte Records aufgelöst sind (Cache → schnell).
+  resolveKimpLinked(kimpCurrentRec, function(){
+    kimpSetMsg('');
+    if (kimpApproveValidationOk()) kimpDoApprove();
+    else {
+      kimpConfirmCb=kimpDoApprove;
+      document.getElementById('kimp-confirm-overlay').classList.add('show');
+    }
+  });
+}
+function hideKimpConfirm(){
+  document.getElementById('kimp-confirm-overlay').classList.remove('show');
+  kimpConfirmCb=null;
+}
+
+// Tile liegt im Home (vor diesem Script) → direkt verdrahtbar.
+addNav('tile-kimp','screen-kimp', loadKimpList);
+
+// Detail-Elemente liegen im DOM nach diesem Script → auf DOMContentLoaded verdrahten.
+document.addEventListener('DOMContentLoaded', function setupKimp(){
+  document.getElementById('kimp-sort').addEventListener('change', function(){ kimpSortMode=this.value; renderKimpTable(); });
+  document.getElementById('btn-kimp-reload').addEventListener('click', loadKimpList);
+  document.getElementById('kimp-search').addEventListener('input', scheduleKimpSearch);
+
+  document.querySelectorAll('#kimp-list-view .kimp-pill').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#kimp-list-view .kimp-pill').forEach(function(b){ b.classList.remove('kimp-pill-active'); });
+      btn.classList.add('kimp-pill-active');
+      kimpStatusFilter=btn.getAttribute('data-status');
+      renderKimpTable();
+    });
+  });
+
+  document.getElementById('btn-kimp-cancel').addEventListener('click', kimpCancel);
+  document.getElementById('btn-kimp-klaer').addEventListener('click', function(){
+    kimpSaveAndGo({ status:'Klärfall', after:'list', okMsg:'✓ Als Klärfall markiert' });
+  });
+  document.getElementById('btn-kimp-list').addEventListener('click', function(){
+    kimpSaveAndGo({ after:'list' });
+  });
+  document.getElementById('btn-kimp-next').addEventListener('click', function(){
+    var cur=kimpCurrentRec && kimpCurrentRec.fields['KIMP_Status'];
+    kimpSaveAndGo({ status: cur==='offen' ? 'in Bearbeitung' : undefined, after:'next', noNextMsg:'Keine weiteren KIMPs', okMsg:'✓ Gespeichert' });
+  });
+  document.getElementById('btn-kimp-approve').addEventListener('click', kimpTryApprove);
+
+  document.getElementById('btn-kimp-confirm-yes').addEventListener('click', function(){
+    var cb=kimpConfirmCb;
+    hideKimpConfirm();
+    if (cb) cb();
+  });
+  document.getElementById('btn-kimp-confirm-no').addEventListener('click', hideKimpConfirm);
+
+  addNav('btn-back-kimp', null, function(){
+    if (kimpCurrentRec) kimpCancel();
+    else goBack();
+  });
+});
+
 // ── BUILD DATE (letzter Commit auf main) ──
 (function loadBuildDate() {
   function pad(n){ return String(n).padStart(2,'0'); }
@@ -3296,6 +3935,95 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   </div>
 </div>
 
+<!-- KIMP-CLEARING -->
+<div class="screen hidden" id="screen-kimp">
+  <div class="sub-header">
+    <button class="menu-btn" onclick="openMenu()">☰</button>
+    <button class="back-btn" id="btn-back-kimp">←</button>
+    <div class="sub-header-title" id="kimp-header-title">KIMP-Clearing</div>
+    <select id="kimp-sort" class="ba-sort-select">
+      <option value="date_asc">Datum (älteste zuerst)</option>
+      <option value="date_desc">Datum (neueste zuerst)</option>
+      <option value="amount_desc">Betrag absteigend</option>
+      <option value="kat_az">Kategorie A-Z</option>
+      <option value="name_az">Name A-Z</option>
+    </select>
+    <button class="refresh-btn" id="btn-kimp-reload" style="margin-left:6px;width:32px;height:32px;padding:0;font-size:14px;">↻</button>
+  </div>
+
+  <div id="kimp-list-view" class="kimp-list-view">
+    <div class="kimp-search-section">
+      <input type="text" id="kimp-search" placeholder="Suchen (ID, Zweck, Name, Text, Kategorie, Betrag)…" autocomplete="off" />
+      <div class="kimp-pills-row">
+        <button class="kimp-pill kimp-pill-active" data-status="all" type="button">Alle</button>
+        <button class="kimp-pill" data-status="offen" type="button">Offen</button>
+        <button class="kimp-pill" data-status="in Bearbeitung" type="button">In Bearbeitung</button>
+        <button class="kimp-pill" data-status="Klärfall" type="button">Klärfall</button>
+      </div>
+    </div>
+    <div class="kimp-list-scroll">
+      <div class="s-card">
+        <div class="s-card-title" id="kimp-list-count">Offene KIMPs</div>
+        <div class="s-loading" id="kimp-list-loading">Wird geladen…</div>
+        <div class="s-error" id="kimp-list-error"></div>
+        <div id="kimp-list-table-wrap" style="overflow-x:auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="kimp-detail-view">
+    <div class="kimp-left-pane">
+      <div class="kimp-beleg-list" id="kimp-beleg-list"></div>
+      <div class="kimp-pdf-wrap">
+        <iframe id="kimp-pdf-frame" style="display:none"></iframe>
+        <div id="kimp-pdf-empty" class="kimp-pdf-empty">Kein Beleg vorhanden</div>
+      </div>
+      <div class="kimp-left-actions">
+        <a id="btn-kimp-mail" class="kimp-mail-btn" href="#">✉️ Beleg per Mail einreichen</a>
+        <div class="kimp-tip">Nach dem Versand legt Apps Script automatisch eine BA an. Verknüpfung mit diesem KIMP danach manuell oder über Matching-Skript.</div>
+        <button type="button" class="kimp-eigenbeleg-btn" id="btn-kimp-eigenbeleg" disabled title="Verfügbar nach Klärung mit Steuerberatung.">Eigenbeleg erstellen</button>
+      </div>
+    </div>
+    <div class="kimp-right-pane">
+      <div id="kimp-klaer-banner" class="ba-klaer-banner" style="display:none"></div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em">KIMP</div>
+          <div id="kimp-id-display" style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.3px">—</div>
+        </div>
+        <div id="kimp-status-display" class="ba-status-pill" style="margin-top:4px">—</div>
+      </div>
+      <div id="kimp-ro-block"></div>
+      <div id="kimp-link-ba" class="kimp-link-section"></div>
+      <div id="kimp-link-ek" class="kimp-link-section"></div>
+      <div id="kimp-link-vk" class="kimp-link-section"></div>
+      <div class="ba-form-row" id="kimp-notizen-row" style="grid-template-columns:1fr">
+        <div class="ba-field"><label>Notizen</label><textarea id="kimp-notizen" rows="3"></textarea></div>
+      </div>
+      <div class="ba-buttons">
+        <button id="btn-kimp-cancel" class="btn-ba-cancel" type="button">Abbrechen</button>
+        <button id="btn-kimp-klaer" class="btn-kimp-klaer" type="button">Klärfall</button>
+        <button id="btn-kimp-list" class="btn-ba-list" type="button">Zur Liste</button>
+        <button id="btn-kimp-next" class="btn-ba-next" type="button">Weiter →</button>
+        <button id="btn-kimp-approve" class="btn-ba-approve" type="button">Abschließen</button>
+      </div>
+      <div id="kimp-save-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- KIMP: Bestätigung "Kein Beleg verlinkt" -->
+<div id="kimp-confirm-overlay">
+  <div class="ba-confirm-box">
+    <div class="ba-confirm-title">Kein Beleg verlinkt</div>
+    <div class="ba-confirm-text">Keine der verknüpften BAs/EKs/VKs hat einen Beleg. Trotzdem abschließen? (nicht empfohlen)</div>
+    <div class="ba-confirm-actions">
+      <button type="button" class="btn-ba-confirm-warn" id="btn-kimp-confirm-yes">Ja, trotzdem abschließen</button>
+      <button type="button" class="btn-ba-confirm-no" id="btn-kimp-confirm-no">Zurück zur Bearbeitung</button>
+    </div>
+  </div>
+</div>
+
 <!-- BA: Bestätigung "Trotzdem abschließen?" -->
 <div id="ba-confirm-overlay">
   <div class="ba-confirm-box">
@@ -3346,10 +4074,11 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div class="menu-nav-item" onclick="navTo('screen-sku', loadPimp)">📦 SKU Eintragung</div>
     <div class="menu-nav-item" onclick="navTo('screen-ek')">📊 Einkauf Auswertung</div>
     <div class="menu-nav-item" onclick="navTo('screen-ba', loadBaList)">📄 BA-Review</div>
+    <div class="menu-nav-item" onclick="navTo('screen-kimp', loadKimpList)">🧾 KIMP-Clearing</div>
     <div style="height:.5px;background:var(--border);margin:8px 0"></div>
     <div class="menu-nav-item" onclick="lockApp()">🔒 Sperren</div>
   </div>
-  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.2.2 / rd-hub-v54</div>
+  <div style="padding:12px 20px;border-top:.5px solid var(--border);font-size:10px;color:var(--hint)">v2.3.0 / rd-hub-v55</div>
 </div>
 </body>
 </html>
