@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.5.0
-  SW Cache: rd-hub-v61
+  Version:  2.6.0
+  SW Cache: rd-hub-v62
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.6.0  (2026-05-17)  BA löschen + BA-Liste sortierbar + Suche
   v2.5.0  (2026-05-17)  VK-Rechnungen direkt aus dem Clearing erzeugen
   v2.4.1  (2026-05-17)  Vorschlags-Karten: Rechnungsnr + Partner-Namen + Cache-Refresh
   v2.4.0  (2026-05-17)  Auto-Vorschläge für BA/EK/VK-Verknüpfungen mit Match-Score
@@ -279,7 +280,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .menu-btn{width:36px;height:36px;border-radius:50%;border:.5px solid var(--border);background:var(--card2);color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;flex-shrink:0}
 
 /* BA REVIEW */
-.ba-sort-select{background:var(--card2);color:var(--text);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:6px 8px;font-size:12px;font-family:inherit;outline:none;margin-left:auto}
 .ba-detail-hidden{display:none}
 #ba-detail-view:not(.ba-detail-hidden){display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;flex:1;overflow:hidden;min-height:0}
 .ba-pdf-pane{background:var(--card);border-radius:var(--radius);border:.5px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;min-height:0}
@@ -316,6 +316,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .btn-ba-next{background:var(--card2);color:var(--text);border:.5px solid var(--accent)}
 .btn-ba-approve{background:var(--green);color:white}
 .btn-ba-cancel{background:transparent;color:var(--muted);border:.5px solid var(--border)}
+.btn-ba-delete{background:var(--accent);color:#fff;border:none}
+.btn-ba-delete:hover{filter:brightness(1.08)}
 .ba-klaer-banner{background:rgba(239,168,39,.15);border:.5px solid var(--amber);border-radius:var(--radius-sm);padding:10px 12px;color:var(--amber);margin-bottom:14px;font-size:13px;font-weight:500}
 .ba-table{width:100%;border-collapse:collapse;font-size:13px}
 .ba-table th{text-align:left;padding:8px 10px;font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;border-bottom:.5px solid var(--border);font-weight:600}
@@ -325,6 +327,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ba-status-pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}
 .ba-status-offen{background:rgba(230,57,70,.15);color:var(--accent)}
 .ba-status-bearbeitung{background:rgba(239,168,39,.15);color:var(--amber)}
+.ba-status-abgeschlossen{background:rgba(63,217,155,.15);color:var(--green)}
+#ba-list-table-wrap .ba-table th .kimp-sort-arr{color:var(--hint)}
 .ba-pdf-yes{color:var(--green);font-size:16px}
 .ba-pdf-no{color:var(--hint);font-size:16px}
 .ba-klaer-icon{color:var(--amber)}
@@ -526,8 +530,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.5.0</span>
-      <span>SW rd-hub-v61</span>
+      <span>APP v2.6.0</span>
+      <span>SW rd-hub-v62</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -560,7 +564,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.5.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -884,6 +888,12 @@ function atPost(table, fields, cb) {
     method:'POST',
     headers:{'Authorization':'Bearer '+AT_TOKEN,'Content-Type':'application/json'},
     body:JSON.stringify({fields:fields})
+  }).then(function(r){ return r.json(); }).then(function(d){ cb(null,d); }).catch(function(e){ cb(e,null); });
+}
+function atDelete(table, recId, cb) {
+  fetch('https://api.airtable.com/v0/' + AT_BASE + '/' + encodeURIComponent(table) + '/' + recId, {
+    method:'DELETE',
+    headers:{'Authorization':'Bearer '+AT_TOKEN}
   }).then(function(r){ return r.json(); }).then(function(d){ cb(null,d); }).catch(function(e){ cb(e,null); });
 }
 
@@ -1612,11 +1622,16 @@ function navTo(screenId, onShow) {
 }
 
 // ── BA REVIEW ──
-var BA_LIST_FIELDS = ['BA_ID','BA_Datum','BA_Lieferant','BA_Brutto','BA_Status','BA_Beleg','BA_Notizen'];
+var BA_LIST_FIELDS = ['BA_ID','BA_Datum','BA_Lieferant','BA_Brutto','BA_Status','BA_Beleg','BA_Notizen','BA_Bezeichnung','BA_Beleg_Nr'];
 var baList = [];
 var baCurrentRec = null;
 var baCurrentPartner = null;   // verknüpfter Partner-Record (lazy fetch nach openBaDetail)
-var baSortMode = 'date_asc';
+// null = Default (BA_Datum aufsteigend, kein Header-Icon). Sonst aktive Spalte:
+// 'id'|'date'|'supplier'|'amount'|'status' + baSortDir 'asc'|'desc'.
+var baSortCol = null;
+var baSortDir = 'asc';
+var baStatusFilter = 'all';
+var baSearchDebounce = null;
 var baSelectedPartnerId = null;
 // true = neue BA im Anlage-Modus (noch kein Airtable-Record). Erster Save = POST.
 var baNewMode = false;
@@ -1665,7 +1680,6 @@ function showBaListView() {
   document.getElementById('ba-list-view').style.display = '';
   document.getElementById('ba-detail-view').classList.add('ba-detail-hidden');
   document.getElementById('ba-header-title').textContent = 'BA-Review';
-  document.getElementById('ba-sort').style.display = '';
   document.getElementById('btn-ba-reload').style.display = '';
   document.getElementById('btn-ba-new').style.display = '';
 }
@@ -1674,7 +1688,6 @@ function showBaDetailView() {
   document.getElementById('ba-list-view').style.display = 'none';
   document.getElementById('ba-detail-view').classList.remove('ba-detail-hidden');
   document.getElementById('ba-header-title').textContent = 'BA bearbeiten';
-  document.getElementById('ba-sort').style.display = 'none';
   document.getElementById('btn-ba-reload').style.display = 'none';
   document.getElementById('btn-ba-new').style.display = 'none';
 }
@@ -1687,13 +1700,13 @@ function loadBaList() {
   errEl.style.display = 'none';
   errEl.style.color = '';
   document.getElementById('ba-list-table-wrap').innerHTML = '';
-  atGet('Betriebsausgaben_2026', "OR({BA_Status}='offen',{BA_Status}='in Bearbeitung')", BA_LIST_FIELDS, function(err, data) {
+  atGet('Betriebsausgaben_2026', "OR({BA_Status}='offen',{BA_Status}='in Bearbeitung',{BA_Status}='freigegeben')", BA_LIST_FIELDS, function(err, data) {
     loadEl.style.display = 'none';
     if (err) { errEl.textContent = 'Verbindungsfehler: ' + err.message; errEl.style.display = ''; return; }
     if (!data.records || !data.records.length) {
-      errEl.textContent = 'Keine offenen Betriebsausgaben.';
+      errEl.textContent = 'Keine Betriebsausgaben.';
       errEl.style.display = '';
-      document.getElementById('ba-list-count').textContent = '0 offene Betriebsausgaben';
+      document.getElementById('ba-list-count').textContent = '0 Betriebsausgaben';
       return;
     }
     baList = data.records;
@@ -1701,28 +1714,63 @@ function loadBaList() {
   });
 }
 
+// Pill-Klasse je BA-Status. 'freigegeben' = abgeschlossen (grün).
+function baStatusCls(s) {
+  if (s === 'offen') return 'ba-status-offen';
+  if (s === 'freigegeben') return 'ba-status-abgeschlossen';
+  return 'ba-status-bearbeitung';
+}
+
+function baCmpId(a,b){ return String(a.fields['BA_ID']||'').localeCompare(String(b.fields['BA_ID']||'')); }
+
+// Default = BA_Datum aufsteigend, Zweitsortierung BA_ID aufsteigend.
 function baSortRecords(list) {
+  var col = baSortCol || 'date';
+  var mul = (baSortCol && baSortDir === 'desc') ? -1 : 1;
   return list.slice().sort(function(a,b) {
-    var af = a.fields, bf = b.fields;
-    if (baSortMode === 'date_asc') return String(af['BA_Datum']||'').localeCompare(String(bf['BA_Datum']||''));
-    if (baSortMode === 'date_desc') return String(bf['BA_Datum']||'').localeCompare(String(af['BA_Datum']||''));
-    if (baSortMode === 'supplier') return String(af['BA_Lieferant']||'').localeCompare(String(bf['BA_Lieferant']||''));
-    if (baSortMode === 'amount_desc') return (parseFloat(bf['BA_Brutto'])||0) - (parseFloat(af['BA_Brutto'])||0);
-    return 0;
+    var af = a.fields, bf = b.fields, p = 0;
+    if (col === 'id')            p = String(af['BA_ID']||'').localeCompare(String(bf['BA_ID']||''));
+    else if (col === 'date')     p = String(af['BA_Datum']||'').localeCompare(String(bf['BA_Datum']||''));
+    else if (col === 'supplier') p = String(af['BA_Lieferant']||'').localeCompare(String(bf['BA_Lieferant']||''));
+    else if (col === 'amount')   p = (Math.abs(parseFloat(af['BA_Brutto'])||0)) - (Math.abs(parseFloat(bf['BA_Brutto'])||0));
+    else if (col === 'status')   p = String(af['BA_Status']||'').localeCompare(String(bf['BA_Status']||''));
+    if (p !== 0) return p * mul;
+    return baCmpId(a,b);
   });
 }
 
-function renderBaTable() {
-  var sorted = baSortRecords(baList);
-  document.getElementById('ba-list-count').textContent = sorted.length + ' offene Betriebsausgabe' + (sorted.length===1?'':'n');
+// Status-Pill-Filter + Suche (BA-ID, Lieferant, Bezeichnung, Rechnungsnr., Brutto).
+// BA_Notizen wird bewusst NICHT durchsucht.
+function baFilteredRecords() {
+  var q = (document.getElementById('ba-search').value || '').trim().toLowerCase();
+  var useQ = q.length >= 2;
+  var out = [];
+  for (var i = 0; i < baList.length; i++) {
+    var f = baList[i].fields;
+    if (baStatusFilter !== 'all' && (f['BA_Status']||'') !== baStatusFilter) continue;
+    if (useQ) {
+      var hay = [f['BA_ID'], f['BA_Lieferant'], f['BA_Bezeichnung'], f['BA_Beleg_Nr'],
+                 (f['BA_Brutto'] != null ? String(f['BA_Brutto']) : '')].join(' ').toLowerCase();
+      if (hay.indexOf(q) === -1) continue;
+    }
+    out.push(baList[i]);
+  }
+  return baSortRecords(out);
+}
+function scheduleBaSearch(){ if (baSearchDebounce) clearTimeout(baSearchDebounce); baSearchDebounce = setTimeout(renderBaTable, 200); }
 
+function renderBaTable() {
+  var sorted = baFilteredRecords();
+  document.getElementById('ba-list-count').textContent = sorted.length + ' Betriebsausgabe' + (sorted.length===1?'':'n');
+
+  function arr(col){ return baSortCol===col ? '<span class="kimp-sort-arr">'+(baSortDir==='asc'?' ↑':' ↓')+'</span>' : ''; }
   var html = '<table class="ba-table"><thead><tr>'+
     '<th style="width:24px"></th>'+
-    '<th>BA-ID</th>'+
-    '<th>Datum</th>'+
-    '<th>Lieferant</th>'+
-    '<th style="text-align:right">Brutto</th>'+
-    '<th>Status</th>'+
+    '<th class="kimp-th-sort" data-col="id">BA-ID'+arr('id')+'</th>'+
+    '<th class="kimp-th-sort" data-col="date">Datum'+arr('date')+'</th>'+
+    '<th class="kimp-th-sort" data-col="supplier">Lieferant'+arr('supplier')+'</th>'+
+    '<th class="kimp-th-sort" data-col="amount" style="text-align:right">Brutto'+arr('amount')+'</th>'+
+    '<th class="kimp-th-sort" data-col="status">Status'+arr('status')+'</th>'+
     '<th style="text-align:center">PDF</th>'+
     '</tr></thead><tbody>';
 
@@ -1732,7 +1780,6 @@ function renderBaTable() {
     var isKlaer = notizen.toUpperCase().indexOf('KLÄRFALL:') === 0;
     var hasPdf = Array.isArray(f['BA_Beleg']) && f['BA_Beleg'].length > 0;
     var status = f['BA_Status'] || '—';
-    var statusCls = status === 'offen' ? 'ba-status-offen' : 'ba-status-bearbeitung';
     var brutto = f['BA_Brutto'] != null ? parseFloat(f['BA_Brutto']).toFixed(2)+' €' : '—';
     var datum = f['BA_Datum'] ? String(f['BA_Datum']).substring(0,10) : '—';
 
@@ -1742,19 +1789,38 @@ function renderBaTable() {
       '<td>'+escHtml(datum)+'</td>'+
       '<td>'+escHtml(f['BA_Lieferant']||'—')+'</td>'+
       '<td style="text-align:right;font-weight:600">'+brutto+'</td>'+
-      '<td><span class="ba-status-pill '+statusCls+'">'+escHtml(status)+'</span></td>'+
+      '<td><span class="ba-status-pill '+baStatusCls(status)+'">'+escHtml(status)+'</span></td>'+
       '<td style="text-align:center">'+(hasPdf?'<span class="ba-pdf-yes">●</span>':'<span class="ba-pdf-no">○</span>')+'</td>'+
       '</tr>';
   });
 
   html += '</tbody></table>';
-  document.getElementById('ba-list-table-wrap').innerHTML = html;
+  var wrap = document.getElementById('ba-list-table-wrap');
+  wrap.innerHTML = html;
 
-  document.getElementById('ba-list-table-wrap').querySelectorAll('tbody tr').forEach(function(tr) {
-    tr.addEventListener('click', function() {
+  wrap.querySelectorAll('tbody tr').forEach(function(tr) {
+    // Maus-Drag (Text-Selektion) darf NICHT den Detail-View öffnen.
+    var downX=0, downY=0, dragged=false;
+    tr.addEventListener('mousedown', function(e){ downX=e.clientX; downY=e.clientY; dragged=false; });
+    tr.addEventListener('mousemove', function(e){
+      if (Math.abs(e.clientX-downX)>5 || Math.abs(e.clientY-downY)>5) dragged=true;
+    });
+    attachTouchClickHandler(tr, function(){
+      if (dragged){ dragged=false; return; }
       openBaDetail(tr.getAttribute('data-id'));
     });
   });
+  wrap.querySelectorAll('th.kimp-th-sort').forEach(function(th){
+    attachTouchClickHandler(th, function(){ baHeaderClick(th.getAttribute('data-col')); });
+  });
+}
+
+// Header-Klick-Zyklus: asc (↑) → desc (↓) → zurück auf Default (Datum aufst., kein Icon).
+function baHeaderClick(col) {
+  if (baSortCol !== col){ baSortCol = col; baSortDir = 'asc'; }
+  else if (baSortDir === 'asc'){ baSortDir = 'desc'; }
+  else { baSortCol = null; baSortDir = 'asc'; }
+  renderBaTable();
 }
 
 function openBaDetail(recId) {
@@ -1800,7 +1866,7 @@ function populateBaForm(rec) {
   var statusEl = document.getElementById('ba-status-display');
   var status = f['BA_Status'] || '—';
   statusEl.textContent = status;
-  statusEl.className = 'ba-status-pill ' + (status === 'offen' ? 'ba-status-offen' : 'ba-status-bearbeitung');
+  statusEl.className = 'ba-status-pill ' + baStatusCls(status);
 
   var notizen = String(f['BA_Notizen'] || '');
   var banner = document.getElementById('ba-klaer-banner');
@@ -1834,6 +1900,19 @@ function populateBaForm(rec) {
 
   updateBaPdfControls();
   updateBaFieldMarkings();
+  updateBaDeleteBtn();
+}
+
+// "🗑 BA löschen" nur bei gespeicherter BA mit Status offen/in Bearbeitung sichtbar.
+// Bei abgeschlossenen (freigegeben) BAs ausgeblendet, um versehentliches Löschen
+// zu verhindern. Im Anlage-Modus (noch kein Record) ebenfalls aus.
+function updateBaDeleteBtn() {
+  var btn = document.getElementById('btn-ba-delete');
+  if (!btn) return;
+  var saved = !!(baCurrentRec && baCurrentRec.id) && !baNewMode;
+  var st = (baCurrentRec && baCurrentRec.fields && baCurrentRec.fields['BA_Status']) || '';
+  var allowed = st === 'offen' || st === 'in Bearbeitung';
+  btn.style.display = (saved && allowed) ? '' : 'none';
 }
 
 // Steuert PDF-Viewer, "PDF hochladen"-/"PDF ersetzen"-Buttons je nach Zustand:
@@ -2793,7 +2872,8 @@ function baSaveProceed(opts) {
       baCurrentRec.fields['BA_Status'] = opts.targetStatus;
       var statusEl = document.getElementById('ba-status-display');
       statusEl.textContent = opts.targetStatus;
-      statusEl.className = 'ba-status-pill ' + (opts.targetStatus === 'offen' ? 'ba-status-offen' : 'ba-status-bearbeitung');
+      statusEl.className = 'ba-status-pill ' + baStatusCls(opts.targetStatus);
+      updateBaDeleteBtn();
 
       if (opts.afterSave === 'stay') {
         msg.textContent = opts.successMsg || '✓ Gespeichert';
@@ -2862,7 +2942,7 @@ function baGoToList(infoMsg) {
   showBaListView();
   if (baList.length === 0) {
     document.getElementById('ba-list-table-wrap').innerHTML = '';
-    document.getElementById('ba-list-count').textContent = '0 offene Betriebsausgaben';
+    document.getElementById('ba-list-count').textContent = '0 Betriebsausgaben';
   } else {
     renderBaTable();
   }
@@ -2878,7 +2958,7 @@ function baGoToList(infoMsg) {
 }
 
 function setBaButtonsDisabled(disabled) {
-  ['btn-ba-cancel','btn-ba-save','btn-ba-list','btn-ba-next','btn-ba-approve'].forEach(function(id){
+  ['btn-ba-cancel','btn-ba-save','btn-ba-list','btn-ba-next','btn-ba-approve','btn-ba-delete'].forEach(function(id){
     var b = document.getElementById(id);
     if (b) b.disabled = disabled;
   });
@@ -2895,15 +2975,58 @@ function baCancel() {
   showBaListView();
 }
 
+// Löscht den BA-Record in Airtable. Das BA_Beleg-PDF liegt in Airtables eigenem
+// Attachment-Storage (keine Drive-URL, kein separates BA_Drive_ID-Feld in der
+// Codebase) und wird mit dem Record automatisch mitgelöscht. Linked Records
+// (z.B. KIMP_BA_Link) werden von Airtable sauber entkoppelt.
+function baDelete() {
+  if (!baCurrentRec || !baCurrentRec.id) return;
+  var st = (baCurrentRec.fields && baCurrentRec.fields['BA_Status']) || '';
+  if (st !== 'offen' && st !== 'in Bearbeitung') return; // defensiv, Button ist eh versteckt
+  var baId = (baCurrentRec.fields && baCurrentRec.fields['BA_ID']) || baCurrentRec.id;
+  if (!confirm('BA' + baId + ' wirklich löschen? Der Airtable-Eintrag und das verknüpfte Beleg-PDF werden unwiderruflich gelöscht.')) return;
+
+  var recId = baCurrentRec.id;
+  var msg = document.getElementById('ba-save-msg');
+  msg.textContent = 'Lösche…';
+  msg.style.color = 'var(--muted)';
+  setBaButtonsDisabled(true);
+
+  atDelete('Betriebsausgaben_2026', recId, function(err, data) {
+    if (err || (data && data.error)) {
+      setBaButtonsDisabled(false);
+      msg.textContent = 'Fehler beim Löschen: ' + (err ? err.message : data.error.message);
+      msg.style.color = 'var(--accent)';
+      return;
+    }
+    baList = baList.filter(function(r){ return r.id !== recId; });
+    baNewMode = false;
+    baCurrentPartner = null;
+    baSelectedPartnerId = null;
+    setBaButtonsDisabled(false);
+    msg.textContent = '';
+    baGoToList('BA' + baId + ' gelöscht');
+  });
+}
+
 // BA: tile is in home (above this script) → can wire now
 addNav('tile-ba', 'screen-ba', loadBaList);
 
 // BA: detail elements live below this script in the DOM, so wire on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', function setupBa() {
-  document.getElementById('ba-sort').addEventListener('change', function(){ baSortMode = this.value; renderBaTable(); });
+  document.getElementById('ba-search').addEventListener('input', scheduleBaSearch);
+  document.querySelectorAll('#ba-list-view .kimp-pill').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('#ba-list-view .kimp-pill').forEach(function(b){ b.classList.remove('kimp-pill-active'); });
+      btn.classList.add('kimp-pill-active');
+      baStatusFilter = btn.getAttribute('data-status');
+      renderBaTable();
+    });
+  });
   document.getElementById('btn-ba-reload').addEventListener('click', loadBaList);
   document.getElementById('btn-ba-new').addEventListener('click', openBaNew);
   document.getElementById('btn-ba-cancel').addEventListener('click', baCancel);
+  document.getElementById('btn-ba-delete').addEventListener('click', baDelete);
 
   // PDF-Upload / -Ersetzen
   var pdfFileInput = document.getElementById('ba-pdf-file');
@@ -4140,22 +4263,27 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <button class="menu-btn" onclick="openMenu()">☰</button>
     <button class="back-btn" id="btn-back-ba">←</button>
     <div class="sub-header-title" id="ba-header-title">BA-Review</div>
-    <select id="ba-sort" class="ba-sort-select">
-      <option value="date_asc">Datum (älteste zuerst)</option>
-      <option value="date_desc">Datum (neueste zuerst)</option>
-      <option value="supplier">Lieferant A-Z</option>
-      <option value="amount_desc">Brutto absteigend</option>
-    </select>
-    <button class="refresh-btn" id="btn-ba-reload" style="margin-left:6px;width:32px;height:32px;padding:0;font-size:14px;">↻</button>
+    <button class="refresh-btn" id="btn-ba-reload" style="margin-left:auto;width:32px;height:32px;padding:0;font-size:14px;">↻</button>
     <button class="ba-new-btn" id="btn-ba-new" type="button">+ Neue BA</button>
   </div>
 
-  <div class="sub-content" id="ba-list-view">
-    <div class="s-card">
-      <div class="s-card-title" id="ba-list-count">Offene Betriebsausgaben</div>
-      <div class="s-loading" id="ba-list-loading">Wird geladen…</div>
-      <div class="s-error" id="ba-list-error"></div>
-      <div id="ba-list-table-wrap" style="overflow-x:auto"></div>
+  <div id="ba-list-view" class="kimp-list-view">
+    <div class="kimp-search-section">
+      <input type="text" id="ba-search" placeholder="Suchen (BA-ID, Lieferant, Bezeichnung, Rechnungsnr., Brutto)…" autocomplete="off" />
+      <div class="kimp-pills-row">
+        <button class="kimp-pill kimp-pill-active" data-status="all" type="button">Alle</button>
+        <button class="kimp-pill" data-status="offen" type="button">Offen</button>
+        <button class="kimp-pill" data-status="in Bearbeitung" type="button">In Bearbeitung</button>
+        <button class="kimp-pill" data-status="freigegeben" type="button">Abgeschlossen</button>
+      </div>
+    </div>
+    <div class="kimp-list-scroll">
+      <div class="s-card">
+        <div class="s-card-title" id="ba-list-count">Betriebsausgaben</div>
+        <div class="s-loading" id="ba-list-loading">Wird geladen…</div>
+        <div class="s-error" id="ba-list-error"></div>
+        <div id="ba-list-table-wrap" style="overflow-x:auto"></div>
+      </div>
     </div>
   </div>
 
@@ -4281,6 +4409,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <button id="btn-ba-list" class="btn-ba-list" type="button">Zur Liste</button>
         <button id="btn-ba-next" class="btn-ba-next" type="button">Weiter →</button>
         <button id="btn-ba-approve" class="btn-ba-approve" type="button">Abschließen</button>
+        <button id="btn-ba-delete" class="btn-ba-delete" type="button" style="display:none">🗑 BA löschen</button>
       </div>
 
       <div id="ba-save-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
