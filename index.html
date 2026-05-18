@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.6.0
-  SW Cache: rd-hub-v62
+  Version:  2.6.1
+  SW Cache: rd-hub-v63
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.6.1  (2026-05-17)  Weiter-Logik im BA-Review respektiert Filter/Suche/Sortierung
   v2.6.0  (2026-05-17)  BA löschen + BA-Liste sortierbar + Suche
   v2.5.0  (2026-05-17)  VK-Rechnungen direkt aus dem Clearing erzeugen
   v2.4.1  (2026-05-17)  Vorschlags-Karten: Rechnungsnr + Partner-Namen + Cache-Refresh
@@ -530,8 +531,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.6.0</span>
-      <span>SW rd-hub-v62</span>
+      <span>APP v2.6.1</span>
+      <span>SW rd-hub-v63</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -564,7 +565,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -2811,10 +2812,10 @@ function baSaveProceed(opts) {
   var fields = collectBaFields();
   fields['BA_Status'] = opts.targetStatus;
 
-  // Position der aktuellen BA in der sortierten Liste festhalten — wird nach
-  // dem Entfernen aus dem Cache (Abschließen) gebraucht, um die nächste BA
-  // an der gleichen Listenposition zu laden.
-  var sortedBefore = baSortRecords(baList);
+  // Position der aktuellen BA in der AKTUELL gefilterten+sortierten+durchsuchten
+  // Liste festhalten (wie der User sie sieht) — wird nach der Status-/Listen-
+  // Mutation gebraucht, um die nachgerückte BA an dieser Position zu laden.
+  var sortedBefore = baFilteredRecords();
   var originalIdx = -1;
   for (var i = 0; i < sortedBefore.length; i++) {
     if (sortedBefore[i].id === baCurrentRec.id) { originalIdx = i; break; }
@@ -2919,13 +2920,12 @@ function baSaveProceed(opts) {
   }
 }
 
-// Liefert die nächste BA zum aktuell bearbeiteten Datensatz.
-// originalIdx = Position der aktuellen BA in der sortierten Liste *vor* dem Save (nur bei Approve relevant).
-// - Aktuelle BA noch im Cache (Weiter): Position+1 in der sortierten Liste.
-// - Aktuelle BA entfernt (Abschließen): gleiche Index-Position in der verkürzten Liste, also die
-//   BA, die zuvor an originalIdx+1 stand und nun nach oben gerückt ist.
+// Nächste BA in der AKTUELL gefilterten+sortierten Liste (wie der User sie sieht).
+// originalIdx = Position der aktuellen BA in dieser Liste *vor* dem Save (für Abschließen
+// oder wenn der Record danach raus-/weggefiltert ist → der nachgerückte Record an dieser
+// Position, NICHT der vorherige). Analog kimpFindNext().
 function baFindNext(currentId, originalIdx) {
-  var sorted = baSortRecords(baList);
+  var sorted = baFilteredRecords();
   for (var i = 0; i < sorted.length; i++) {
     if (sorted[i].id === currentId) {
       return i + 1 < sorted.length ? sorted[i + 1] : null;
