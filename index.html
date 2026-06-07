@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.7.4
-  SW Cache: rd-hub-v72
+  Version:  2.7.5
+  SW Cache: rd-hub-v73
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.7.5  (2026-05-18)  Modal größer + Acrobat-Auto-Open weg + Action-Buttons sticky oben
   v2.7.4  (2026-05-18)  BA-Anlage-Button prominent + Dokument-Vorschau funktioniert + KIMP-Info-Banner im Modal
   v2.7.3  (2026-05-18)  Beleg-Vorschau im BA-Anlage-Modal
   v2.7.2  (2026-05-18)  BA-Anzeige mit Datum/Status, Bild-Uploads (JPG/PNG) zusätzlich zu PDF
@@ -536,9 +537,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-newba-cta{margin-bottom:14px}
 .kimp-newba-cta-btn{width:100%;background:rgba(63,217,155,.12);border:.5px solid var(--green);color:var(--green);border-radius:var(--radius-sm);padding:11px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation;text-align:center}
 .kimp-newba-cta-btn:hover{background:rgba(63,217,155,.2)}
+/* Sticky Action-Bar im KIMP-Detail-View: bricht via Negativ-Margin aus dem
+   .kimp-right-pane-Padding (18px) aus, damit die Bar visuell bündig mit der Card-Kante
+   steht und beim Scrollen mit fester Position oben am Pane klebt. */
+.kimp-action-bar{position:sticky;top:0;background:var(--card);z-index:10;margin:-18px -18px 14px -18px;padding:12px 18px 10px 18px;border-bottom:.5px solid var(--border)}
 #kimp-newba-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
 #kimp-newba-overlay.show{display:flex}
-.kimp-newba-box{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);width:100%;max-width:1200px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.kimp-newba-box{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);width:100%;max-width:min(1500px,95vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .kimp-newba-head{padding:16px 18px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .kimp-newba-title{font-size:15px;font-weight:700;color:var(--text)}
 .kimp-newba-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0 4px;font-family:inherit}
@@ -552,12 +557,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-newba-file-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kimp-newba-file-change{background:none;border:.5px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;font-family:inherit}
 .kimp-newba-ocr{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted)}
-.kimp-newba-split{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:16px;align-items:start}
+.kimp-newba-split{display:grid;grid-template-columns:minmax(0,55%) minmax(0,45%);gap:16px;align-items:start}
 .kimp-newba-left{display:flex;flex-direction:column;gap:8px;min-width:0}
 .kimp-newba-right{min-width:0}
-.kimp-newba-preview{border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card2);overflow:hidden}
-.kimp-newba-preview iframe{width:100%;height:600px;border:none;display:block;background:#fff}
-.kimp-newba-preview img{width:100%;max-height:600px;object-fit:contain;display:block}
+.kimp-newba-preview{border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card2);overflow:hidden;min-height:750px;display:flex;flex-direction:column}
+.kimp-newba-preview iframe{flex:1;width:100%;min-height:750px;border:none;display:block;background:#fff}
+.kimp-newba-preview img{flex:1;width:100%;max-width:100%;max-height:100%;min-height:750px;object-fit:contain;display:block;margin:0 auto}
 .kimp-newba-preview-actions{padding:6px 8px;font-size:11px;text-align:center;background:var(--card2);border-top:.5px solid var(--border)}
 .kimp-newba-preview-actions a{color:var(--muted);text-decoration:underline}
 .kimp-newba-preview-actions a:hover{color:var(--text)}
@@ -584,8 +589,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-newba-submit:disabled{opacity:.5;cursor:wait}
 @media (max-width:900px){
   .kimp-newba-split{grid-template-columns:1fr}
-  .kimp-newba-preview iframe{height:50vh}
-  .kimp-newba-preview img{max-height:50vh}
+  .kimp-newba-preview{min-height:0}
+  .kimp-newba-preview iframe{min-height:0;height:50vh}
+  .kimp-newba-preview img{min-height:0;max-height:50vh}
 }
 @media (max-width:640px){
   .kimp-newba-form{grid-template-columns:1fr}
@@ -641,8 +647,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.7.4</span>
-      <span>SW rd-hub-v72</span>
+      <span>APP v2.7.5</span>
+      <span>SW rd-hub-v73</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -675,7 +681,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.4</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.5</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -3622,6 +3628,10 @@ var kimpMatchCacheTime = 0;    // Zeitstempel des letzten erfolgreichen Cache-Bu
 var kimpPartnerCache = null;   // { partnerRecId: PD-fields } für EK/VK-Namensauflösung
 var kimpSuggestions = [];      // berechnete Vorschläge der aktuell offenen Detail-Ansicht
 var kimpSupplierHits = [];     // flache Liste der Karten in der Lieferanten-Sektion (Verknüpfen-Lookup)
+// Einmal-Flag: nächstes renderKimpBelegPane überspringt das Auto-Laden des PDFs in den
+// linken iframe. Wird nach Hub-getriebener BA-Anlage gesetzt, damit das frisch importierte
+// PDF nicht ungewollt Acrobat o.ä. öffnet (User-Beschwerde v2.7.5).
+var kimpSkipAutoPdfOnce = false;
 
 var KIMP_LINK_DEFS = {
   ba:{ field:'KIMP_BA_Link', table:'Betriebsausgaben_2026', label:'BA', el:'kimp-link-ba',
@@ -4022,8 +4032,16 @@ function renderKimpBelegPane(){
     attachTouchClickHandler(el, function(){ if (e.url) kimpShowPdf(e.url, el); });
     if (e.url) withPdf.push({ el:el, url:e.url });
   });
-  if (withPdf.length===1) kimpShowPdf(withPdf[0].url, withPdf[0].el);
-  else kimpShowPdf(null,null);
+  if (kimpSkipAutoPdfOnce){
+    // Auto-Open nach BA-Anlage unterdrücken (siehe v2.7.5). User klickt selber an, wenn er
+    // den Beleg sehen will. Flag immer zurücksetzen, damit nur dieser Render betroffen ist.
+    kimpSkipAutoPdfOnce = false;
+    kimpShowPdf(null, null);
+  } else if (withPdf.length===1){
+    kimpShowPdf(withPdf[0].url, withPdf[0].el);
+  } else {
+    kimpShowPdf(null,null);
+  }
 }
 
 function renderKimpLinkSection(type){
@@ -5143,6 +5161,10 @@ function kimpNewBaOnSuccess(res){
     if (kimpMatchCache && kimpMatchCache.ba) kimpMatchCache.ba.push({ id:newBaRecId, fields: ba_data });
     // BA-Beleg-Map (für Beleg-Indikator in der KIMP-Liste).
     if (kimpBaBelegSet && driveUrl) kimpBaBelegSet[newBaRecId] = true;
+    // Auto-Open des frisch importierten PDFs unterdrücken — auf manchen Systemen löst das
+    // einen externen PDF-Viewer (Acrobat) aus, was hier ungewollt ist. User kann den Beleg
+    // weiterhin manuell in der Liste links anklicken.
+    kimpSkipAutoPdfOnce = true;
     // Detail neu rendern → "Aktuelle Verknüpfungen" + Beleg-Pane.
     populateKimpDetail(kimpCurrentRec);
     kimpSetMsg('✓ BA ' + baLot + ' angelegt und verknüpft', 'ok');
@@ -5650,6 +5672,12 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
       </div>
     </div>
     <div class="kimp-right-pane">
+      <div class="ba-buttons kimp-action-bar">
+        <button id="btn-kimp-cancel" class="btn-ba-cancel" type="button">Abbrechen</button>
+        <button id="btn-kimp-list" class="btn-ba-list" type="button">Zur Liste</button>
+        <button id="btn-kimp-next" class="btn-ba-next" type="button">Weiter →</button>
+        <button id="btn-kimp-approve" class="btn-ba-approve" type="button">Abschließen</button>
+      </div>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
         <div>
           <div style="font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em">KIMP</div>
@@ -5667,12 +5695,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
       <div id="kimp-link-vk" class="kimp-link-section"></div>
       <div class="ba-form-row" id="kimp-notizen-row" style="grid-template-columns:1fr">
         <div class="ba-field"><label>Notizen</label><textarea id="kimp-notizen" rows="3"></textarea></div>
-      </div>
-      <div class="ba-buttons">
-        <button id="btn-kimp-cancel" class="btn-ba-cancel" type="button">Abbrechen</button>
-        <button id="btn-kimp-list" class="btn-ba-list" type="button">Zur Liste</button>
-        <button id="btn-kimp-next" class="btn-ba-next" type="button">Weiter →</button>
-        <button id="btn-kimp-approve" class="btn-ba-approve" type="button">Abschließen</button>
       </div>
       <div id="kimp-save-msg" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px"></div>
     </div>
