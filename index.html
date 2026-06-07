@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.6.3
-  SW Cache: rd-hub-v65
+  Version:  2.6.4
+  SW Cache: rd-hub-v66
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.6.4  (2026-05-18)  Belegnummer-Match priorisiert, Datums-Filter übersprungen
   v2.6.3  (2026-05-18)  Lieferanten-Sektion in KIMP-Mögliche-Treffer
   v2.6.2  (2026-05-18)  Refresh-Buttons in KIMP-Mögliche-Treffer und BA-Detail
   v2.6.1  (2026-05-17)  Weiter-Logik im BA-Review respektiert Filter/Suche/Sortierung
@@ -547,8 +548,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.6.3</span>
-      <span>SW rd-hub-v65</span>
+      <span>APP v2.6.4</span>
+      <span>SW rd-hub-v66</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -581,7 +582,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.3</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.4</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -3934,13 +3935,30 @@ function kimpComputeSuggestions(){
         bs=kimpBetragScore(kAbs, Math.abs(parseFloat(cf[d.amtF])));
       }
       if (!bs) return;
-      // Datum (Pflicht)
+      // Belegnummer ZUERST (nur BA): ein exakter Match der Rechnungsnummer im KIMP-
+      // Verwendungszweck ist der stärkste Indikator und schaltet den Datums-Filter
+      // aus — Rechnungen können in der Praxis Monate vor der Bezahlung ausgestellt
+      // werden. Bonus +200 sorgt dafür, dass solche Kandidaten zuverlässig oben stehen.
+      var blPts=0, blLbl=null, belegNr=null, belegMatch=false;
+      if (src==='ba'){
+        belegNr = (cf[d.belegF]!=null && String(cf[d.belegF]).trim()!=='') ? String(cf[d.belegF]) : null;
+        var bn=kimpNorm(cf[d.belegF]);
+        if (bn.length>=4 && kVZ.indexOf(bn)!==-1){ blPts=200; blLbl='Belegnr exakt'; belegMatch=true; }
+      }
+      // Datum: bei Belegnr-Match nur informativ (kein Filter, kein Score-Beitrag).
+      // Sonst bleibt die 90-Tage-Schranke als Schutz vor Quatsch-Treffern.
       var cMs=kimpDateMs(cf[d.dateF]);
-      if (cMs==null) return;
-      var dd=Math.abs(kMs-cMs)/86400000;
-      if (dd>90) return;
-      var dPts=Math.round(15*(1-dd/90));
-      if (dPts<=0) return;
+      var dd=null, dPts=0, dateSkipped=false;
+      if (belegMatch){
+        if (cMs!=null) dd=Math.abs(kMs-cMs)/86400000;
+        dateSkipped=true;
+      } else {
+        if (cMs==null) return;
+        dd=Math.abs(kMs-cMs)/86400000;
+        if (dd>90) return;
+        dPts=Math.round(15*(1-dd/90));
+        if (dPts<=0) return;
+      }
       // Lieferant/Name (Bonus)
       var nLbl=null, nPts=0;
       var tn=kimpNorm(kimpRawName(cf[d.nameF]));
@@ -3953,19 +3971,17 @@ function kimpComputeSuggestions(){
           else if (hit>=1){ nPts=15; nLbl='Lieferant teilweise'; }
         }
       }
-      // Belegnummer (Bonus, nur BA) + Match-Flag für optische Hervorhebung
-      var blPts=0, blLbl=null, belegNr=null, belegMatch=false;
-      if (src==='ba'){
-        belegNr = (cf[d.belegF]!=null && String(cf[d.belegF]).trim()!=='') ? String(cf[d.belegF]) : null;
-        var bn=kimpNorm(cf[d.belegF]);
-        if (bn.length>=4 && kVZ.indexOf(bn)!==-1){ blPts=50; blLbl='Belegnr im Zweck'; belegMatch=true; }
-      }
       var signB = (sign==='out') ? ((src==='ba'||src==='ek')?10:0) : (src==='vk'?10:0);
       var total = bs.pts + dPts + nPts + blPts + signB;
       if (total < 40) return;
-      var parts=[bs.lbl, 'Datum Δ'+Math.round(dd)+'d'];
-      if (nLbl) parts.push(nLbl);
-      if (blLbl) parts.push(blLbl);
+      // Score-Erklärung: pro Komponente Punkte in Klammern; bei Belegnr-Match Suffix
+      // statt Datums-Komponente, damit nachvollziehbar bleibt, warum der Treffer oben steht.
+      var parts=[];
+      if (blLbl) parts.push(blLbl+' ('+blPts+')');
+      parts.push(bs.lbl+' ('+bs.pts+')');
+      if (dd!=null && !dateSkipped) parts.push('Datum Δ'+Math.round(dd)+'d ('+dPts+')');
+      if (nLbl) parts.push(nLbl+' ('+nPts+')');
+      var explSuffix = dateSkipped ? ' - Datum übersprungen wegen Belegnr' : '';
 
       // Anzeigename: BA → Lieferant | Bezeichnung | "(kein Lieferant)";
       //              EK → Partner-Name; VK → VK_Name sonst Partner-Name.
@@ -3990,7 +4006,7 @@ function kimpComputeSuggestions(){
         amount: cf[d.amtF],
         date: cf[d.dateF],
         score: total,
-        expl: 'Score '+total+': '+parts.join(' + ')
+        expl: 'Score '+total+': '+parts.join(' + ')+explSuffix
       });
     });
   });
