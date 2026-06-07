@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.6.2
-  SW Cache: rd-hub-v64
+  Version:  2.6.3
+  SW Cache: rd-hub-v65
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.6.3  (2026-05-18)  Lieferanten-Sektion in KIMP-Mögliche-Treffer
   v2.6.2  (2026-05-18)  Refresh-Buttons in KIMP-Mögliche-Treffer und BA-Detail
   v2.6.1  (2026-05-17)  Weiter-Logik im BA-Review respektiert Filter/Suche/Sortierung
   v2.6.0  (2026-05-17)  BA löschen + BA-Liste sortierbar + Suche
@@ -528,6 +529,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-sug-expl{font-size:10px;color:var(--hint);margin-top:2px;line-height:1.3}
 .kimp-sug-link-btn{align-self:center;flex-shrink:0;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
 .kimp-sug-link-btn:disabled{opacity:.5;cursor:wait}
+.kimp-sup-block{margin-top:14px}
+.kimp-sup-title{margin-bottom:6px}
+.kimp-sup-link-btn{align-self:center;flex-shrink:0;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
+.kimp-sup-link-btn:disabled{opacity:.5;cursor:wait}
 .kimp-sug-retry{margin-top:4px;background:var(--card2);color:var(--text);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;touch-action:manipulation}
 .ba-table th.kimp-th-sort{cursor:pointer;user-select:none;-webkit-user-select:none;white-space:nowrap;touch-action:manipulation}
 .ba-table th.kimp-th-sort:hover{color:var(--text)}
@@ -542,8 +547,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.6.2</span>
-      <span>SW rd-hub-v64</span>
+      <span>APP v2.6.3</span>
+      <span>SW rd-hub-v65</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -576,7 +581,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.2</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.3</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -3255,6 +3260,7 @@ var kimpMatchError = false;
 var kimpMatchCacheTime = 0;    // Zeitstempel des letzten erfolgreichen Cache-Builds (Stale-Check)
 var kimpPartnerCache = null;   // { partnerRecId: PD-fields } für EK/VK-Namensauflösung
 var kimpSuggestions = [];      // berechnete Vorschläge der aktuell offenen Detail-Ansicht
+var kimpSupplierHits = [];     // flache Liste der Karten in der Lieferanten-Sektion (Verknüpfen-Lookup)
 
 var KIMP_LINK_DEFS = {
   ba:{ field:'KIMP_BA_Link', table:'Betriebsausgaben_2026', label:'BA', el:'kimp-link-ba',
@@ -3994,6 +4000,93 @@ function kimpComputeSuggestions(){
 
 function kimpSugColor(s){ return s>=80 ? 'sug-green' : (s>=60 ? 'sug-amber' : 'sug-grey'); }
 
+// ── Lieferanten-Sektion ──
+// Großzügiger Token-Match (≥4 Zeichen) zwischen KIMP_Name und Lieferanten-/Partner-Namen
+// im Match-Cache. Findet auch Records, die der Score-Algorithmus wegen Datums-Limit (90d)
+// oder zu niedrigem Score verworfen hat — z.B. eine alte BA vom gleichen Lieferanten.
+function kimpSupplierTokens(name){
+  var n=kimpNorm(name);
+  if (!n) return [];
+  return n.split(' ').filter(function(t){ return t.length>=4; });
+}
+function kimpSupplierMatch(supplierName, kimpName){
+  var s=kimpSupplierTokens(supplierName);
+  var k=kimpSupplierTokens(kimpName);
+  if (!s.length || !k.length) return false;
+  var sNorm=' '+s.join(' ')+' ', kNorm=' '+k.join(' ')+' ';
+  for (var i=0;i<s.length;i++) if (kNorm.indexOf(' '+s[i])!==-1 || kNorm.indexOf(s[i])!==-1) return true;
+  for (var j=0;j<k.length;j++) if (sNorm.indexOf(k[j])!==-1) return true;
+  return false;
+}
+function kimpRecSupplierName(src, rec){
+  var cf=rec.fields||{};
+  if (src==='ba'){
+    return kimpRawName(cf['BA_Lieferant']).trim()
+        || kimpRawName(cf['BA_Bezeichnung']).trim()
+        || '';
+  }
+  if (src==='ek') return kimpPartnerName(cf['EK_PartnerID']) || '';
+  var vkName=kimpRawName(cf['VK_Name']).trim();
+  return vkName || kimpPartnerName(cf['VK_PartnerID']) || '';
+}
+// Liefert { name, hits[] } oder null. Bereits verknüpfte Records werden ausgeschlossen.
+// Sortierung: Betragsdifferenz aufsteigend, dann Datumsdifferenz aufsteigend. Max 10.
+function getKimpSupplierMatches(kf, src){
+  if (!kimpMatchCache) return null;
+  var d=KIMP_MATCH_DEFS[src];
+  var linked=kimpLinkIds(kf, d.linkField);
+  var kBetrag=parseFloat(kf['KIMP_Betrag']);
+  var kAbs=Math.abs(kBetrag);
+  var kMs=kimpDateMs(kf['KIMP_Buchungstag']);
+  var kName=kimpRawName(kf['KIMP_Name']);
+  if (!kName) return null;
+  var kVZ=kimpNorm(kf['KIMP_Verwendungszweck']);
+  var hits=[], nameCounts={};
+  (kimpMatchCache[src]||[]).forEach(function(rec){
+    if (linked.indexOf(rec.id)!==-1) return;
+    var supplier=kimpRecSupplierName(src, rec);
+    if (!supplier) return;
+    if (!kimpSupplierMatch(supplier, kName)) return;
+    var cf=rec.fields||{};
+    var amtVal=parseFloat(cf[d.amtF]);
+    var betragDiff=(!isNaN(kAbs) && !isNaN(amtVal)) ? Math.abs(kAbs-Math.abs(amtVal)) : null;
+    var cMs=kimpDateMs(cf[d.dateF]);
+    var dateDiff=(kMs!=null && cMs!=null) ? Math.round(Math.abs(kMs-cMs)/86400000) : null;
+    var belegNr=null, belegMatch=false;
+    if (src==='ba'){
+      var bn=cf['BA_Beleg_Nr'];
+      if (bn!=null && String(bn).trim()!=='') belegNr=String(bn);
+      var bnNorm=kimpNorm(bn);
+      if (bnNorm.length>=4 && kVZ.indexOf(bnNorm)!==-1) belegMatch=true;
+    }
+    hits.push({
+      src:src, id:rec.id,
+      idLabel: cf[d.idF] || rec.id,
+      name: supplier,
+      belegNr: belegNr,
+      belegMatch: belegMatch,
+      amount: cf[d.amtF],
+      date: cf[d.dateF],
+      betragDiff: betragDiff,
+      dateDiff: dateDiff
+    });
+    nameCounts[supplier]=(nameCounts[supplier]||0)+1;
+  });
+  if (!hits.length) return null;
+  hits.sort(function(a,b){
+    var ba=(a.betragDiff==null)?Number.MAX_SAFE_INTEGER:a.betragDiff;
+    var bb=(b.betragDiff==null)?Number.MAX_SAFE_INTEGER:b.betragDiff;
+    if (ba!==bb) return ba-bb;
+    var da=(a.dateDiff==null)?Number.MAX_SAFE_INTEGER:a.dateDiff;
+    var db=(b.dateDiff==null)?Number.MAX_SAFE_INTEGER:b.dateDiff;
+    return da-db;
+  });
+  hits=hits.slice(0,10);
+  var topName=kName, topN=0;
+  Object.keys(nameCounts).forEach(function(n){ if (nameCounts[n]>topN){ topN=nameCounts[n]; topName=n; } });
+  return { name: topName, hits: hits };
+}
+
 function renderKimpSuggestions(){
   var el=document.getElementById('kimp-suggestions');
   if (!el) return;
@@ -4041,7 +4134,45 @@ function renderKimpSuggestions(){
       });
     }
   }
-  el.innerHTML=head+body;
+  // Lieferanten-Sektion(en): unter den Score-Vorschlägen, pro passender Source eine eigene
+  // Sektion. Sign-Filter wie im Score: 'out' (negativer KIMP) → BA+EK, 'in' (positiv) → VK.
+  // Wird nur gerendert, wenn KIMP komplett ist und der Match-Cache geladen.
+  var supHtml='';
+  kimpSupplierHits=[];
+  var canSup = !isNaN(kBetrag) && Math.abs(kBetrag)>0 && kMs!=null
+            && !kimpMatchError && !kimpMatchLoading && kimpMatchCache
+            && kf['KIMP_Name'];
+  if (canSup){
+    var supSign = kBetrag<0 ? 'out' : 'in';
+    var supSrcs = supSign==='out' ? ['ba','ek'] : ['vk'];
+    var labels = { ba:'BAs', ek:'EKs', vk:'VKs' };
+    supSrcs.forEach(function(src){
+      var m=getKimpSupplierMatches(kf, src);
+      if (!m) return;
+      supHtml+='<div class="kimp-sup-block">'+
+        '<div class="kimp-sug-title kimp-sup-title">Alle '+labels[src]+' von '+escHtml(m.name)+'</div>';
+      m.hits.forEach(function(s){
+        var idx=kimpSupplierHits.length;
+        kimpSupplierHits.push(s);
+        var amt=(s.amount!=null && s.amount!=='') ? '€'+kimpNum(s.amount) : '—';
+        var dEur=(s.betragDiff!=null) ? ('±'+kimpNum(s.betragDiff)+' €') : '—';
+        var dTage=(s.dateDiff!=null) ? ('±'+s.dateDiff) : '—';
+        supHtml+='<div class="kimp-sug-card">'+
+          '<div class="kimp-sug-bar sug-grey"></div>'+
+          '<div class="kimp-sug-body">'+
+            '<div class="kimp-sug-line1"><span class="kimp-sug-src src-'+s.src+'">'+s.src.toUpperCase()+'</span>'+
+              '<span class="kimp-sug-id">'+escHtml(s.idLabel)+'</span> · '+escHtml(s.name)+'</div>'+
+            ((s.src==='ba' && s.belegNr) ? '<div class="kimp-sug-rnr'+(s.belegMatch?' match':'')+'">Rechnungs-Nr.: '+escHtml(s.belegNr)+'</div>' : '')+
+            '<div class="kimp-sug-line2">'+escHtml(amt)+' · '+escHtml(kimpDateDE(s.date))+'</div>'+
+            '<div class="kimp-sug-expl">Δ Betrag: '+dEur+' · Δ Tage: '+dTage+'</div>'+
+          '</div>'+
+          '<button type="button" class="kimp-sup-link-btn" data-supi="'+idx+'">Verknüpfen</button>'+
+          '</div>';
+      });
+      supHtml+='</div>';
+    });
+  }
+  el.innerHTML=head+body+supHtml;
   var rb=document.getElementById('kimp-sug-retry');
   if (rb) attachTouchClickHandler(rb, function(){ ensureKimpMatchCache(true); renderKimpSuggestions(); });
   var refBtn=document.getElementById('kimp-sug-refresh');
@@ -4053,6 +4184,12 @@ function renderKimpSuggestions(){
   el.querySelectorAll('.kimp-sug-link-btn').forEach(function(btn){
     attachTouchClickHandler(btn, function(){
       var s=kimpSuggestions[parseInt(btn.getAttribute('data-i'),10)];
+      if (s) kimpLinkSuggestion(s, btn);
+    });
+  });
+  el.querySelectorAll('.kimp-sup-link-btn').forEach(function(btn){
+    attachTouchClickHandler(btn, function(){
+      var s=kimpSupplierHits[parseInt(btn.getAttribute('data-supi'),10)];
       if (s) kimpLinkSuggestion(s, btn);
     });
   });
