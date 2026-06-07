@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.7.1
-  SW Cache: rd-hub-v69
+  Version:  2.7.2
+  SW Cache: rd-hub-v70
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.7.2  (2026-05-18)  BA-Anzeige mit Datum/Status, Bild-Uploads (JPG/PNG) zusätzlich zu PDF
   v2.7.1  (2026-05-18)  BA-Anlage aus Beleg im KIMP-Clearing (Hub-getriebener Workflow)
   v2.7.0  (2026-05-18)  Duplikat-Indikator im BA-Review mit Vergleichs-Dialog
   v2.6.5  (2026-05-18)  Multi-Select-Kategorie-Filter im KIMP-Clearing
@@ -500,6 +501,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-beleg-item .kb-id{font-weight:700}
 .kimp-beleg-item .kb-beleg-yes{color:var(--green)}
 .kimp-beleg-item .kb-beleg-no{color:var(--hint)}
+.kimp-beleg-item .kbi-line2{margin-top:3px;font-size:11px;color:var(--muted)}
+.kimp-link-status{font-weight:600}
+.kimp-link-status.kls-offen{color:var(--amber)}
+.kimp-link-status.kls-bearbeitung{color:#3B82C4}
+.kimp-link-status.kls-freigegeben{color:var(--green)}
 .kimp-pdf-wrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;background:var(--card)}
 .kimp-pdf-wrap iframe{width:100%;height:100%;border:none;background:#fff;display:block}
 .kimp-pdf-empty{font-size:13px;color:var(--muted);text-align:center;padding:20px}
@@ -612,8 +618,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.7.1</span>
-      <span>SW rd-hub-v69</span>
+      <span>APP v2.7.2</span>
+      <span>SW rd-hub-v70</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -646,7 +652,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.2</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -3911,22 +3917,53 @@ function kimpShowPdf(url, el){
   }
 }
 
+// BA-Status farbig markieren. "freigegeben" wird hier als "abgeschlossen" beschriftet
+// (User-Sprache im Hub-Wording, in Airtable bleibt der Status 'freigegeben').
+function kimpBaStatusInfo(s){
+  if (s==='offen')          return { lbl:'offen',          cls:'kls-offen' };
+  if (s==='in Bearbeitung') return { lbl:'in Bearbeitung', cls:'kls-bearbeitung' };
+  if (s==='freigegeben')    return { lbl:'abgeschlossen',  cls:'kls-freigegeben' };
+  return null;
+}
+
 function renderKimpBelegPane(){
   var listEl=document.getElementById('kimp-beleg-list');
   var entries=[];
   kimpDetailLinks.ba.forEach(function(x){
     var f=x.fields, has=kimpBaHasBeleg(f);
-    entries.push({ label:(f['BA_ID']||'BA')+' – '+(f['BA_Lieferant']||'—'), amount:f['BA_Brutto'], hasBeleg:has, url:has?f['BA_Beleg'][0].url:null });
+    entries.push({
+      label:(f['BA_ID']||'BA')+' – '+(f['BA_Lieferant']||'—'),
+      amount:f['BA_Brutto'],
+      datum:f['BA_Datum'],
+      status:f['BA_Status'],
+      statusInfo:kimpBaStatusInfo(f['BA_Status']),
+      hasBeleg:has,
+      url:has?f['BA_Beleg'][0].url:null
+    });
   });
   kimpDetailLinks.ek.forEach(function(x){
     var f=x.fields;
-    entries.push({ label:(f['EK_Lot']||'EK')+' – '+kimpJoin(f['EK_PartnerID']), amount:f['EK_Gesamtbetrag'], hasBeleg:false, url:null });
+    entries.push({
+      label:(f['EK_Lot']||'EK')+' – '+kimpJoin(f['EK_PartnerID']),
+      amount:f['EK_Gesamtbetrag'],
+      datum:f['EK_Kaufdatum'],
+      status:f['EK_Status'],     // EK_Status optional, falls vorhanden als neutraler Text
+      hasBeleg:false,
+      url:null
+    });
   });
   kimpDetailLinks.vk.forEach(function(x){
     var f=x.fields;
     var rUrl=kimpVkRechnungUrl(x.id, f);
-    entries.push({ label:(f['VK_Lot']||'VK')+' – '+kimpJoin(f['VK_Name']), amount:f['VK_Preis'],
-      hasBeleg:!!rUrl, url:rUrl?kimpDriveEmbed(rUrl):null, yesLabel:'Rechnung vorhanden' });
+    entries.push({
+      label:(f['VK_Lot']||'VK')+' – '+kimpJoin(f['VK_Name']),
+      amount:f['VK_Preis'],
+      datum:f['VK_Datum'],
+      status:f['VK_Status'],     // VK_Status optional, falls vorhanden als neutraler Text
+      hasBeleg:!!rUrl,
+      url:rUrl?kimpDriveEmbed(rUrl):null,
+      yesLabel:'Rechnung vorhanden'
+    });
   });
 
   if (!entries.length){
@@ -3937,9 +3974,21 @@ function renderKimpBelegPane(){
   var html='';
   entries.forEach(function(e){
     var amt=(e.amount!=null&&e.amount!=='') ? kimpNum(e.amount)+' EUR' : '—';
+    // Zeile 2: Datum + Status + Beleg-Indikator. Status mit Farbe (BA), bei EK/VK
+    // neutral als Text falls Feld vorhanden, sonst weglassen.
+    var line2Parts=[];
+    if (e.datum) line2Parts.push(escHtml(kimpDateDE(e.datum)));
+    if (e.statusInfo){
+      line2Parts.push('<span class="kimp-link-status '+e.statusInfo.cls+'">'+escHtml(e.statusInfo.lbl)+'</span>');
+    } else if (e.status){
+      line2Parts.push(escHtml(e.status));
+    }
+    line2Parts.push(e.hasBeleg
+      ? '<span class="kb-beleg-yes">'+escHtml(e.yesLabel||'Beleg vorhanden')+'</span>'
+      : '<span class="kb-beleg-no">kein Beleg</span>');
     html+='<div class="kimp-beleg-item">'+
-      '<span class="kb-id">'+escHtml(e.label)+'</span> · '+escHtml(amt)+' · '+
-      (e.hasBeleg?'<span class="kb-beleg-yes">'+escHtml(e.yesLabel||'Beleg vorhanden')+'</span>':'<span class="kb-beleg-no">kein Beleg</span>')+
+      '<div class="kbi-line1"><span class="kb-id">'+escHtml(e.label)+'</span> · '+escHtml(amt)+'</div>'+
+      '<div class="kbi-line2">'+line2Parts.join(' · ')+'</div>'+
       '</div>';
   });
   listEl.innerHTML=html;
@@ -4716,7 +4765,11 @@ function hideKimpConfirm(){
 // korrigiert → Apps Script create_ba → KIMP_BA_Link patchen + Cache nachziehen.
 var kimpNewBaPdfBase64 = null;
 var kimpNewBaPdfName = null;
+var kimpNewBaPdfMime = null;     // 'application/pdf' | 'image/jpeg' | 'image/png'
 var kimpNewBaBusy = false;
+
+// Akzeptierte Beleg-Typen für die Hub→Apps-Script-Pipeline.
+var KIMP_NEWBA_ALLOWED_MIMES = ['application/pdf','image/jpeg','image/png'];
 
 function openKimpNewBaModal(){
   if (!kimpCurrentRec) return;
@@ -4730,6 +4783,7 @@ function closeKimpNewBaModal(){
 function kimpNewBaResetForm(){
   kimpNewBaPdfBase64 = null;
   kimpNewBaPdfName = null;
+  kimpNewBaPdfMime = null;
   kimpNewBaBusy = false;
   document.getElementById('kimp-newba-err').style.display='none';
   document.getElementById('kimp-newba-file-info').style.display='none';
@@ -4766,12 +4820,20 @@ function kimpNewBaSetFieldsDisabled(d){
 
 function kimpNewBaHandleFile(file){
   if (!file) return;
-  if (file.type!=='application/pdf' && !/\.pdf$/i.test(file.name)){
-    kimpNewBaShowError('Nur PDF-Dateien sind erlaubt.');
+  // Browser-mime kann leer sein (alte Browser, Drag-Drop aus manchen Quellen) — Fallback per Endung.
+  var mime = file.type || '';
+  if (!mime){
+    if (/\.pdf$/i.test(file.name))                mime = 'application/pdf';
+    else if (/\.jpe?g$/i.test(file.name))         mime = 'image/jpeg';
+    else if (/\.png$/i.test(file.name))           mime = 'image/png';
+  }
+  if (KIMP_NEWBA_ALLOWED_MIMES.indexOf(mime)===-1){
+    kimpNewBaShowError('Nur PDF, JPG und PNG werden unterstützt.');
     return;
   }
   kimpNewBaHideError();
   kimpNewBaPdfName = file.name;
+  kimpNewBaPdfMime = mime;
   document.getElementById('kimp-newba-file-name').textContent = file.name;
   document.getElementById('kimp-newba-file-info').style.display='';
   document.getElementById('kimp-newba-drop').style.display='none';
@@ -4796,7 +4858,7 @@ function kimpNewBaRunOcr(){
   fetch(INVOICE_PROCESSING_WEBAPP_URL, {
     method:'POST',
     headers:{'Content-Type':'text/plain;charset=utf-8'},  // Apps Script doPost: text/plain vermeidet CORS-Preflight
-    body:JSON.stringify({ action:'ocr_extract', secret:HUB_SECRET, pdf_base64:kimpNewBaPdfBase64 })
+    body:JSON.stringify({ action:'ocr_extract', secret:HUB_SECRET, pdf_base64:kimpNewBaPdfBase64, mime_type:kimpNewBaPdfMime })
   })
   .then(function(r){ return r.json(); })
   .then(function(res){
@@ -4909,6 +4971,7 @@ function kimpNewBaSubmit(){
     kimp_id: (kimpCurrentRec.fields && kimpCurrentRec.fields['KIMP_ID']) || '',
     kimp_record_id: kimpCurrentRec.id,
     pdf_base64: kimpNewBaPdfBase64,
+    mime_type: kimpNewBaPdfMime,
     ba_data: ba_data
   };
 
@@ -5566,10 +5629,10 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div class="kimp-newba-body">
       <div class="kimp-newba-err" id="kimp-newba-err"></div>
       <div class="kimp-newba-drop" id="kimp-newba-drop">
-        <div><strong>PDF hierher ziehen</strong> oder klicken zum Auswählen</div>
-        <div class="kimp-newba-drop-sub">Nur .pdf, OCR startet automatisch</div>
+        <div><strong>Beleg hierher ziehen</strong> oder klicken zum Auswählen</div>
+        <div class="kimp-newba-drop-sub">PDF, JPG oder PNG — OCR startet automatisch</div>
       </div>
-      <input type="file" id="kimp-newba-file" accept="application/pdf,.pdf" style="display:none" />
+      <input type="file" id="kimp-newba-file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" style="display:none" />
       <div class="kimp-newba-file" id="kimp-newba-file-info" style="display:none">
         <span>📎</span>
         <span class="kimp-newba-file-name" id="kimp-newba-file-name">—</span>
