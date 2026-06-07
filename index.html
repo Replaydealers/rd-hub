@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.7.2
-  SW Cache: rd-hub-v70
+  Version:  2.7.3
+  SW Cache: rd-hub-v71
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.7.3  (2026-05-18)  Beleg-Vorschau im BA-Anlage-Modal
   v2.7.2  (2026-05-18)  BA-Anzeige mit Datum/Status, Bild-Uploads (JPG/PNG) zusätzlich zu PDF
   v2.7.1  (2026-05-18)  BA-Anlage aus Beleg im KIMP-Clearing (Hub-getriebener Workflow)
   v2.7.0  (2026-05-18)  Duplikat-Indikator im BA-Review mit Vergleichs-Dialog
@@ -533,7 +534,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-newba-btn:hover{color:var(--text);border-color:var(--accent)}
 #kimp-newba-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
 #kimp-newba-overlay.show{display:flex}
-.kimp-newba-box{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.kimp-newba-box{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);width:100%;max-width:1200px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .kimp-newba-head{padding:16px 18px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .kimp-newba-title{font-size:15px;font-weight:700;color:var(--text)}
 .kimp-newba-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0 4px;font-family:inherit}
@@ -547,7 +548,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-newba-file-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kimp-newba-file-change{background:none;border:.5px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;font-family:inherit}
 .kimp-newba-ocr{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted)}
-.kimp-newba-form{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kimp-newba-split{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:16px;align-items:start}
+.kimp-newba-left{display:flex;flex-direction:column;gap:8px;min-width:0}
+.kimp-newba-right{min-width:0}
+.kimp-newba-preview{border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card2);overflow:hidden;display:none}
+.kimp-newba-preview iframe{width:100%;height:600px;border:none;display:block;background:#fff}
+.kimp-newba-preview img{width:100%;max-height:600px;object-fit:contain;display:block}
+.kimp-newba-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .kimp-newba-form .kimp-newba-row-full{grid-column:1 / -1}
 .kimp-newba-field label{display:block;font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
 .kimp-newba-field input,.kimp-newba-field select{width:100%;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;outline:none;-webkit-appearance:none}
@@ -564,6 +571,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-newba-cancel{background:var(--card2);color:var(--text);border:.5px solid var(--border)}
 .kimp-newba-submit{background:var(--green);color:#fff}
 .kimp-newba-submit:disabled{opacity:.5;cursor:wait}
+@media (max-width:900px){
+  .kimp-newba-split{grid-template-columns:1fr}
+  .kimp-newba-preview iframe{height:50vh}
+  .kimp-newba-preview img{max-height:50vh}
+}
 @media (max-width:640px){
   .kimp-newba-form{grid-template-columns:1fr}
   .kimp-newba-box{max-height:95vh}
@@ -618,8 +630,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.7.2</span>
-      <span>SW rd-hub-v70</span>
+      <span>APP v2.7.3</span>
+      <span>SW rd-hub-v71</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -652,7 +664,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.2</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.3</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -4766,6 +4778,7 @@ function hideKimpConfirm(){
 var kimpNewBaPdfBase64 = null;
 var kimpNewBaPdfName = null;
 var kimpNewBaPdfMime = null;     // 'application/pdf' | 'image/jpeg' | 'image/png'
+var kimpNewBaPreviewUrl = null;  // Blob-URL für <iframe>/<img> — beim Reset/Close revoken
 var kimpNewBaBusy = false;
 
 // Akzeptierte Beleg-Typen für die Hub→Apps-Script-Pipeline.
@@ -4778,13 +4791,48 @@ function openKimpNewBaModal(){
 }
 function closeKimpNewBaModal(){
   if (kimpNewBaBusy) return;   // während Submit nicht schließen
+  // Vorschau-Blob revoken, damit der Memory-Footprint nicht wächst, wenn das Modal mehrfach
+  // genutzt wird (große PDFs/Bilder).
+  kimpNewBaClearPreview();
   document.getElementById('kimp-newba-overlay').classList.remove('show');
+}
+function kimpNewBaClearPreview(){
+  if (kimpNewBaPreviewUrl){
+    try { URL.revokeObjectURL(kimpNewBaPreviewUrl); } catch (e) {}
+    kimpNewBaPreviewUrl = null;
+  }
+  var preview = document.getElementById('kimp-newba-preview');
+  if (preview) preview.style.display = 'none';
+  var pdfFrame = document.getElementById('kimp-newba-preview-pdf');
+  if (pdfFrame){ pdfFrame.src = 'about:blank'; pdfFrame.style.display = 'none'; }
+  var imgEl = document.getElementById('kimp-newba-preview-img');
+  if (imgEl){ imgEl.removeAttribute('src'); imgEl.style.display = 'none'; }
+}
+function kimpNewBaShowPreview(mime, url){
+  document.getElementById('kimp-newba-drop').style.display = 'none';
+  document.getElementById('kimp-newba-file-info').style.display = '';
+  var preview = document.getElementById('kimp-newba-preview');
+  var pdfFrame = document.getElementById('kimp-newba-preview-pdf');
+  var imgEl = document.getElementById('kimp-newba-preview-img');
+  if (mime === 'application/pdf'){
+    imgEl.removeAttribute('src');
+    imgEl.style.display = 'none';
+    pdfFrame.src = url;
+    pdfFrame.style.display = '';
+  } else {
+    pdfFrame.src = 'about:blank';
+    pdfFrame.style.display = 'none';
+    imgEl.src = url;
+    imgEl.style.display = '';
+  }
+  preview.style.display = '';
 }
 function kimpNewBaResetForm(){
   kimpNewBaPdfBase64 = null;
   kimpNewBaPdfName = null;
   kimpNewBaPdfMime = null;
   kimpNewBaBusy = false;
+  kimpNewBaClearPreview();
   document.getElementById('kimp-newba-err').style.display='none';
   document.getElementById('kimp-newba-file-info').style.display='none';
   document.getElementById('kimp-newba-file-name').textContent='—';
@@ -4835,8 +4883,18 @@ function kimpNewBaHandleFile(file){
   kimpNewBaPdfName = file.name;
   kimpNewBaPdfMime = mime;
   document.getElementById('kimp-newba-file-name').textContent = file.name;
-  document.getElementById('kimp-newba-file-info').style.display='';
-  document.getElementById('kimp-newba-drop').style.display='none';
+
+  // Vorschau direkt aus dem File-Blob (effizienter als base64-Round-Trip). Alten Blob
+  // ggf. revoken, falls der User vor dem ersten OCR-Ergebnis das Dokument wechselt.
+  kimpNewBaClearPreview();
+  try {
+    kimpNewBaPreviewUrl = URL.createObjectURL(file);
+    kimpNewBaShowPreview(mime, kimpNewBaPreviewUrl);
+  } catch (e){
+    // Fällt nur in sehr alten Browsern aus; Datei bleibt nutzbar, nur ohne Preview.
+    document.getElementById('kimp-newba-drop').style.display='none';
+    document.getElementById('kimp-newba-file-info').style.display='';
+  }
 
   var reader = new FileReader();
   reader.onerror = function(){ kimpNewBaShowError('Fehler beim Lesen der Datei.'); };
@@ -5628,20 +5686,28 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     </div>
     <div class="kimp-newba-body">
       <div class="kimp-newba-err" id="kimp-newba-err"></div>
-      <div class="kimp-newba-drop" id="kimp-newba-drop">
-        <div><strong>Beleg hierher ziehen</strong> oder klicken zum Auswählen</div>
-        <div class="kimp-newba-drop-sub">PDF, JPG oder PNG — OCR startet automatisch</div>
-      </div>
-      <input type="file" id="kimp-newba-file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" style="display:none" />
-      <div class="kimp-newba-file" id="kimp-newba-file-info" style="display:none">
-        <span>📎</span>
-        <span class="kimp-newba-file-name" id="kimp-newba-file-name">—</span>
-        <button type="button" class="kimp-newba-file-change" id="btn-kimp-newba-change">Anderes PDF</button>
-      </div>
-      <div class="kimp-newba-ocr" id="kimp-newba-ocr" style="display:none">
-        <div class="artikel-spinner"></div><span id="kimp-newba-ocr-text">PDF wird ausgewertet…</span>
-      </div>
-      <div class="kimp-newba-form" id="kimp-newba-form">
+      <div class="kimp-newba-split">
+        <div class="kimp-newba-left">
+          <div class="kimp-newba-drop" id="kimp-newba-drop">
+            <div><strong>Beleg hierher ziehen</strong> oder klicken zum Auswählen</div>
+            <div class="kimp-newba-drop-sub">PDF, JPG oder PNG — OCR startet automatisch</div>
+          </div>
+          <input type="file" id="kimp-newba-file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" style="display:none" />
+          <div class="kimp-newba-file" id="kimp-newba-file-info" style="display:none">
+            <span>📎</span>
+            <span class="kimp-newba-file-name" id="kimp-newba-file-name">—</span>
+            <button type="button" class="kimp-newba-file-change" id="btn-kimp-newba-change">Anderes Dokument</button>
+          </div>
+          <div class="kimp-newba-preview" id="kimp-newba-preview">
+            <iframe id="kimp-newba-preview-pdf" title="Beleg-Vorschau" style="display:none"></iframe>
+            <img id="kimp-newba-preview-img" alt="Beleg-Vorschau" style="display:none" />
+          </div>
+        </div>
+        <div class="kimp-newba-right">
+          <div class="kimp-newba-ocr" id="kimp-newba-ocr" style="display:none">
+            <div class="artikel-spinner"></div><span id="kimp-newba-ocr-text">PDF wird ausgewertet…</span>
+          </div>
+          <div class="kimp-newba-form" id="kimp-newba-form">
         <div class="kimp-newba-field kimp-newba-row-full kimp-newba-supplier-wrap">
           <label>Lieferant *</label>
           <input type="text" id="kimp-newba-partner" autocomplete="off" placeholder="z.B. Kleinanzeigen.de GmbH" />
@@ -5710,6 +5776,8 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <div class="kimp-newba-field kimp-newba-row-full">
           <label>Bezeichnung *</label>
           <input type="text" id="kimp-newba-bezeichnung" />
+        </div>
+      </div>
         </div>
       </div>
     </div>
