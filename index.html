@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.7.5
-  SW Cache: rd-hub-v73
+  Version:  2.7.6
+  SW Cache: rd-hub-v74
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.7.6  (2026-05-18)  Status-Pill Abgeschlossen + Verknüpfungen rechts + Beleg-Anzeige-Bug-Fix
   v2.7.5  (2026-05-18)  Modal größer + Acrobat-Auto-Open weg + Action-Buttons sticky oben
   v2.7.4  (2026-05-18)  BA-Anlage-Button prominent + Dokument-Vorschau funktioniert + KIMP-Info-Banner im Modal
   v2.7.3  (2026-05-18)  Beleg-Vorschau im BA-Anlage-Modal
@@ -483,6 +484,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-pills-row-wrap .kimp-pill{flex:1 1 calc(33.333% - 6px);min-width:0}
 .kimp-pill{flex:1;padding:8px 6px;border:.5px solid var(--border);background:var(--card2);color:var(--muted);font-size:12px;font-weight:600;border-radius:999px;cursor:pointer;touch-action:manipulation;font-family:inherit;min-height:36px}
 .kimp-pill.kimp-pill-active{background:#3B82C4;color:#fff;border-color:#3B82C4}
+/* Abgeschlossene KIMPs in der Liste optisch dezenter (analog freigegebene BAs im BA-Review). */
+.kimp-row-done td{opacity:.55}
+.kimp-row-done:hover td{opacity:.85}
 .kimp-list-scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px}
 .kimp-betrag-pos{color:#3FD99B;font-weight:600}
 .kimp-betrag-neg{color:#FF6B6B;font-weight:600}
@@ -499,6 +503,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-left-pane{overflow:hidden}
 .kimp-right-pane{padding:18px;overflow-y:auto}
 .kimp-beleg-list{padding:12px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;border-bottom:.5px solid var(--border);max-height:42%;overflow-y:auto}
+/* V2.7.6: Beleg-Liste/„Aktuelle Verknüpfungen" wandert in den right-pane. Hier kein
+   Border und kein Max-Height — die Liste skaliert mit dem äußeren overflow-Container. */
+.kimp-beleg-list.kimp-beleg-list-right{padding:0;border-bottom:none;max-height:none;overflow-y:visible}
+.kimp-links-section{margin-bottom:14px}
+.kimp-links-title{font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 .kimp-beleg-item{background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px;font-size:12px;color:var(--text);cursor:pointer;line-height:1.4;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .kimp-beleg-item.active{border-color:var(--accent)}
 .kimp-beleg-item .kb-id{font-weight:700}
@@ -647,8 +656,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.7.5</span>
-      <span>SW rd-hub-v73</span>
+      <span>APP v2.7.6</span>
+      <span>SW rd-hub-v74</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -681,7 +690,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.5</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.6</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -3647,7 +3656,11 @@ function kimpDateDE(s){ if(!s) return '—'; var d=String(s).substring(0,10).spl
 function kimpTrunc(s,n){ s=String(s==null?'':s); return s.length>n ? s.substring(0,n)+'…' : s; }
 function kimpLinkIds(f,field){ var v=f&&f[field]; return Array.isArray(v) ? v.slice() : []; }
 function kimpJoin(v){ if (Array.isArray(v)) return v.join(', '); return (v==null||v==='') ? '—' : String(v); }
-function kimpStatusCls(s){ return s==='offen' ? 'ba-status-offen' : 'ba-status-bearbeitung'; }
+function kimpStatusCls(s){
+  if (s==='offen')          return 'ba-status-offen';
+  if (s==='abgeschlossen')  return 'ba-status-abgeschlossen';
+  return 'ba-status-bearbeitung';
+}
 function kimpBaHasBeleg(f){ var b=f&&f['BA_Beleg']; return Array.isArray(b)&&b.length>0; }
 
 function kimpSetMsg(t,kind){
@@ -3693,7 +3706,9 @@ function loadKimpList(){
   document.getElementById('kimp-list-table-wrap').innerHTML='';
   ensureKimpBaBelegSet();
   kimpRefreshMatchCacheIfStale();   // Match-Datenbasis neu laden, wenn fehlt/älter als 60 s
-  var filter = "NOT({KIMP_Status}='abgeschlossen')";
+  // V2.7.6: alle Status laden — Status-Pill 'Abgeschlossen' filtert clientseitig.
+  // {KIMP_ID}!='' schließt nur strukturelle Leerzeilen aus.
+  var filter = "{KIMP_ID}!=''";
 
   function done(err,data,wasFull){
     if (err){
@@ -3715,8 +3730,8 @@ function loadKimpList(){
     loadEl.style.display='none';
     kimpList=(data&&data.records)||[];
     if (!kimpList.length){
-      errEl.textContent='Keine offenen KIMPs.'; errEl.style.display='';
-      document.getElementById('kimp-list-count').textContent='0 offene KIMPs';
+      errEl.textContent='Keine KIMPs vorhanden.'; errEl.style.display='';
+      document.getElementById('kimp-list-count').textContent='0 KIMPs';
       document.getElementById('kimp-list-table-wrap').innerHTML='';
       return;
     }
@@ -3799,7 +3814,8 @@ function renderKimpTable(){
     var betCls=isNaN(betrag)?'':(betrag<0?'kimp-betrag-neg':'kimp-betrag-pos');
     var betTxt=isNaN(betrag)?'—':kimpNum(betrag)+' €';
     var hasBeleg=kimpHasLinkedBeleg(f);
-    html+='<tr data-id="'+rec.id+'">'+
+    var rowCls = status==='abgeschlossen' ? ' class="kimp-row-done"' : '';
+    html+='<tr data-id="'+rec.id+'"'+rowCls+'>'+
       '<td>'+escHtml(f['KIMP_ID']||'—')+'</td>'+
       '<td>'+escHtml(kimpDateDE(f['KIMP_Buchungstag']))+'</td>'+
       '<td style="text-align:right" class="'+betCls+'">'+escHtml(betTxt)+'</td>'+
@@ -3937,17 +3953,50 @@ function resolveKimpLinked(rec, cb){
   });
 }
 
+// Aktuelle Blob-URL für den linken Beleg-iframe — muss vor neuem Load revoked werden.
+var kimpCurrentPdfBlobUrl = null;
+// Session-Counter, damit ein verzögerter fetch nicht eine neuere Anfrage überschreibt
+// (User klickt schnell zwischen Belegen).
+var kimpPdfLoadSeq = 0;
+
 function kimpShowPdf(url, el){
   var frame=document.getElementById('kimp-pdf-frame');
   var empty=document.getElementById('kimp-pdf-empty');
   document.querySelectorAll('#kimp-beleg-list .kimp-beleg-item.active').forEach(function(n){ n.classList.remove('active'); });
-  if (url){
-    if (el) el.classList.add('active');
-    frame.src=url; frame.style.display=''; empty.style.display='none';
-  } else {
+  // Vorherige Blob-URL freigeben.
+  if (kimpCurrentPdfBlobUrl){
+    try { URL.revokeObjectURL(kimpCurrentPdfBlobUrl); } catch(_){}
+    kimpCurrentPdfBlobUrl = null;
+  }
+  if (!url){
     frame.src='about:blank'; frame.style.display='none';
     empty.style.display=''; empty.textContent='Kein Beleg vorhanden';
+    return;
   }
+  if (el) el.classList.add('active');
+  // V2.7.6 Bug-Fix: Airtable-CDN-Attachment-URLs werden direkt im iframe gelegentlich
+  // nicht gerendert (Content-Disposition oder browser-side handoff an externen PDF-Viewer).
+  // Fix: PDF/Bild via fetch holen → Blob → Object-URL → iframe.src. Bei fetch-Fehler
+  // (CORS o.ä.) Fallback auf direkte URL, damit das alte Verhalten erhalten bleibt.
+  var mySeq = ++kimpPdfLoadSeq;
+  frame.src='about:blank'; frame.style.display='none';
+  empty.style.display=''; empty.textContent='Beleg wird geladen…';
+  fetch(url)
+    .then(function(r){ if (!r.ok) throw new Error('HTTP '+r.status); return r.blob(); })
+    .then(function(blob){
+      if (mySeq !== kimpPdfLoadSeq) return;  // veralteter Load — neuer Klick hat überholt
+      kimpCurrentPdfBlobUrl = URL.createObjectURL(blob);
+      frame.src = kimpCurrentPdfBlobUrl;
+      frame.style.display = '';
+      empty.style.display = 'none';
+    })
+    .catch(function(){
+      if (mySeq !== kimpPdfLoadSeq) return;
+      // Fallback: direkter iframe-Load (z.B. bei CORS-Block des fetch).
+      frame.src = url;
+      frame.style.display = '';
+      empty.style.display = 'none';
+    });
 }
 
 // BA-Status farbig markieren. "freigegeben" wird hier als "abgeschlossen" beschriftet
@@ -5646,6 +5695,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <button class="kimp-pill kimp-pill-active" data-status="all" type="button">Alle</button>
         <button class="kimp-pill" data-status="offen" type="button">Offen</button>
         <button class="kimp-pill" data-status="in Bearbeitung" type="button">In Bearbeitung</button>
+        <button class="kimp-pill" data-status="abgeschlossen" type="button">Abgeschlossen</button>
       </div>
     </div>
     <div class="kimp-list-scroll">
@@ -5660,7 +5710,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
   <div id="kimp-detail-view">
     <div class="kimp-left-pane">
-      <div class="kimp-beleg-list" id="kimp-beleg-list"></div>
       <div class="kimp-pdf-wrap">
         <iframe id="kimp-pdf-frame" style="display:none"></iframe>
         <div id="kimp-pdf-empty" class="kimp-pdf-empty">Kein Beleg vorhanden</div>
@@ -5686,6 +5735,10 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <div id="kimp-status-display" class="ba-status-pill" style="margin-top:4px">—</div>
       </div>
       <div id="kimp-ro-block"></div>
+      <div class="kimp-links-section" id="kimp-links-section">
+        <div class="kimp-links-title">Aktuelle Verknüpfungen</div>
+        <div class="kimp-beleg-list kimp-beleg-list-right" id="kimp-beleg-list"></div>
+      </div>
       <div class="kimp-newba-cta">
         <button type="button" class="kimp-newba-cta-btn" id="btn-kimp-newba">📎 Neue BA aus Beleg anlegen</button>
       </div>
