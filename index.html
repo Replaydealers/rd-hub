@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.6.5
-  SW Cache: rd-hub-v67
+  Version:  2.7.0
+  SW Cache: rd-hub-v68
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.7.0  (2026-05-18)  Duplikat-Indikator im BA-Review mit Vergleichs-Dialog
   v2.6.5  (2026-05-18)  Multi-Select-Kategorie-Filter im KIMP-Clearing
   v2.6.4  (2026-05-18)  Belegnummer-Match priorisiert, Datums-Filter übersprungen
   v2.6.3  (2026-05-18)  Lieferanten-Sektion in KIMP-Mögliche-Treffer
@@ -324,6 +325,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .btn-ba-delete{background:var(--accent);color:#fff;border:none}
 .btn-ba-delete:hover{filter:brightness(1.08)}
 .ba-klaer-banner{background:rgba(239,168,39,.15);border:.5px solid var(--amber);border-radius:var(--radius-sm);padding:10px 12px;color:var(--amber);margin-bottom:14px;font-size:13px;font-weight:500}
+.ba-dup-banner{display:flex;align-items:center;gap:10px;background:rgba(255,140,66,.12);border:.5px solid #FF8C42;border-radius:var(--radius-sm);padding:10px 12px;color:#FF8C42;margin-bottom:14px;font-size:13px;font-weight:500}
+.ba-dup-banner-text{flex:1}
+.ba-dup-banner-btn{flex-shrink:0;background:#FF8C42;color:#1a1a2e;border:none;border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
+.ba-dup-icon{display:inline-block;font-size:15px;color:#FF8C42;cursor:pointer;line-height:1;touch-action:manipulation;padding:2px 4px}
 .ba-table{width:100%;border-collapse:collapse;font-size:13px}
 .ba-table th{text-align:left;padding:8px 10px;font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;border-bottom:.5px solid var(--border);font-weight:600}
 .ba-table td{padding:10px;border-bottom:.5px solid var(--border);color:var(--text)}
@@ -390,8 +395,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .ba-field select option{background-color:var(--card2);color:var(--text)}
 
 /* Bestätigungsdialoge (Pflichtfeld / Beleg fehlt / PDF entfernen) */
-#ba-confirm-overlay,#ba-beleg-overlay,#ba-pdfdel-overlay,#kimp-confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
-#ba-confirm-overlay.show,#ba-beleg-overlay.show,#ba-pdfdel-overlay.show,#kimp-confirm-overlay.show{display:flex}
+#ba-confirm-overlay,#ba-beleg-overlay,#ba-pdfdel-overlay,#kimp-confirm-overlay,#ba-dup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
+#ba-confirm-overlay.show,#ba-beleg-overlay.show,#ba-pdfdel-overlay.show,#kimp-confirm-overlay.show,#ba-dup-overlay.show{display:flex}
 .ba-confirm-box{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);padding:20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
 .ba-confirm-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px}
 .ba-confirm-text{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px}
@@ -401,6 +406,22 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .btn-ba-confirm-yes{background:var(--green);color:white}
 .btn-ba-confirm-warn{background:#FF8C42;color:#1a1a2e}
 .btn-ba-confirm-no{background:var(--card2);color:var(--text);border:.5px solid var(--border)}
+.ba-dup-box{max-width:760px;max-height:85vh;display:flex;flex-direction:column}
+.ba-dup-box .ba-confirm-text{flex:1;overflow-y:auto;margin-bottom:14px}
+.ba-dup-card{background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px}
+.ba-dup-card.ba-dup-current{border-color:#FF8C42}
+.ba-dup-card-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px;flex-wrap:wrap}
+.ba-dup-card-head .ba-dup-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#FF8C42}
+.ba-dup-card-head .ba-dup-id{font-weight:700;color:var(--text)}
+.ba-dup-grid{display:grid;grid-template-columns:90px 1fr;gap:3px 10px;font-size:12px;color:var(--muted)}
+.ba-dup-grid .ba-dup-k{color:var(--hint);font-weight:600}
+.ba-dup-grid .ba-dup-v{color:var(--text);word-break:break-word}
+.ba-dup-reason{margin-top:6px;font-size:11px;color:#FF8C42;font-weight:600}
+.ba-dup-card-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.ba-dup-card-actions button{padding:7px 11px;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
+.ba-dup-btn-open{background:#3B82C4;color:#fff}
+.ba-dup-btn-relink{background:var(--green);color:#fff}
+.ba-dup-card-note{margin-top:6px;font-size:11px;color:var(--hint);font-style:italic}
 
 /* ─────────────────── ARTIKELSUCHE — Mobile-First Refactor ─────────────────── */
 .artikel-list-view{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
@@ -551,8 +572,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.6.5</span>
-      <span>SW rd-hub-v67</span>
+      <span>APP v2.7.0</span>
+      <span>SW rd-hub-v68</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -585,7 +606,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.5</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1733,6 +1754,7 @@ function loadBaList() {
       return;
     }
     baList = data.records;
+    buildBaDupCache();
     renderBaTable();
   });
 }
@@ -1746,6 +1768,65 @@ function baStatusCls(s) {
 
 function baCmpId(a,b){ return String(a.fields['BA_ID']||'').localeCompare(String(b.fields['BA_ID']||'')); }
 
+// ── Duplikat-Erkennung ──
+// Wird einmalig nach Listen-Load gebaut (loadBaList, baReloadDetail, baSave, baDelete).
+// Map: recId → Array<{ rec, reason: { type, label } }>. Nur BAs in offen/in Bearbeitung
+// werden als "Verdachts-Quelle" geprüft; Vergleichs-Records dürfen jeden Status haben.
+var baDupCache = {};
+
+function baNormalizeBelegnr(s){
+  return String(s==null?'':s).toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+function baDateMs(s){
+  if (!s) return null;
+  var p=String(s).substring(0,10).split('-');
+  if (p.length!==3) return null;
+  var t=Date.UTC(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10));
+  return isNaN(t) ? null : t;
+}
+function baDateDiffDays(a,b){
+  var ma=baDateMs(a), mb=baDateMs(b);
+  if (ma==null || mb==null) return null;
+  return Math.round(Math.abs(ma-mb)/86400000);
+}
+function buildBaDupCache(){
+  baDupCache={};
+  var n=baList.length;
+  for (var i=0;i<n;i++){
+    var rec=baList[i], f=rec.fields||{};
+    var st=f['BA_Status'];
+    if (st!=='offen' && st!=='in Bearbeitung') continue;
+    var ownBeleg=baNormalizeBelegnr(f['BA_Beleg_Nr']);
+    var ownBrutto=parseFloat(f['BA_Brutto']);
+    var ownDatum=f['BA_Datum'];
+    var matches=[];
+    for (var j=0;j<n;j++){
+      if (i===j) continue;
+      var other=baList[j], of=other.fields||{};
+      var otherBeleg=baNormalizeBelegnr(of['BA_Beleg_Nr']);
+      var reason=null;
+      if (ownBeleg.length>=4 && otherBeleg.length>=4){
+        // Regel A: beide haben Belegnr (≥4 normalisiert) → exakter Vergleich.
+        if (ownBeleg===otherBeleg) reason={ type:'belegnr', label:'Belegnummer identisch' };
+      } else {
+        // Regel B: mind. eine Seite ohne Belegnr → Brutto ±0,01€ UND Datum ±2 Tage.
+        var otherBrutto=parseFloat(of['BA_Brutto']);
+        if (!isNaN(ownBrutto) && !isNaN(otherBrutto) && Math.abs(ownBrutto-otherBrutto)<=0.01){
+          var dd=baDateDiffDays(ownDatum, of['BA_Datum']);
+          if (dd!=null && dd<=2){
+            reason={ type:'brutto_datum', label:'Brutto und Datum identisch (Δ '+dd+' Tag'+(dd===1?'':'e')+')' };
+          }
+        }
+      }
+      if (reason) matches.push({ rec: other, reason: reason });
+    }
+    if (matches.length>0) baDupCache[rec.id]=matches;
+  }
+}
+function baHasDupSuspicion(recId){
+  return !!(baDupCache[recId] && baDupCache[recId].length>0);
+}
+
 // Default = BA_Datum aufsteigend, Zweitsortierung BA_ID aufsteigend.
 function baSortRecords(list) {
   var col = baSortCol || 'date';
@@ -1757,6 +1838,9 @@ function baSortRecords(list) {
     else if (col === 'supplier') p = String(af['BA_Lieferant']||'').localeCompare(String(bf['BA_Lieferant']||''));
     else if (col === 'amount')   p = (Math.abs(parseFloat(af['BA_Brutto'])||0)) - (Math.abs(parseFloat(bf['BA_Brutto'])||0));
     else if (col === 'status')   p = String(af['BA_Status']||'').localeCompare(String(bf['BA_Status']||''));
+    // Dup-Spalte: Treffer (true) sollen bei der ersten asc-Sortierung oben stehen, daher
+    // p = bDup - aDup (umgekehrte Differenz), damit mul=+1 die Verdachtsfälle nach oben sortiert.
+    else if (col === 'dup')      p = (baHasDupSuspicion(b.id)?1:0) - (baHasDupSuspicion(a.id)?1:0);
     if (p !== 0) return p * mul;
     return baCmpId(a,b);
   });
@@ -1788,6 +1872,7 @@ function renderBaTable() {
 
   function arr(col){ return baSortCol===col ? '<span class="kimp-sort-arr">'+(baSortDir==='asc'?' ↑':' ↓')+'</span>' : ''; }
   var html = '<table class="ba-table"><thead><tr>'+
+    '<th class="kimp-th-sort" data-col="dup" style="width:32px" title="Duplikat-Verdacht">Dup.'+arr('dup')+'</th>'+
     '<th style="width:24px"></th>'+
     '<th class="kimp-th-sort" data-col="id">BA-ID'+arr('id')+'</th>'+
     '<th class="kimp-th-sort" data-col="date">Datum'+arr('date')+'</th>'+
@@ -1805,8 +1890,10 @@ function renderBaTable() {
     var status = f['BA_Status'] || '—';
     var brutto = f['BA_Brutto'] != null ? parseFloat(f['BA_Brutto']).toFixed(2)+' €' : '—';
     var datum = f['BA_Datum'] ? String(f['BA_Datum']).substring(0,10) : '—';
+    var hasDup = baHasDupSuspicion(rec.id);
 
     html += '<tr data-id="'+rec.id+'">'+
+      '<td style="text-align:center">'+(hasDup?'<span class="ba-dup-icon" data-dup-rec="'+rec.id+'" title="Mögliches Duplikat - klick zum Vergleichen">⚠</span>':'')+'</td>'+
       '<td>'+(isKlaer?'<span class="ba-klaer-icon" title="Klärfall">⚠️</span>':'')+'</td>'+
       '<td>'+escHtml(f['BA_ID']||'—')+'</td>'+
       '<td>'+escHtml(datum)+'</td>'+
@@ -1821,6 +1908,16 @@ function renderBaTable() {
   var wrap = document.getElementById('ba-list-table-wrap');
   wrap.innerHTML = html;
 
+  // Dup-Icon: vor dem tr-Handler verdrahten, damit stopPropagation den Row-Open verhindert.
+  wrap.querySelectorAll('.ba-dup-icon').forEach(function(ic){
+    function fire(e){
+      if (e && e.cancelable) e.preventDefault();
+      e.stopPropagation();
+      openBaDupDialog(ic.getAttribute('data-dup-rec'));
+    }
+    ic.addEventListener('click', fire);
+    ic.addEventListener('touchend', fire, { passive: false });
+  });
   wrap.querySelectorAll('tbody tr').forEach(function(tr) {
     // Maus-Drag (Text-Selektion) darf NICHT den Detail-View öffnen.
     var downX=0, downY=0, dragged=false;
@@ -1898,6 +1995,18 @@ function populateBaForm(rec) {
     banner.style.display = '';
   } else {
     banner.style.display = 'none';
+  }
+
+  // Duplikat-Banner: nur bei offen/in Bearbeitung mit Verdacht. Bei freigegebenen BAs nie.
+  var dupBanner = document.getElementById('ba-dup-banner');
+  var dupMatches = (status==='offen'||status==='in Bearbeitung') ? (baDupCache[rec.id]||null) : null;
+  if (dupMatches && dupMatches.length>0){
+    var n = dupMatches.length;
+    document.getElementById('ba-dup-banner-text').textContent =
+      '⚠ Mögliches Duplikat erkannt: '+n+' ähnliche BA'+(n===1?'':'s')+' gefunden';
+    dupBanner.style.display = '';
+  } else {
+    dupBanner.style.display = 'none';
   }
 
   document.getElementById('ba-lieferant').value = f['BA_Lieferant'] || '';
@@ -2891,6 +3000,7 @@ function baSaveProceed(opts) {
         if (local) local.fields['BA_Status'] = opts.targetStatus;
         else baList.push({ id: currentId, fields: baCurrentRec.fields });
       }
+      buildBaDupCache();
       updateBaPdfControls();
       baCurrentRec.fields['BA_Status'] = opts.targetStatus;
       var statusEl = document.getElementById('ba-status-display');
@@ -3043,7 +3153,10 @@ function baReloadDetail() {
       done();
     });
   atGet('Betriebsausgaben_2026', "OR({BA_Status}='offen',{BA_Status}='in Bearbeitung',{BA_Status}='freigegeben')", BA_LIST_FIELDS, function(err, data) {
-    if (!err && data && data.records) baList = data.records;
+    if (!err && data && data.records) {
+      baList = data.records;
+      buildBaDupCache();
+    }
     done();
   });
 }
@@ -3073,12 +3186,176 @@ function baDelete() {
       return;
     }
     baList = baList.filter(function(r){ return r.id !== recId; });
+    buildBaDupCache();
     baNewMode = false;
     baCurrentPartner = null;
     baSelectedPartnerId = null;
     setBaButtonsDisabled(false);
     msg.textContent = '';
     baGoToList('BA' + baId + ' gelöscht');
+  });
+}
+
+// ── Duplikat-Vergleichs-Dialog ──
+// Variable hält fest, für welchen Record der Dialog offen ist (kann eine andere BA
+// sein als baCurrentRec, falls der Dialog aus der Listen-Spalte heraus geöffnet wurde).
+var baDupOpenForRecId = null;
+
+function openBaDupDialog(recId){
+  var matches = baDupCache[recId];
+  if (!matches || matches.length===0) return;
+  var current = baList.filter(function(r){ return r.id===recId; })[0];
+  if (!current) return;
+  baDupOpenForRecId = recId;
+  renderBaDupDialog(current, matches);
+  document.getElementById('ba-dup-overlay').classList.add('show');
+}
+function closeBaDupDialog(){
+  baDupOpenForRecId = null;
+  document.getElementById('ba-dup-overlay').classList.remove('show');
+}
+function renderBaDupDialog(current, matches){
+  function card(rec, isCurrent, reason){
+    var f = rec.fields||{};
+    var brutto = f['BA_Brutto']!=null ? parseFloat(f['BA_Brutto']).toFixed(2)+' €' : '—';
+    var datum = f['BA_Datum'] ? String(f['BA_Datum']).substring(0,10) : '—';
+    var status = f['BA_Status']||'—';
+    var h = '<div class="ba-dup-card'+(isCurrent?' ba-dup-current':'')+'">'+
+      '<div class="ba-dup-card-head">'+
+        '<span class="ba-dup-tag"'+(isCurrent?'':' style="color:var(--hint)"')+'>'+(isCurrent?'Aktuelle BA':'Vergleich')+'</span>'+
+        '<span class="ba-dup-id">'+escHtml(f['BA_ID']||rec.id)+'</span>'+
+        '<span class="ba-status-pill '+baStatusCls(status)+'">'+escHtml(status)+'</span>'+
+      '</div>'+
+      '<div class="ba-dup-grid">'+
+        '<div class="ba-dup-k">Lieferant</div><div class="ba-dup-v">'+escHtml(f['BA_Lieferant']||'—')+'</div>'+
+        '<div class="ba-dup-k">Brutto</div><div class="ba-dup-v">'+escHtml(brutto)+'</div>'+
+        '<div class="ba-dup-k">Datum</div><div class="ba-dup-v">'+escHtml(datum)+'</div>'+
+        '<div class="ba-dup-k">Belegnr</div><div class="ba-dup-v">'+escHtml(f['BA_Beleg_Nr']||'—')+'</div>'+
+        '<div class="ba-dup-k">Bezeichnung</div><div class="ba-dup-v">'+escHtml(f['BA_Bezeichnung']||'—')+'</div>'+
+      '</div>';
+    if (reason) h += '<div class="ba-dup-reason">Match-Grund: '+escHtml(reason.label)+'</div>';
+    if (!isCurrent){
+      h += '<div class="ba-dup-card-actions">'+
+        '<button type="button" class="ba-dup-btn-open" data-dup-open="'+rec.id+'">Öffnen</button>'+
+        '<button type="button" class="ba-dup-btn-relink" data-dup-relink="'+rec.id+'">Diese behalten, aktuelle löschen</button>'+
+        '</div>';
+      if (status==='freigegeben') h += '<div class="ba-dup-card-note">Diese BA wurde bereits verbucht</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+  var html = card(current, true, null);
+  html += '<div style="margin:14px 0 6px;font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;font-weight:700">Mögliche Duplikate ('+matches.length+')</div>';
+  matches.forEach(function(m){ html += card(m.rec, false, m.reason); });
+  var content = document.getElementById('ba-dup-content');
+  content.innerHTML = html;
+  content.querySelectorAll('[data-dup-open]').forEach(function(btn){
+    attachTouchClickHandler(btn, function(){
+      var id = btn.getAttribute('data-dup-open');
+      closeBaDupDialog();
+      openBaDetail(id);
+    });
+  });
+  content.querySelectorAll('[data-dup-relink]').forEach(function(btn){
+    attachTouchClickHandler(btn, function(){
+      var targetId = btn.getAttribute('data-dup-relink');
+      baDupDeleteCurrentWithRelink(baDupOpenForRecId, targetId);
+    });
+  });
+}
+
+// Nach erfolgreichem Löschen aufräumen: baList kürzen, Cache rebuilden, ggf. Detail-View
+// schließen wenn der gelöschte Record gerade offen war, sonst je nach View weiterlaufen.
+function baDupAfterDelete(recId, baIdLabel){
+  baList = baList.filter(function(r){ return r.id!==recId; });
+  buildBaDupCache();
+  if (baCurrentRec && baCurrentRec.id===recId){
+    baCurrentRec = null;
+    baCurrentPartner = null;
+    baSelectedPartnerId = null;
+    baNewMode = false;
+    baGoToList('BA' + baIdLabel + ' gelöscht');
+  } else if (baCurrentRec && !document.getElementById('ba-detail-view').classList.contains('ba-detail-hidden')){
+    // Detail einer anderen BA offen → Banner/Cache-Status für die aktualisieren
+    populateBaForm(baCurrentRec);
+  } else {
+    renderBaTable();
+  }
+}
+
+function baDupDeleteCurrentOnly(){
+  var recId = baDupOpenForRecId;
+  if (!recId) return;
+  var ba = baList.filter(function(r){ return r.id===recId; })[0];
+  if (!ba) return;
+  var f = ba.fields||{};
+  var st = f['BA_Status'];
+  if (st!=='offen' && st!=='in Bearbeitung') return;
+  var baId = f['BA_ID'] || recId;
+  if (!confirm('BA' + baId + ' wirklich löschen? Der Airtable-Eintrag und das verknüpfte Beleg-PDF werden unwiderruflich gelöscht. Verknüpfte KIMPs verlieren ihre BA-Zuordnung.')) return;
+  closeBaDupDialog();
+  atDelete('Betriebsausgaben_2026', recId, function(err, data){
+    if (err || (data && data.error)){
+      alert('Fehler beim Löschen: '+(err?err.message:data.error.message));
+      return;
+    }
+    baDupAfterDelete(recId, baId);
+  });
+}
+
+// "Diese behalten, aktuelle löschen": KIMPs, die auf die aktuelle BA verlinken, zuerst
+// auf die Ziel-BA umschreiben — DANN die aktuelle BA löschen. So verlieren KIMPs nicht
+// ihre Verknüpfung. Bei Fehler in der Umschreibung wird abgebrochen, damit es keinen
+// inkonsistenten Zwischenzustand gibt.
+function baDupDeleteCurrentWithRelink(recId, targetRecId){
+  if (!recId || !targetRecId) return;
+  var ba = baList.filter(function(r){ return r.id===recId; })[0];
+  var target = baList.filter(function(r){ return r.id===targetRecId; })[0];
+  if (!ba || !target) return;
+  var f = ba.fields||{}, tf = target.fields||{};
+  var st = f['BA_Status'];
+  if (st!=='offen' && st!=='in Bearbeitung') return;
+  var baId = f['BA_ID']||recId;
+  var targetId = tf['BA_ID']||targetRecId;
+  closeBaDupDialog();
+  // Schritt 1: KIMPs mit Link auf die aktuelle BA finden.
+  atGet(KIMP_TABLE, "NOT({KIMP_BA_Link}='')", ['KIMP_ID','KIMP_BA_Link'], function(err, data){
+    if (err){ alert('Fehler beim Suchen verknüpfter KIMPs: '+err.message); return; }
+    var kimps = ((data && data.records)||[]).filter(function(r){
+      var ids = Array.isArray(r.fields['KIMP_BA_Link']) ? r.fields['KIMP_BA_Link'] : [];
+      return ids.indexOf(recId)!==-1;
+    });
+    var msg = (kimps.length>0)
+      ? ('Diese BA hat ' + kimps.length + ' verknüpfte KIMP'+(kimps.length===1?'':'s')+'. Sollen diese auf '
+         + targetId + ' umgeschrieben werden, bevor BA' + baId + ' gelöscht wird?')
+      : ('BA' + baId + ' löschen? (Keine verknüpften KIMPs gefunden.)');
+    if (!confirm(msg)) return;
+    // Schritt 2: KIMP-Links sequenziell umschreiben.
+    function relinkNext(idx){
+      if (idx>=kimps.length){
+        // Schritt 3: BA löschen.
+        atDelete('Betriebsausgaben_2026', recId, function(e2, d2){
+          if (e2 || (d2 && d2.error)){
+            alert('KIMPs umgeschrieben, aber BA-Löschen fehlgeschlagen: '+(e2?e2.message:d2.error.message));
+            return;
+          }
+          baDupAfterDelete(recId, baId);
+        });
+        return;
+      }
+      var kimp = kimps[idx];
+      var ids = Array.isArray(kimp.fields['KIMP_BA_Link']) ? kimp.fields['KIMP_BA_Link'].slice() : [];
+      ids = ids.filter(function(id){ return id!==recId; });
+      if (ids.indexOf(targetRecId)===-1) ids.push(targetRecId);
+      atPatch(KIMP_TABLE, kimp.id, {'KIMP_BA_Link': ids}, function(eP, dP){
+        if (eP || (dP && dP.error)){
+          alert('Fehler beim Umschreiben KIMP '+(kimp.fields['KIMP_ID']||kimp.id)+': '+(eP?eP.message:dP.error.message));
+          return;
+        }
+        relinkNext(idx+1);
+      });
+    }
+    relinkNext(0);
   });
 }
 
@@ -3100,6 +3377,13 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
   document.getElementById('btn-ba-new').addEventListener('click', openBaNew);
   document.getElementById('btn-ba-cancel').addEventListener('click', baCancel);
   document.getElementById('btn-ba-delete').addEventListener('click', baDelete);
+
+  // Duplikat-Banner + Modal
+  document.getElementById('btn-ba-dup-compare').addEventListener('click', function(){
+    if (baCurrentRec && baCurrentRec.id) openBaDupDialog(baCurrentRec.id);
+  });
+  document.getElementById('btn-ba-dup-keep').addEventListener('click', closeBaDupDialog);
+  document.getElementById('btn-ba-dup-delete-current').addEventListener('click', baDupDeleteCurrentOnly);
 
   // PDF-Upload / -Ersetzen
   var pdfFileInput = document.getElementById('ba-pdf-file');
@@ -4562,6 +4846,10 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     </div>
     <div class="ba-form-pane" id="ba-form-pane-main">
       <div id="ba-klaer-banner" class="ba-klaer-banner" style="display:none"></div>
+      <div id="ba-dup-banner" class="ba-dup-banner" style="display:none">
+        <div class="ba-dup-banner-text" id="ba-dup-banner-text"></div>
+        <button type="button" class="ba-dup-banner-btn" id="btn-ba-dup-compare">Vergleichen</button>
+      </div>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
         <div>
           <div style="font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em">Betriebsausgabe</div>
@@ -4898,6 +5186,18 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
       <button type="button" class="btn-ba-confirm-warn" id="btn-ba-beleg-yes">Ja, trotzdem abschließen</button>
       <button type="button" class="btn-ba-confirm-yes" id="btn-ba-beleg-upload">PDF jetzt hochladen</button>
       <button type="button" class="btn-ba-confirm-no" id="btn-ba-beleg-no">Zurück zur Bearbeitung</button>
+    </div>
+  </div>
+</div>
+
+<!-- BA: Duplikat-Vergleich -->
+<div id="ba-dup-overlay">
+  <div class="ba-confirm-box ba-dup-box">
+    <div class="ba-confirm-title">Duplikat-Vergleich</div>
+    <div class="ba-confirm-text" id="ba-dup-content"></div>
+    <div class="ba-confirm-actions">
+      <button type="button" class="btn-ba-confirm-warn" id="btn-ba-dup-delete-current">Diese BA löschen</button>
+      <button type="button" class="btn-ba-confirm-no" id="btn-ba-dup-keep">Behalten</button>
     </div>
   </div>
 </div>
