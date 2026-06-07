@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.7.0
-  SW Cache: rd-hub-v68
+  Version:  2.7.1
+  SW Cache: rd-hub-v69
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.7.1  (2026-05-18)  BA-Anlage aus Beleg im KIMP-Clearing (Hub-getriebener Workflow)
   v2.7.0  (2026-05-18)  Duplikat-Indikator im BA-Review mit Vergleichs-Dialog
   v2.6.5  (2026-05-18)  Multi-Select-Kategorie-Filter im KIMP-Clearing
   v2.6.4  (2026-05-18)  Belegnummer-Match priorisiert, Datums-Filter übersprungen
@@ -522,6 +523,45 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-link-search-wrap{position:relative}
 .kimp-link-input{width:100%;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
 .kimp-link-input:focus{border-color:var(--accent)}
+.kimp-newba-btn{margin-top:6px;background:var(--card2);color:var(--muted);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;touch-action:manipulation;width:100%;text-align:left}
+.kimp-newba-btn:hover{color:var(--text);border-color:var(--accent)}
+#kimp-newba-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
+#kimp-newba-overlay.show{display:flex}
+.kimp-newba-box{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.kimp-newba-head{padding:16px 18px;border-bottom:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.kimp-newba-title{font-size:15px;font-weight:700;color:var(--text)}
+.kimp-newba-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;padding:0 4px;font-family:inherit}
+.kimp-newba-body{flex:1;overflow-y:auto;padding:14px 18px}
+.kimp-newba-err{background:rgba(230,57,70,.12);border:.5px solid var(--accent);border-radius:var(--radius-sm);padding:8px 10px;color:var(--accent);font-size:12px;margin-bottom:10px;display:none}
+.kimp-newba-drop{border:1.5px dashed var(--border);border-radius:var(--radius-sm);padding:18px;text-align:center;font-size:13px;color:var(--muted);cursor:pointer;background:var(--card2);transition:border-color .15s,color .15s}
+.kimp-newba-drop:hover,.kimp-newba-drop.dragover{border-color:var(--accent);color:var(--text)}
+.kimp-newba-drop strong{color:var(--text)}
+.kimp-newba-drop-sub{font-size:11px;color:var(--hint);margin-top:4px}
+.kimp-newba-file{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--text)}
+.kimp-newba-file-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kimp-newba-file-change{background:none;border:.5px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;font-family:inherit}
+.kimp-newba-ocr{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted)}
+.kimp-newba-form{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kimp-newba-form .kimp-newba-row-full{grid-column:1 / -1}
+.kimp-newba-field label{display:block;font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.kimp-newba-field input,.kimp-newba-field select{width:100%;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;outline:none;-webkit-appearance:none}
+.kimp-newba-field input:focus,.kimp-newba-field select:focus{border-color:var(--accent)}
+.kimp-newba-field input:disabled,.kimp-newba-field select:disabled{opacity:.5;cursor:not-allowed}
+.kimp-newba-field input.kimp-newba-invalid{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.kimp-newba-supplier-wrap{position:relative}
+.kimp-newba-supplier-dd{position:absolute;top:100%;left:0;right:0;background:var(--card);border:.5px solid var(--border);border-radius:var(--radius-sm);max-height:180px;overflow-y:auto;z-index:5;display:none;margin-top:2px}
+.kimp-newba-supplier-dd.show{display:block}
+.kimp-newba-supplier-dd .ba-dd-item{padding:7px 10px;font-size:12px;color:var(--text);cursor:pointer;border-bottom:.5px solid var(--border)}
+.kimp-newba-supplier-dd .ba-dd-item:hover{background:var(--card2)}
+.kimp-newba-foot{padding:12px 18px;border-top:.5px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.kimp-newba-foot button{padding:10px 14px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
+.kimp-newba-cancel{background:var(--card2);color:var(--text);border:.5px solid var(--border)}
+.kimp-newba-submit{background:var(--green);color:#fff}
+.kimp-newba-submit:disabled{opacity:.5;cursor:wait}
+@media (max-width:640px){
+  .kimp-newba-form{grid-template-columns:1fr}
+  .kimp-newba-box{max-height:95vh}
+}
 .kimp-sug-section{margin-bottom:14px}
 .kimp-sug-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
 .kimp-sug-head .kimp-sug-title{margin-bottom:0}
@@ -572,8 +612,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.7.0</span>
-      <span>SW rd-hub-v68</span>
+      <span>APP v2.7.1</span>
+      <span>SW rd-hub-v69</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -606,7 +646,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -786,9 +826,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 var AT_BASE = 'appwhhRzsznu1LTRX';
 var AT_TABLE = 'Artikel_2026';
 var AT_TOKEN = 'patNPI9NMOZC3ZJgh.5815eddd9a34b7821d4eebcd67395c1707f49ac7bc12ecf1910e7f0ba38bd7ec';
-// VK-Rechnungs-Web-App (Apps Script). Klartext analog AT_TOKEN — Cloud-Run-Migration im Backlog.
+// VK-Rechnungs- & Invoice-Processing-Web-Apps (Apps Script). Klartext analog AT_TOKEN —
+// Cloud-Run-Migration im Backlog. HUB_SECRET ist projekt-übergreifend identisch.
+var HUB_SECRET = 'K7pX9mZqW8nY2vR5tL3aB6cE4dH1jU0o';
 var VK_RECHNUNG_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzcsKXRFqr2UaNXatz9IXt7fi9m_LOgzRRb48nieApAmuFqK3z47FWHaeK9iTV2KJsQkg/exec';
-var VK_RECHNUNG_HUB_SECRET = 'K7pX9mZqW8nY2vR5tL3aB6cE4dH1jU0o';
+var VK_RECHNUNG_HUB_SECRET = HUB_SECRET;   // Alias für Bestandscode
+var INVOICE_PROCESSING_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzzS6I6gmvUSFeyM7cuW7KSVO1by9vpCZMro8f1vE6b5nd9fCDqkPWnjinovh5C7bww-g/exec';
 var PIN = '082024';
 var lastArtikel = null;
 var skuRecordId = null;
@@ -3942,6 +3985,10 @@ function renderKimpLinkSection(type){
   html+='<div class="kimp-link-search-wrap">'+
     '<input type="text" class="kimp-link-input" id="kimp-search-'+type+'" autocomplete="off" placeholder="+ '+def.label+' verknüpfen…" />'+
     '<div class="ba-dropdown" id="kimp-dd-'+type+'"></div></div>';
+  // Nur bei BA: zusätzlicher Button zum direkten Anlegen einer neuen BA aus einem Beleg-PDF.
+  if (type==='ba'){
+    html+='<button type="button" class="kimp-newba-btn" id="btn-kimp-newba">📎 Neue BA aus Beleg anlegen</button>';
+  }
   container.innerHTML=html;
 
   container.querySelectorAll('.klc-x').forEach(function(b){
@@ -3961,6 +4008,10 @@ function renderKimpLinkSection(type){
     kimpLinkSearchTimers[type]=setTimeout(function(){ kimpSearchLinkCandidates(type,q); },250);
   });
   input.addEventListener('blur', function(){ setTimeout(function(){ var dd=document.getElementById('kimp-dd-'+type); if (dd) dd.style.display='none'; },200); });
+  if (type==='ba'){
+    var newBaBtn=document.getElementById('btn-kimp-newba');
+    if (newBaBtn) attachTouchClickHandler(newBaBtn, openKimpNewBaModal);
+  }
 }
 function renderKimpLinkSections(){
   renderKimpLinkSection('ba');
@@ -4660,6 +4711,281 @@ function hideKimpConfirm(){
   kimpConfirmCb=null;
 }
 
+// ── Neue BA aus Beleg (Hub-Modal) ──
+// Workflow: PDF wählen → base64 → Apps Script OCR → Felder vorbefüllen → User
+// korrigiert → Apps Script create_ba → KIMP_BA_Link patchen + Cache nachziehen.
+var kimpNewBaPdfBase64 = null;
+var kimpNewBaPdfName = null;
+var kimpNewBaBusy = false;
+
+function openKimpNewBaModal(){
+  if (!kimpCurrentRec) return;
+  kimpNewBaResetForm();
+  document.getElementById('kimp-newba-overlay').classList.add('show');
+}
+function closeKimpNewBaModal(){
+  if (kimpNewBaBusy) return;   // während Submit nicht schließen
+  document.getElementById('kimp-newba-overlay').classList.remove('show');
+}
+function kimpNewBaResetForm(){
+  kimpNewBaPdfBase64 = null;
+  kimpNewBaPdfName = null;
+  kimpNewBaBusy = false;
+  document.getElementById('kimp-newba-err').style.display='none';
+  document.getElementById('kimp-newba-file-info').style.display='none';
+  document.getElementById('kimp-newba-file-name').textContent='—';
+  document.getElementById('kimp-newba-drop').style.display='';
+  document.getElementById('kimp-newba-ocr').style.display='none';
+  document.getElementById('kimp-newba-file').value='';
+  ['kimp-newba-partner','kimp-newba-datum','kimp-newba-brutto','kimp-newba-netto',
+   'kimp-newba-ust','kimp-newba-belegnr','kimp-newba-bezeichnung'].forEach(function(id){
+    var el=document.getElementById(id); if (el){ el.value=''; el.classList.remove('kimp-newba-invalid'); el.disabled=false; }
+  });
+  ['kimp-newba-ustsatz','kimp-newba-kategorie','kimp-newba-zahlweg'].forEach(function(id){
+    var el=document.getElementById(id); if (el){ el.value=''; el.disabled=false; }
+  });
+  document.getElementById('kimp-newba-partner-dd').classList.remove('show');
+  document.getElementById('btn-kimp-newba-submit').disabled=false;
+  document.getElementById('btn-kimp-newba-submit').textContent='BA anlegen';
+}
+function kimpNewBaShowError(msg){
+  var el=document.getElementById('kimp-newba-err');
+  el.textContent=msg;
+  el.style.display='';
+}
+function kimpNewBaHideError(){
+  document.getElementById('kimp-newba-err').style.display='none';
+}
+function kimpNewBaSetFieldsDisabled(d){
+  ['kimp-newba-partner','kimp-newba-datum','kimp-newba-brutto','kimp-newba-netto',
+   'kimp-newba-ust','kimp-newba-ustsatz','kimp-newba-kategorie','kimp-newba-zahlweg',
+   'kimp-newba-belegnr','kimp-newba-bezeichnung'].forEach(function(id){
+    var el=document.getElementById(id); if (el) el.disabled=d;
+  });
+}
+
+function kimpNewBaHandleFile(file){
+  if (!file) return;
+  if (file.type!=='application/pdf' && !/\.pdf$/i.test(file.name)){
+    kimpNewBaShowError('Nur PDF-Dateien sind erlaubt.');
+    return;
+  }
+  kimpNewBaHideError();
+  kimpNewBaPdfName = file.name;
+  document.getElementById('kimp-newba-file-name').textContent = file.name;
+  document.getElementById('kimp-newba-file-info').style.display='';
+  document.getElementById('kimp-newba-drop').style.display='none';
+
+  var reader = new FileReader();
+  reader.onerror = function(){ kimpNewBaShowError('Fehler beim Lesen der Datei.'); };
+  reader.onload = function(){
+    var dataUrl = reader.result;
+    var commaIdx = dataUrl.indexOf(',');
+    if (commaIdx<0){ kimpNewBaShowError('Datei konnte nicht als base64 gelesen werden.'); return; }
+    kimpNewBaPdfBase64 = dataUrl.substring(commaIdx+1);
+    kimpNewBaRunOcr();
+  };
+  reader.readAsDataURL(file);
+}
+
+function kimpNewBaRunOcr(){
+  if (!kimpNewBaPdfBase64) return;
+  document.getElementById('kimp-newba-ocr').style.display='flex';
+  document.getElementById('kimp-newba-ocr-text').textContent='PDF wird ausgewertet…';
+  kimpNewBaSetFieldsDisabled(true);
+  fetch(INVOICE_PROCESSING_WEBAPP_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},  // Apps Script doPost: text/plain vermeidet CORS-Preflight
+    body:JSON.stringify({ action:'ocr_extract', secret:HUB_SECRET, pdf_base64:kimpNewBaPdfBase64 })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(res){
+    document.getElementById('kimp-newba-ocr').style.display='none';
+    kimpNewBaSetFieldsDisabled(false);
+    if (res && res.ok && res.data){
+      kimpNewBaFillFromOcr(res.data);
+    } else {
+      kimpNewBaShowError('OCR fehlgeschlagen, bitte manuell ausfüllen.');
+    }
+  })
+  .catch(function(){
+    document.getElementById('kimp-newba-ocr').style.display='none';
+    kimpNewBaSetFieldsDisabled(false);
+    kimpNewBaShowError('OCR fehlgeschlagen, bitte manuell ausfüllen.');
+  });
+}
+
+function kimpNewBaFillFromOcr(d){
+  function setVal(id,v){ var el=document.getElementById(id); if (el && v!=null && v!=='') el.value=v; }
+  setVal('kimp-newba-partner', d.partner);
+  setVal('kimp-newba-datum', d.datum);   // ISO YYYY-MM-DD, passt direkt in type=date
+  if (d.brutto)    setVal('kimp-newba-brutto', d.brutto);
+  if (d.netto)     setVal('kimp-newba-netto', d.netto);
+  if (d.ust)       setVal('kimp-newba-ust', d.ust);
+  if (d.ustSatz)   setVal('kimp-newba-ustsatz', d.ustSatz);
+  if (d.kategorie) setVal('kimp-newba-kategorie', d.kategorie);
+  if (d.zahlweg)   setVal('kimp-newba-zahlweg', d.zahlweg);
+  setVal('kimp-newba-belegnr', d.belegNr);
+  setVal('kimp-newba-bezeichnung', d.bezeichnung);
+}
+
+// Lieferanten-Auto-Complete aus kimpPartnerCache (lokal, keine Airtable-Round-Trip).
+// Sucht in PD_Firmenname, PD_Name, PD_Vorname, PD_KA_Name. Substring-Match, case-insensitive.
+function kimpNewBaSearchPartner(q){
+  var dd = document.getElementById('kimp-newba-partner-dd');
+  if (!kimpPartnerCache || !q || q.length<2){ dd.classList.remove('show'); dd.innerHTML=''; return; }
+  var ql = q.toLowerCase();
+  var hits = [];
+  for (var id in kimpPartnerCache){
+    var f = kimpPartnerCache[id];
+    var firm = f['PD_Firmenname']||'';
+    var name = ((f['PD_Vorname']||'')+' '+(f['PD_Name']||'')).trim();
+    var ka   = f['PD_KA_Name']||'';
+    var hay  = (firm+' '+name+' '+ka).toLowerCase();
+    if (hay.indexOf(ql)===-1) continue;
+    var display = firm || name || ka;
+    if (display) hits.push({ id:id, display:display });
+    if (hits.length>=12) break;
+  }
+  if (!hits.length){ dd.classList.remove('show'); dd.innerHTML=''; return; }
+  var html='';
+  hits.forEach(function(h){ html += '<div class="ba-dd-item" data-name="'+escHtml(h.display)+'">'+escHtml(h.display)+'</div>'; });
+  dd.innerHTML = html;
+  dd.classList.add('show');
+  dd.querySelectorAll('.ba-dd-item').forEach(function(it){
+    it.addEventListener('mousedown', function(e){
+      e.preventDefault();
+      document.getElementById('kimp-newba-partner').value = it.getAttribute('data-name');
+      dd.classList.remove('show');
+    });
+  });
+}
+
+function kimpNewBaSubmit(){
+  if (kimpNewBaBusy) return;
+  kimpNewBaHideError();
+  if (!kimpNewBaPdfBase64){
+    kimpNewBaShowError('Bitte erst ein PDF auswählen.');
+    return;
+  }
+  if (!kimpCurrentRec){
+    kimpNewBaShowError('Kein aktueller KIMP-Datensatz.');
+    return;
+  }
+  var partner = document.getElementById('kimp-newba-partner').value.trim();
+  var datum   = document.getElementById('kimp-newba-datum').value;
+  var brutto  = parseFloat(document.getElementById('kimp-newba-brutto').value);
+  var bezg    = document.getElementById('kimp-newba-bezeichnung').value.trim();
+  var fields  = { partner:'kimp-newba-partner', datum:'kimp-newba-datum', brutto:'kimp-newba-brutto', bezeichnung:'kimp-newba-bezeichnung' };
+  var bad = [];
+  if (!partner)             bad.push(fields.partner);
+  if (!datum)               bad.push(fields.datum);
+  if (isNaN(brutto)||brutto===0) bad.push(fields.brutto);
+  if (!bezg)                bad.push(fields.bezeichnung);
+  // erst alle clearen, dann nur die fehlerhaften markieren
+  Object.keys(fields).forEach(function(k){ document.getElementById(fields[k]).classList.remove('kimp-newba-invalid'); });
+  bad.forEach(function(id){ document.getElementById(id).classList.add('kimp-newba-invalid'); });
+  if (bad.length){ kimpNewBaShowError('Pflichtfelder fehlen.'); return; }
+
+  function num(id){ var v=parseFloat(document.getElementById(id).value); return isNaN(v) ? undefined : v; }
+  function str(id){ var v=document.getElementById(id).value; return v ? v.trim() : ''; }
+
+  var ba_data = {
+    partner: partner,
+    datum: datum,
+    brutto: brutto,
+    netto: num('kimp-newba-netto'),
+    ust:   num('kimp-newba-ust'),
+    ustSatz: str('kimp-newba-ustsatz'),
+    kategorie: str('kimp-newba-kategorie'),
+    zahlweg: str('kimp-newba-zahlweg'),
+    belegNr: str('kimp-newba-belegnr'),
+    bezeichnung: bezg
+  };
+
+  var payload = {
+    action: 'create_ba',
+    secret: HUB_SECRET,
+    kimp_id: (kimpCurrentRec.fields && kimpCurrentRec.fields['KIMP_ID']) || '',
+    kimp_record_id: kimpCurrentRec.id,
+    pdf_base64: kimpNewBaPdfBase64,
+    ba_data: ba_data
+  };
+
+  kimpNewBaBusy = true;
+  var btn = document.getElementById('btn-kimp-newba-submit');
+  btn.disabled = true;
+  btn.textContent = 'Lege an…';
+  fetch(INVOICE_PROCESSING_WEBAPP_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(payload)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(res){
+    if (res && res.ok && res.ba_record_id){
+      kimpNewBaOnSuccess(res);
+    } else {
+      kimpNewBaOnError(res);
+    }
+  })
+  .catch(function(e){
+    kimpNewBaOnError({ error: e && e.message ? e.message : 'Netzwerk-Fehler' });
+  });
+}
+
+function kimpNewBaOnError(res){
+  kimpNewBaBusy = false;
+  var btn = document.getElementById('btn-kimp-newba-submit');
+  btn.disabled = false;
+  btn.textContent = 'BA anlegen';
+  var msg = (res && res.error) || 'Anlage fehlgeschlagen';
+  if (msg === 'forbidden') msg = 'Authentifizierung fehlgeschlagen. Hub-Secret prüfen.';
+  kimpNewBaShowError(msg);
+}
+
+function kimpNewBaOnSuccess(res){
+  if (!kimpCurrentRec){ closeKimpNewBaModal(); return; }
+  var newBaRecId = res.ba_record_id;
+  var baLot = res.ba_lot || newBaRecId;
+  var driveUrl = res.drive_url || null;
+  // Schritt 1: KIMP_BA_Link am aktuellen KIMP patchen (neue BA-ID anhängen).
+  var existingIds = kimpLinkIds(kimpCurrentRec.fields, 'KIMP_BA_Link');
+  if (existingIds.indexOf(newBaRecId)===-1) existingIds.push(newBaRecId);
+  atPatch(KIMP_TABLE, kimpCurrentRec.id, { 'KIMP_BA_Link': existingIds }, function(err, data){
+    kimpNewBaBusy = false;
+    var btn = document.getElementById('btn-kimp-newba-submit');
+    btn.disabled = false;
+    btn.textContent = 'BA anlegen';
+    if (err || (data && data.error)){
+      // BA ist angelegt, Verknüpfung fehlt nur — User-freundlich melden, Modal offen lassen.
+      kimpNewBaShowError('BA ' + baLot + ' angelegt, Verknüpfung fehlgeschlagen: ' + (err?err.message:data.error.message));
+      return;
+    }
+    // Lokale Caches/State aktualisieren.
+    kimpCurrentRec.fields = kimpCurrentRec.fields || {};
+    kimpCurrentRec.fields['KIMP_BA_Link'] = existingIds;
+    var ba_data = {
+      'BA_ID': baLot,
+      'BA_Lieferant': document.getElementById('kimp-newba-partner').value.trim(),
+      'BA_Brutto': parseFloat(document.getElementById('kimp-newba-brutto').value) || 0,
+      'BA_Datum': document.getElementById('kimp-newba-datum').value,
+      'BA_Beleg_Nr': document.getElementById('kimp-newba-belegnr').value || '',
+      'BA_Bezeichnung': document.getElementById('kimp-newba-bezeichnung').value || ''
+    };
+    if (driveUrl) ba_data['BA_Beleg'] = [{ url: driveUrl }];
+    // Match-Cache (für Vorschläge): neue BA pushen, damit der nächste KIMP sie sieht.
+    if (kimpMatchCache && kimpMatchCache.ba) kimpMatchCache.ba.push({ id:newBaRecId, fields: ba_data });
+    // BA-Beleg-Map (für Beleg-Indikator in der KIMP-Liste).
+    if (kimpBaBelegSet && driveUrl) kimpBaBelegSet[newBaRecId] = true;
+    // Detail neu rendern → "Aktuelle Verknüpfungen" + Beleg-Pane.
+    populateKimpDetail(kimpCurrentRec);
+    kimpSetMsg('✓ BA ' + baLot + ' angelegt und verknüpft', 'ok');
+    setTimeout(function(){ var m=document.getElementById('kimp-save-msg'); if (m && m.textContent.indexOf('angelegt')!==-1) kimpSetMsg(''); }, 3500);
+    closeKimpNewBaModal();
+  });
+}
+
 // Tile liegt im Home (vor diesem Script) → direkt verdrahtbar.
 addNav('tile-kimp','screen-kimp', loadKimpList);
 
@@ -4717,6 +5043,34 @@ document.addEventListener('DOMContentLoaded', function setupKimp(){
     if (kimpCurrentRec) kimpCancel();
     else goBack();
   });
+
+  // ── Neue-BA-aus-Beleg Modal ──
+  var newBaDrop = document.getElementById('kimp-newba-drop');
+  var newBaFile = document.getElementById('kimp-newba-file');
+  newBaDrop.addEventListener('click', function(){ newBaFile.click(); });
+  document.getElementById('btn-kimp-newba-change').addEventListener('click', function(){ newBaFile.click(); });
+  newBaFile.addEventListener('change', function(){
+    var f = newBaFile.files && newBaFile.files[0];
+    if (f) kimpNewBaHandleFile(f);
+  });
+  ['dragenter','dragover'].forEach(function(ev){
+    newBaDrop.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); newBaDrop.classList.add('dragover'); });
+  });
+  ['dragleave','dragend','drop'].forEach(function(ev){
+    newBaDrop.addEventListener(ev, function(e){ e.preventDefault(); e.stopPropagation(); newBaDrop.classList.remove('dragover'); });
+  });
+  newBaDrop.addEventListener('drop', function(e){
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) kimpNewBaHandleFile(f);
+  });
+  document.getElementById('btn-kimp-newba-close').addEventListener('click', closeKimpNewBaModal);
+  document.getElementById('btn-kimp-newba-cancel').addEventListener('click', closeKimpNewBaModal);
+  document.getElementById('btn-kimp-newba-submit').addEventListener('click', kimpNewBaSubmit);
+
+  // Lieferant-Auto-Complete
+  var partnerInput = document.getElementById('kimp-newba-partner');
+  partnerInput.addEventListener('input', function(){ kimpNewBaSearchPartner(partnerInput.value.trim()); });
+  partnerInput.addEventListener('blur', function(){ setTimeout(function(){ document.getElementById('kimp-newba-partner-dd').classList.remove('show'); }, 180); });
 });
 
 // ── BUILD DATE (letzter Commit auf main) ──
@@ -5198,6 +5552,107 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <div class="ba-confirm-actions">
       <button type="button" class="btn-ba-confirm-warn" id="btn-ba-dup-delete-current">Diese BA löschen</button>
       <button type="button" class="btn-ba-confirm-no" id="btn-ba-dup-keep">Behalten</button>
+    </div>
+  </div>
+</div>
+
+<!-- KIMP: Neue BA aus Beleg anlegen -->
+<div id="kimp-newba-overlay">
+  <div class="kimp-newba-box">
+    <div class="kimp-newba-head">
+      <div class="kimp-newba-title">Neue BA aus Beleg</div>
+      <button type="button" class="kimp-newba-close" id="btn-kimp-newba-close" title="Schließen">✕</button>
+    </div>
+    <div class="kimp-newba-body">
+      <div class="kimp-newba-err" id="kimp-newba-err"></div>
+      <div class="kimp-newba-drop" id="kimp-newba-drop">
+        <div><strong>PDF hierher ziehen</strong> oder klicken zum Auswählen</div>
+        <div class="kimp-newba-drop-sub">Nur .pdf, OCR startet automatisch</div>
+      </div>
+      <input type="file" id="kimp-newba-file" accept="application/pdf,.pdf" style="display:none" />
+      <div class="kimp-newba-file" id="kimp-newba-file-info" style="display:none">
+        <span>📎</span>
+        <span class="kimp-newba-file-name" id="kimp-newba-file-name">—</span>
+        <button type="button" class="kimp-newba-file-change" id="btn-kimp-newba-change">Anderes PDF</button>
+      </div>
+      <div class="kimp-newba-ocr" id="kimp-newba-ocr" style="display:none">
+        <div class="artikel-spinner"></div><span id="kimp-newba-ocr-text">PDF wird ausgewertet…</span>
+      </div>
+      <div class="kimp-newba-form" id="kimp-newba-form">
+        <div class="kimp-newba-field kimp-newba-row-full kimp-newba-supplier-wrap">
+          <label>Lieferant *</label>
+          <input type="text" id="kimp-newba-partner" autocomplete="off" placeholder="z.B. Kleinanzeigen.de GmbH" />
+          <div class="kimp-newba-supplier-dd" id="kimp-newba-partner-dd"></div>
+        </div>
+        <div class="kimp-newba-field">
+          <label>Datum *</label>
+          <input type="date" id="kimp-newba-datum" />
+        </div>
+        <div class="kimp-newba-field">
+          <label>Brutto € *</label>
+          <input type="number" step="0.01" id="kimp-newba-brutto" />
+        </div>
+        <div class="kimp-newba-field">
+          <label>Netto €</label>
+          <input type="number" step="0.01" id="kimp-newba-netto" />
+        </div>
+        <div class="kimp-newba-field">
+          <label>USt-Betrag €</label>
+          <input type="number" step="0.01" id="kimp-newba-ust" />
+        </div>
+        <div class="kimp-newba-field">
+          <label>USt-Satz</label>
+          <select id="kimp-newba-ustsatz">
+            <option value="">—</option>
+            <option value="19%">19%</option>
+            <option value="7%">7%</option>
+            <option value="0%">0%</option>
+            <option value="0% / Reverse Charge">0% / Reverse Charge</option>
+          </select>
+        </div>
+        <div class="kimp-newba-field">
+          <label>Kategorie</label>
+          <select id="kimp-newba-kategorie">
+            <option value="">—</option>
+            <option>Warenersatzteile</option>
+            <option>Verpackung</option>
+            <option>Versandkosten</option>
+            <option>Büroausstattung</option>
+            <option>Werkzeug</option>
+            <option>Software</option>
+            <option>Plattform-Gebühren</option>
+            <option>Fahrtkosten</option>
+            <option>Miete</option>
+            <option>Sonstiges</option>
+            <option>Versicherung</option>
+            <option>Bankgebühren</option>
+            <option>Werbekosten</option>
+          </select>
+        </div>
+        <div class="kimp-newba-field">
+          <label>Zahlweg</label>
+          <select id="kimp-newba-zahlweg">
+            <option value="">—</option>
+            <option>Überweisung</option>
+            <option>Lastschrift</option>
+            <option>Paypal</option>
+            <option>Karte</option>
+            <option>eBay</option>
+          </select>
+        </div>
+        <div class="kimp-newba-field kimp-newba-row-full">
+          <label>Belegnummer</label>
+          <input type="text" id="kimp-newba-belegnr" />
+        </div>
+        <div class="kimp-newba-field kimp-newba-row-full">
+          <label>Bezeichnung *</label>
+          <input type="text" id="kimp-newba-bezeichnung" />
+        </div>
+      </div>
+    </div>
+    <div class="kimp-newba-foot">
+      <button type="button" class="kimp-newba-cancel" id="btn-kimp-newba-cancel">Abbrechen</button>
+      <button type="button" class="kimp-newba-submit" id="btn-kimp-newba-submit">BA anlegen</button>
     </div>
   </div>
 </div>
