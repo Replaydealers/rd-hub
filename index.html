@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.6.1
-  SW Cache: rd-hub-v63
+  Version:  2.6.2
+  SW Cache: rd-hub-v64
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.6.2  (2026-05-18)  Refresh-Buttons in KIMP-Mögliche-Treffer und BA-Detail
   v2.6.1  (2026-05-17)  Weiter-Logik im BA-Review respektiert Filter/Suche/Sortierung
   v2.6.0  (2026-05-17)  BA löschen + BA-Liste sortierbar + Suche
   v2.5.0  (2026-05-17)  VK-Rechnungen direkt aus dem Clearing erzeugen
@@ -496,6 +497,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-link-input{width:100%;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
 .kimp-link-input:focus{border-color:var(--accent)}
 .kimp-sug-section{margin-bottom:14px}
+.kimp-sug-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.kimp-sug-head .kimp-sug-title{margin-bottom:0}
+.kimp-sug-refresh{flex-shrink:0;border:.5px solid var(--border);background:var(--card2);color:var(--muted);border-radius:6px;width:24px;height:22px;font-size:12px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;padding:0;touch-action:manipulation}
+.kimp-sug-refresh:hover{color:var(--text)}
+.kimp-sug-refresh:disabled{opacity:.6;cursor:wait}
+.kimp-sug-refresh>span{display:inline-block;line-height:1}
+.kimp-sug-refresh.is-spinning>span{animation:art-spin .8s linear infinite}
+.refresh-btn>span{display:inline-block;line-height:1}
+.refresh-btn.is-spinning>span{animation:art-spin .8s linear infinite}
+.refresh-btn:disabled{opacity:.6;cursor:wait}
 .kimp-sug-title{font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 .kimp-sug-empty{font-size:12px;color:var(--hint);margin-bottom:5px}
 .kimp-sug-spinner{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);padding:4px 0}
@@ -531,8 +542,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.6.1</span>
-      <span>SW rd-hub-v63</span>
+      <span>APP v2.6.2</span>
+      <span>SW rd-hub-v64</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -565,7 +576,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.2</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1689,7 +1700,9 @@ function showBaDetailView() {
   document.getElementById('ba-list-view').style.display = 'none';
   document.getElementById('ba-detail-view').classList.remove('ba-detail-hidden');
   document.getElementById('ba-header-title').textContent = 'BA bearbeiten';
-  document.getElementById('btn-ba-reload').style.display = 'none';
+  // Refresh-Button bleibt im Detail-View sichtbar (lädt aktuelle BA + baList neu) — außer im
+  // Neu-Modus, wo es noch keinen Record gibt, den man neu laden könnte.
+  document.getElementById('btn-ba-reload').style.display = baNewMode ? 'none' : '';
   document.getElementById('btn-ba-new').style.display = 'none';
 }
 
@@ -2975,6 +2988,57 @@ function baCancel() {
   showBaListView();
 }
 
+// Kontext-abhängiger Refresh-Button im BA-Header:
+// — in der Liste: komplette baList neu laden (bisheriges Verhalten)
+// — im Detail-View (bestehender Record): aktuelle BA neu von Airtable holen +
+//   baList parallel im Hintergrund neu laden (für spätere Such-/Sortier-Konsistenz).
+//   Begründung: User könnte parallel in Airtable selbst was geändert haben, oder ein
+//   anderer Tab hat eine Verknüpfung gesetzt.
+function baReloadClick() {
+  if (baCurrentRec && baCurrentRec.id && !baNewMode) baReloadDetail();
+  else loadBaList();
+}
+
+function baReloadDetail() {
+  if (!baCurrentRec || !baCurrentRec.id) return;
+  var btn = document.getElementById('btn-ba-reload');
+  if (btn.classList.contains('is-spinning')) return;
+  btn.classList.add('is-spinning');
+  btn.disabled = true;
+  var recId = baCurrentRec.id;
+  var msg = document.getElementById('ba-save-msg');
+  if (msg) { msg.textContent = 'Lade…'; msg.style.color = 'var(--muted)'; }
+  var pending = 2;
+  function done() {
+    if (--pending > 0) return;
+    btn.classList.remove('is-spinning');
+    btn.disabled = false;
+  }
+  fetch('https://api.airtable.com/v0/' + AT_BASE + '/Betriebsausgaben_2026/' + recId, {headers:{'Authorization':'Bearer '+AT_TOKEN}})
+    .then(function(r){ return r.json(); })
+    .then(function(rec){
+      if (rec.error) {
+        if (msg) { msg.textContent = 'Fehler: ' + rec.error.message; msg.style.color = 'var(--accent)'; }
+        done(); return;
+      }
+      // Nur übernehmen, wenn der User noch auf demselben Record steht.
+      if (baCurrentRec && baCurrentRec.id === recId) {
+        baCurrentRec = rec;
+        populateBaForm(rec);
+        if (msg) msg.textContent = '';
+      }
+      done();
+    })
+    .catch(function(e){
+      if (msg) { msg.textContent = 'Fehler: ' + e.message; msg.style.color = 'var(--accent)'; }
+      done();
+    });
+  atGet('Betriebsausgaben_2026', "OR({BA_Status}='offen',{BA_Status}='in Bearbeitung',{BA_Status}='freigegeben')", BA_LIST_FIELDS, function(err, data) {
+    if (!err && data && data.records) baList = data.records;
+    done();
+  });
+}
+
 // Löscht den BA-Record in Airtable. Das BA_Beleg-PDF liegt in Airtables eigenem
 // Attachment-Storage (keine Drive-URL, kein separates BA_Drive_ID-Feld in der
 // Codebase) und wird mit dem Record automatisch mitgelöscht. Linked Records
@@ -3023,7 +3087,7 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
       renderBaTable();
     });
   });
-  document.getElementById('btn-ba-reload').addEventListener('click', loadBaList);
+  document.getElementById('btn-ba-reload').addEventListener('click', baReloadClick);
   document.getElementById('btn-ba-new').addEventListener('click', openBaNew);
   document.getElementById('btn-ba-cancel').addEventListener('click', baCancel);
   document.getElementById('btn-ba-delete').addEventListener('click', baDelete);
@@ -3934,50 +3998,58 @@ function renderKimpSuggestions(){
   var el=document.getElementById('kimp-suggestions');
   if (!el) return;
   if (!kimpCurrentRec){ el.innerHTML=''; return; }
-  var head='<div class="kimp-sug-title">Mögliche Treffer</div>';
+  // Kopfzeile mit Refresh-Icon: lädt den Match-Cache (BA/EK/VK + Partner) neu, ohne den
+  // KIMP-Record selbst neu zu fetchen. Nützlich, wenn parallel in BA-Review eine neue BA
+  // angelegt wurde — sonst bleibt der 60-s-Cache und der neue Treffer fehlt im Vorschlag.
+  var spin = kimpMatchLoading;
+  var head='<div class="kimp-sug-head">'+
+    '<div class="kimp-sug-title">Mögliche Treffer</div>'+
+    '<button type="button" class="kimp-sug-refresh'+(spin?' is-spinning':'')+'" id="kimp-sug-refresh" title="Vorschläge neu laden"'+(spin?' disabled':'')+'><span>↻</span></button>'+
+    '</div>';
   var kf=kimpCurrentRec.fields;
   var kBetrag=parseFloat(kf['KIMP_Betrag']);
   var kMs=kimpDateMs(kf['KIMP_Buchungstag']);
+  var body;
   if (isNaN(kBetrag) || Math.abs(kBetrag)===0 || kMs==null){
-    el.innerHTML=head+'<div class="kimp-sug-empty">Vorschläge nicht möglich (Datum oder Betrag fehlt)</div>';
-    return;
-  }
-  if (kimpMatchError){
-    el.innerHTML=head+'<div class="kimp-sug-empty">Match-Datenbasis konnte nicht geladen werden</div>'+
+    body='<div class="kimp-sug-empty">Vorschläge nicht möglich (Datum oder Betrag fehlt)</div>';
+  } else if (kimpMatchError){
+    body='<div class="kimp-sug-empty">Match-Datenbasis konnte nicht geladen werden</div>'+
       '<button type="button" class="kimp-sug-retry" id="kimp-sug-retry">Erneut versuchen</button>';
-    var rb=document.getElementById('kimp-sug-retry');
-    if (rb) attachTouchClickHandler(rb, function(){ ensureKimpMatchCache(true); renderKimpSuggestions(); });
-    return;
+  } else if (kimpMatchLoading || !kimpMatchCache){
+    body='<div class="kimp-sug-spinner"><div class="artikel-spinner"></div><span>Lade Match-Datenbasis…</span></div>';
+  } else if (!(kimpMatchCache.ba.length || kimpMatchCache.ek.length || kimpMatchCache.vk.length)){
+    body='<div class="kimp-sug-empty">Keine Daten zum Vergleichen</div>';
+  } else {
+    kimpComputeSuggestions();
+    if (!kimpSuggestions.length){
+      body='<div class="kimp-sug-empty">Keine automatischen Treffer gefunden</div>';
+    } else {
+      body='';
+      kimpSuggestions.forEach(function(s,i){
+        var amt=(s.amount!=null&&s.amount!=='') ? '€'+kimpNum(s.amount) : '—';
+        body+='<div class="kimp-sug-card">'+
+          '<div class="kimp-sug-bar '+kimpSugColor(s.score)+'"></div>'+
+          '<div class="kimp-sug-body">'+
+            '<div class="kimp-sug-line1"><span class="kimp-sug-src src-'+s.src+'">'+s.src.toUpperCase()+'</span>'+
+              '<span class="kimp-sug-id">'+escHtml(s.idLabel)+'</span> · '+escHtml(s.name)+'</div>'+
+            ((s.src==='ba' && s.belegNr) ? '<div class="kimp-sug-rnr'+(s.belegMatch?' match':'')+'">Rechnungs-Nr.: '+escHtml(s.belegNr)+'</div>' : '')+
+            '<div class="kimp-sug-line2">'+escHtml(amt)+' · '+escHtml(kimpDateDE(s.date))+'</div>'+
+            '<div class="kimp-sug-expl">'+escHtml(s.expl)+'</div>'+
+          '</div>'+
+          '<button type="button" class="kimp-sug-link-btn" data-i="'+i+'">Verknüpfen</button>'+
+          '</div>';
+      });
+    }
   }
-  if (kimpMatchLoading || !kimpMatchCache){
-    el.innerHTML=head+'<div class="kimp-sug-spinner"><div class="artikel-spinner"></div><span>Lade Match-Datenbasis…</span></div>';
-    return;
-  }
-  if (!(kimpMatchCache.ba.length || kimpMatchCache.ek.length || kimpMatchCache.vk.length)){
-    el.innerHTML=head+'<div class="kimp-sug-empty">Keine Daten zum Vergleichen</div>';
-    return;
-  }
-  kimpComputeSuggestions();
-  if (!kimpSuggestions.length){
-    el.innerHTML=head+'<div class="kimp-sug-empty">Keine automatischen Treffer gefunden</div>';
-    return;
-  }
-  var html=head;
-  kimpSuggestions.forEach(function(s,i){
-    var amt=(s.amount!=null&&s.amount!=='') ? '€'+kimpNum(s.amount) : '—';
-    html+='<div class="kimp-sug-card">'+
-      '<div class="kimp-sug-bar '+kimpSugColor(s.score)+'"></div>'+
-      '<div class="kimp-sug-body">'+
-        '<div class="kimp-sug-line1"><span class="kimp-sug-src src-'+s.src+'">'+s.src.toUpperCase()+'</span>'+
-          '<span class="kimp-sug-id">'+escHtml(s.idLabel)+'</span> · '+escHtml(s.name)+'</div>'+
-        ((s.src==='ba' && s.belegNr) ? '<div class="kimp-sug-rnr'+(s.belegMatch?' match':'')+'">Rechnungs-Nr.: '+escHtml(s.belegNr)+'</div>' : '')+
-        '<div class="kimp-sug-line2">'+escHtml(amt)+' · '+escHtml(kimpDateDE(s.date))+'</div>'+
-        '<div class="kimp-sug-expl">'+escHtml(s.expl)+'</div>'+
-      '</div>'+
-      '<button type="button" class="kimp-sug-link-btn" data-i="'+i+'">Verknüpfen</button>'+
-      '</div>';
+  el.innerHTML=head+body;
+  var rb=document.getElementById('kimp-sug-retry');
+  if (rb) attachTouchClickHandler(rb, function(){ ensureKimpMatchCache(true); renderKimpSuggestions(); });
+  var refBtn=document.getElementById('kimp-sug-refresh');
+  if (refBtn && !spin) attachTouchClickHandler(refBtn, function(){
+    if (kimpMatchLoading) return;
+    ensureKimpMatchCache(true);
+    renderKimpSuggestions();   // sofort re-rendern, damit Icon rotiert + Spinner sichtbar
   });
-  el.innerHTML=html;
   el.querySelectorAll('.kimp-sug-link-btn').forEach(function(btn){
     attachTouchClickHandler(btn, function(){
       var s=kimpSuggestions[parseInt(btn.getAttribute('data-i'),10)];
@@ -4263,7 +4335,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <button class="menu-btn" onclick="openMenu()">☰</button>
     <button class="back-btn" id="btn-back-ba">←</button>
     <div class="sub-header-title" id="ba-header-title">BA-Review</div>
-    <button class="refresh-btn" id="btn-ba-reload" style="margin-left:auto;width:32px;height:32px;padding:0;font-size:14px;">↻</button>
+    <button class="refresh-btn" id="btn-ba-reload" style="margin-left:auto;width:32px;height:32px;padding:0;font-size:14px;" title="Neu laden"><span>↻</span></button>
     <button class="ba-new-btn" id="btn-ba-new" type="button">+ Neue BA</button>
   </div>
 
