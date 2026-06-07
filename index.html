@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.7.3
-  SW Cache: rd-hub-v71
+  Version:  2.7.4
+  SW Cache: rd-hub-v72
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.7.4  (2026-05-18)  BA-Anlage-Button prominent + Dokument-Vorschau funktioniert + KIMP-Info-Banner im Modal
   v2.7.3  (2026-05-18)  Beleg-Vorschau im BA-Anlage-Modal
   v2.7.2  (2026-05-18)  BA-Anzeige mit Datum/Status, Bild-Uploads (JPG/PNG) zusätzlich zu PDF
   v2.7.1  (2026-05-18)  BA-Anlage aus Beleg im KIMP-Clearing (Hub-getriebener Workflow)
@@ -532,6 +533,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-link-input:focus{border-color:var(--accent)}
 .kimp-newba-btn{margin-top:6px;background:var(--card2);color:var(--muted);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;touch-action:manipulation;width:100%;text-align:left}
 .kimp-newba-btn:hover{color:var(--text);border-color:var(--accent)}
+.kimp-newba-cta{margin-bottom:14px}
+.kimp-newba-cta-btn{width:100%;background:rgba(63,217,155,.12);border:.5px solid var(--green);color:var(--green);border-radius:var(--radius-sm);padding:11px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation;text-align:center}
+.kimp-newba-cta-btn:hover{background:rgba(63,217,155,.2)}
 #kimp-newba-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
 #kimp-newba-overlay.show{display:flex}
 .kimp-newba-box{background:var(--card);border:.5px solid var(--border);border-radius:var(--radius);width:100%;max-width:1200px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.5)}
@@ -551,9 +555,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-newba-split{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:16px;align-items:start}
 .kimp-newba-left{display:flex;flex-direction:column;gap:8px;min-width:0}
 .kimp-newba-right{min-width:0}
-.kimp-newba-preview{border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card2);overflow:hidden;display:none}
+.kimp-newba-preview{border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card2);overflow:hidden}
 .kimp-newba-preview iframe{width:100%;height:600px;border:none;display:block;background:#fff}
 .kimp-newba-preview img{width:100%;max-height:600px;object-fit:contain;display:block}
+.kimp-newba-preview-actions{padding:6px 8px;font-size:11px;text-align:center;background:var(--card2);border-top:.5px solid var(--border)}
+.kimp-newba-preview-actions a{color:var(--muted);text-decoration:underline}
+.kimp-newba-preview-actions a:hover{color:var(--text)}
+.kimp-newba-kimpinfo{margin-bottom:12px;background:rgba(59,130,196,.08);border:.5px solid rgba(59,130,196,.4);border-radius:var(--radius-sm);padding:8px 12px;display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);line-height:1.45}
+.kimp-newba-kimpinfo-icon{flex-shrink:0;color:#3B82C4;font-size:14px;line-height:1}
+.kimp-newba-kimpinfo-text{flex:1;min-width:0;word-break:break-word}
+.kimp-newba-kimpinfo-id{font-weight:700}
 .kimp-newba-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .kimp-newba-form .kimp-newba-row-full{grid-column:1 / -1}
 .kimp-newba-field label{display:block;font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
@@ -630,8 +641,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.7.3</span>
-      <span>SW rd-hub-v71</span>
+      <span>APP v2.7.4</span>
+      <span>SW rd-hub-v72</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -664,7 +675,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.3</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.4</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -4046,10 +4057,8 @@ function renderKimpLinkSection(type){
   html+='<div class="kimp-link-search-wrap">'+
     '<input type="text" class="kimp-link-input" id="kimp-search-'+type+'" autocomplete="off" placeholder="+ '+def.label+' verknüpfen…" />'+
     '<div class="ba-dropdown" id="kimp-dd-'+type+'"></div></div>';
-  // Nur bei BA: zusätzlicher Button zum direkten Anlegen einer neuen BA aus einem Beleg-PDF.
-  if (type==='ba'){
-    html+='<button type="button" class="kimp-newba-btn" id="btn-kimp-newba">📎 Neue BA aus Beleg anlegen</button>';
-  }
+  // "Neue BA aus Beleg anlegen" ist jetzt eine eigene Sektion oberhalb der Vorschläge —
+  // wird statisch im Markup gerendert + global in setupKimp verdrahtet.
   container.innerHTML=html;
 
   container.querySelectorAll('.klc-x').forEach(function(b){
@@ -4069,10 +4078,6 @@ function renderKimpLinkSection(type){
     kimpLinkSearchTimers[type]=setTimeout(function(){ kimpSearchLinkCandidates(type,q); },250);
   });
   input.addEventListener('blur', function(){ setTimeout(function(){ var dd=document.getElementById('kimp-dd-'+type); if (dd) dd.style.display='none'; },200); });
-  if (type==='ba'){
-    var newBaBtn=document.getElementById('btn-kimp-newba');
-    if (newBaBtn) attachTouchClickHandler(newBaBtn, openKimpNewBaModal);
-  }
 }
 function renderKimpLinkSections(){
   renderKimpLinkSection('ba');
@@ -4787,7 +4792,35 @@ var KIMP_NEWBA_ALLOWED_MIMES = ['application/pdf','image/jpeg','image/png'];
 function openKimpNewBaModal(){
   if (!kimpCurrentRec) return;
   kimpNewBaResetForm();
+  kimpNewBaUpdateInfoBanner();
   document.getElementById('kimp-newba-overlay').classList.add('show');
+}
+
+// Info-Banner oben im Modal: zeigt KIMP-ID + Betrag + Datum + Verwendungszweck (gekürzt).
+// User kann OCR-Werte direkt mit dem KIMP abgleichen, ohne das Modal zu verlassen.
+function kimpNewBaUpdateInfoBanner(){
+  var bannerEl = document.getElementById('kimp-newba-kimpinfo');
+  var textEl   = document.getElementById('kimp-newba-kimpinfo-text');
+  if (!bannerEl || !textEl) return;
+  if (!kimpCurrentRec || !kimpCurrentRec.fields){
+    bannerEl.style.display = 'none';
+    return;
+  }
+  var f = kimpCurrentRec.fields;
+  var id = f['KIMP_ID'] || kimpCurrentRec.id || '—';
+  var betrag = parseFloat(f['KIMP_Betrag']);
+  var betragStr = isNaN(betrag) ? '—' : (kimpNum(betrag) + ' €');
+  var datumStr = kimpDateDE(f['KIMP_Buchungstag']);
+  var zweck = String(f['KIMP_Verwendungszweck'] || '').trim();
+  if (zweck.length > 120) zweck = zweck.substring(0, 117) + '…';
+  var parts = [
+    '<span class="kimp-newba-kimpinfo-id">'+escHtml(id)+'</span>',
+    escHtml(betragStr),
+    escHtml(datumStr)
+  ];
+  if (zweck) parts.push("&lsquo;" + escHtml(zweck) + "&rsquo;");
+  textEl.innerHTML = parts.join(' · ');
+  bannerEl.style.display = '';
 }
 function closeKimpNewBaModal(){
   if (kimpNewBaBusy) return;   // während Submit nicht schließen
@@ -4807,6 +4840,10 @@ function kimpNewBaClearPreview(){
   if (pdfFrame){ pdfFrame.src = 'about:blank'; pdfFrame.style.display = 'none'; }
   var imgEl = document.getElementById('kimp-newba-preview-img');
   if (imgEl){ imgEl.removeAttribute('src'); imgEl.style.display = 'none'; }
+  var actions = document.getElementById('kimp-newba-preview-actions');
+  if (actions) actions.style.display = 'none';
+  var openLink = document.getElementById('kimp-newba-preview-open');
+  if (openLink) openLink.removeAttribute('href');
 }
 function kimpNewBaShowPreview(mime, url){
   document.getElementById('kimp-newba-drop').style.display = 'none';
@@ -4814,18 +4851,25 @@ function kimpNewBaShowPreview(mime, url){
   var preview = document.getElementById('kimp-newba-preview');
   var pdfFrame = document.getElementById('kimp-newba-preview-pdf');
   var imgEl = document.getElementById('kimp-newba-preview-img');
+  var actions = document.getElementById('kimp-newba-preview-actions');
+  var openLink = document.getElementById('kimp-newba-preview-open');
   if (mime === 'application/pdf'){
     imgEl.removeAttribute('src');
     imgEl.style.display = 'none';
     pdfFrame.src = url;
     pdfFrame.style.display = '';
+    // Fallback-Link für Fälle, wo der Browser-PDF-Viewer blob-iframes blockiert (z.B. iOS Safari).
+    if (openLink){ openLink.href = url; openLink.textContent = 'PDF in neuem Tab öffnen'; }
+    if (actions) actions.style.display = '';
   } else {
     pdfFrame.src = 'about:blank';
     pdfFrame.style.display = 'none';
     imgEl.src = url;
     imgEl.style.display = '';
+    // Bilder rendern zuverlässig — Fallback-Link weglassen.
+    if (actions) actions.style.display = 'none';
   }
-  preview.style.display = '';
+  preview.style.display = '';   // CSS hat kein display:none mehr → fällt sauber auf 'block' zurück
 }
 function kimpNewBaResetForm(){
   kimpNewBaPdfBase64 = null;
@@ -5166,6 +5210,10 @@ document.addEventListener('DOMContentLoaded', function setupKimp(){
   });
 
   // ── Neue-BA-aus-Beleg Modal ──
+  // CTA-Button steht jetzt als eigene Sektion oberhalb der Mögliche-Treffer im Detail-View.
+  var ctaBtn = document.getElementById('btn-kimp-newba');
+  if (ctaBtn) attachTouchClickHandler(ctaBtn, openKimpNewBaModal);
+
   var newBaDrop = document.getElementById('kimp-newba-drop');
   var newBaFile = document.getElementById('kimp-newba-file');
   newBaDrop.addEventListener('click', function(){ newBaFile.click(); });
@@ -5610,6 +5658,9 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <div id="kimp-status-display" class="ba-status-pill" style="margin-top:4px">—</div>
       </div>
       <div id="kimp-ro-block"></div>
+      <div class="kimp-newba-cta">
+        <button type="button" class="kimp-newba-cta-btn" id="btn-kimp-newba">📎 Neue BA aus Beleg anlegen</button>
+      </div>
       <div id="kimp-suggestions" class="kimp-sug-section"></div>
       <div id="kimp-link-ba" class="kimp-link-section"></div>
       <div id="kimp-link-ek" class="kimp-link-section"></div>
@@ -5685,6 +5736,10 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
       <button type="button" class="kimp-newba-close" id="btn-kimp-newba-close" title="Schließen">✕</button>
     </div>
     <div class="kimp-newba-body">
+      <div class="kimp-newba-kimpinfo" id="kimp-newba-kimpinfo" style="display:none">
+        <span class="kimp-newba-kimpinfo-icon">ℹ</span>
+        <div class="kimp-newba-kimpinfo-text" id="kimp-newba-kimpinfo-text"></div>
+      </div>
       <div class="kimp-newba-err" id="kimp-newba-err"></div>
       <div class="kimp-newba-split">
         <div class="kimp-newba-left">
@@ -5698,9 +5753,12 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
             <span class="kimp-newba-file-name" id="kimp-newba-file-name">—</span>
             <button type="button" class="kimp-newba-file-change" id="btn-kimp-newba-change">Anderes Dokument</button>
           </div>
-          <div class="kimp-newba-preview" id="kimp-newba-preview">
+          <div class="kimp-newba-preview" id="kimp-newba-preview" style="display:none">
             <iframe id="kimp-newba-preview-pdf" title="Beleg-Vorschau" style="display:none"></iframe>
             <img id="kimp-newba-preview-img" alt="Beleg-Vorschau" style="display:none" />
+            <div class="kimp-newba-preview-actions" id="kimp-newba-preview-actions" style="display:none">
+              <a id="kimp-newba-preview-open" target="_blank" rel="noopener">In neuem Tab öffnen</a>
+            </div>
           </div>
         </div>
         <div class="kimp-newba-right">
