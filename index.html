@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.6.4
-  SW Cache: rd-hub-v66
+  Version:  2.6.5
+  SW Cache: rd-hub-v67
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.6.5  (2026-05-18)  Multi-Select-Kategorie-Filter im KIMP-Clearing
   v2.6.4  (2026-05-18)  Belegnummer-Match priorisiert, Datums-Filter übersprungen
   v2.6.3  (2026-05-18)  Lieferanten-Sektion in KIMP-Mögliche-Treffer
   v2.6.2  (2026-05-18)  Refresh-Buttons in KIMP-Mögliche-Treffer und BA-Detail
@@ -452,6 +453,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-search-section input:focus{border-color:var(--accent)}
 .kimp-search-section input::placeholder{color:var(--hint)}
 .kimp-pills-row{display:flex;gap:6px}
+.kimp-pills-row-wrap{flex-wrap:wrap}
+.kimp-pills-row-wrap .kimp-pill{flex:1 1 calc(33.333% - 6px);min-width:0}
 .kimp-pill{flex:1;padding:8px 6px;border:.5px solid var(--border);background:var(--card2);color:var(--muted);font-size:12px;font-weight:600;border-radius:999px;cursor:pointer;touch-action:manipulation;font-family:inherit;min-height:36px}
 .kimp-pill.kimp-pill-active{background:#3B82C4;color:#fff;border-color:#3B82C4}
 .kimp-list-scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px}
@@ -548,8 +551,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.6.4</span>
-      <span>SW rd-hub-v66</span>
+      <span>APP v2.6.5</span>
+      <span>SW rd-hub-v67</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -582,7 +585,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.4</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.6.5</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -3245,6 +3248,7 @@ var kimpCurrentRec = null;
 var kimpSortCol = null;
 var kimpSortDir = 'asc';
 var kimpStatusFilter = 'all';
+var kimpKatFilter = {};      // Multi-Select: { 'Umsatz':true, ... }; leer = alle Kategorien
 var kimpSearchDebounce = null;
 var kimpHasEk = true;        // KIMP_EK_Link existiert in Airtable
 var kimpHasNotizen = true;   // KIMP_Notizen existiert in Airtable
@@ -3377,10 +3381,21 @@ function kimpSortRecords(list){
 function kimpFilteredRecords(){
   var q=(document.getElementById('kimp-search').value||'').trim().toLowerCase();
   var useQ=q.length>=2;
+  // Multi-Select-Kategorie: KIMP passt, wenn MIND. EINE aktive Pill mit MIND. EINER
+  // KIMP-Kategorie übereinstimmt (OR-Verknüpfung). Leer = alles durchlassen.
+  var katKeys=Object.keys(kimpKatFilter);
+  var useK=katKeys.length>0;
   var out=[];
   for (var i=0;i<kimpList.length;i++){
     var f=kimpList[i].fields;
     if (kimpStatusFilter!=='all' && (f['KIMP_Status']||'')!==kimpStatusFilter) continue;
+    if (useK){
+      var kc=f['KIMP_Kategorie'];
+      var recKats = Array.isArray(kc) ? kc : (kc==null||kc==='' ? [] : [String(kc)]);
+      var matched=false;
+      for (var ki=0;ki<recKats.length;ki++){ if (kimpKatFilter[recKats[ki]]){ matched=true; break; } }
+      if (!matched) continue;
+    }
     if (useQ){
       var hay=[f['KIMP_ID'],f['KIMP_Verwendungszweck'],f['KIMP_Name'],f['KIMP_Buchungstext'],f['KIMP_Kategorie'],(f['KIMP_Betrag']!=null?String(f['KIMP_Betrag']):'')].join(' ').toLowerCase();
       if (hay.indexOf(q)===-1) continue;
@@ -3423,7 +3438,7 @@ function renderKimpTable(){
       '<td>'+escHtml(kimpDateDE(f['KIMP_Buchungstag']))+'</td>'+
       '<td style="text-align:right" class="'+betCls+'">'+escHtml(betTxt)+'</td>'+
       '<td>'+escHtml(kimpTrunc(f['KIMP_Name'],30))+'</td>'+
-      '<td>'+escHtml(f['KIMP_Kategorie']||'—')+'</td>'+
+      '<td>'+escHtml(kimpJoin(f['KIMP_Kategorie']))+'</td>'+
       '<td>'+escHtml(kimpTrunc(f['KIMP_Verwendungszweck'],50))+'</td>'+
       '<td><span class="ba-status-pill '+kimpStatusCls(status)+'">'+escHtml(status)+'</span></td>'+
       '<td style="text-align:center">'+(hasBeleg?'<span class="ba-pdf-yes">●</span>':'<span class="ba-pdf-no">○</span>')+'</td>'+
@@ -3490,7 +3505,7 @@ function populateKimpDetail(rec){
     roField('Name', f['KIMP_Name']) +
     roField('Buchungstext', f['KIMP_Buchungstext']) +
     roField('Verwendungszweck', f['KIMP_Verwendungszweck'], true) +
-    roField('Kategorie', f['KIMP_Kategorie']);
+    roField('Kategorie', kimpJoin(f['KIMP_Kategorie']));
 
   var nrow=document.getElementById('kimp-notizen-row');
   if (kimpHasNotizen){ nrow.style.display=''; document.getElementById('kimp-notizen').value=notizen; }
@@ -4372,11 +4387,27 @@ document.addEventListener('DOMContentLoaded', function setupKimp(){
   });
   document.getElementById('kimp-search').addEventListener('input', scheduleKimpSearch);
 
-  document.querySelectorAll('#kimp-list-view .kimp-pill').forEach(function(btn){
+  // Status-Pills: single-select. Selector scoped auf [data-status], damit die neuen
+  // Kategorie-Pills (data-cat) hier NICHT mit-zurückgesetzt werden.
+  document.querySelectorAll('#kimp-list-view .kimp-pill[data-status]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      document.querySelectorAll('#kimp-list-view .kimp-pill').forEach(function(b){ b.classList.remove('kimp-pill-active'); });
+      document.querySelectorAll('#kimp-list-view .kimp-pill[data-status]').forEach(function(b){ b.classList.remove('kimp-pill-active'); });
       btn.classList.add('kimp-pill-active');
       kimpStatusFilter=btn.getAttribute('data-status');
+      renderKimpTable();
+    });
+  });
+  // Kategorie-Pills: multi-select. Klick toggelt einzelne Pill. Leer = alle durchlassen.
+  document.querySelectorAll('#kimp-list-view .kimp-pill[data-cat]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var cat=btn.getAttribute('data-cat');
+      if (kimpKatFilter[cat]){
+        delete kimpKatFilter[cat];
+        btn.classList.remove('kimp-pill-active');
+      } else {
+        kimpKatFilter[cat]=true;
+        btn.classList.add('kimp-pill-active');
+      }
       renderKimpTable();
     });
   });
@@ -4770,6 +4801,14 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   <div id="kimp-list-view" class="kimp-list-view">
     <div class="kimp-search-section">
       <input type="text" id="kimp-search" placeholder="Suchen (ID, Zweck, Name, Text, Kategorie, Betrag)…" autocomplete="off" />
+      <div class="kimp-pills-row kimp-pills-row-wrap" id="kimp-kat-pills">
+        <button class="kimp-pill" data-cat="Umsatz" type="button">Umsatz</button>
+        <button class="kimp-pill" data-cat="Wareneinkauf" type="button">Wareneinkauf</button>
+        <button class="kimp-pill" data-cat="Betriebsausgabe" type="button">Betriebsausgabe</button>
+        <button class="kimp-pill" data-cat="Kapitalbewegung" type="button">Kapitalbewegung</button>
+        <button class="kimp-pill" data-cat="Bargeld" type="button">Bargeld</button>
+        <button class="kimp-pill" data-cat="Klärfall" type="button">Klärfall</button>
+      </div>
       <div class="kimp-pills-row">
         <button class="kimp-pill kimp-pill-active" data-status="all" type="button">Alle</button>
         <button class="kimp-pill" data-status="offen" type="button">Offen</button>
