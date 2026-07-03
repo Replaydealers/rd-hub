@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.7.6
-  SW Cache: rd-hub-v74
+  Version:  2.8.0
+  SW Cache: rd-hub-v75
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.8.0  (2026-07-02)  Dynamische Zahlweg/Kategorie-Dropdowns + neue Kachel „Produkte" (Katalog mit Sendico-Such-Link)
   v2.7.6  (2026-05-18)  Status-Pill Abgeschlossen + Verknüpfungen rechts + Beleg-Anzeige-Bug-Fix
   v2.7.5  (2026-05-18)  Modal größer + Acrobat-Auto-Open weg + Action-Buttons sticky oben
   v2.7.4  (2026-05-18)  BA-Anlage-Button prominent + Dokument-Vorschau funktioniert + KIMP-Info-Banner im Modal
@@ -472,6 +473,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .artikel-item-bottom{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .artikel-item-bottom .gewinn-pos{color:var(--green);font-weight:600}
 .artikel-item-bottom .gewinn-neg{color:var(--accent);font-weight:600}
+.produkt-such-btn{
+  flex-shrink:0; align-self:center; margin:0 10px 0 4px;
+  background:var(--accent); color:#fff; border:none; border-radius:var(--radius-sm);
+  padding:8px 12px; font-size:12px; font-weight:700; text-decoration:none;
+  white-space:nowrap; touch-action:manipulation;
+}
 
 /* ── KIMP-CLEARING ── */
 .kimp-list-view{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
@@ -656,8 +663,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.7.6</span>
-      <span>SW rd-hub-v74</span>
+      <span>APP v2.8.0</span>
+      <span>SW rd-hub-v75</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -690,13 +697,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.7.6</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.8.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
   <div class="menu-grid">
     <div class="menu-tile active-tile" id="tile-jp"><div class="tile-accent"></div><div class="tile-icon">🇯🇵</div><div><div class="tile-label">JP Import Kalkulator</div><div class="tile-sub">Mindest-VK &amp; Marge</div></div></div>
     <div class="menu-tile active-tile" id="tile-artikel"><div class="tile-accent"></div><div class="tile-icon">🔍</div><div><div class="tile-label">Artikelsuche</div><div class="tile-sub">EK · VK · Status</div></div></div>
+    <div class="menu-tile active-tile" id="tile-produkt"><div class="tile-accent"></div><div class="tile-icon">🏷️</div><div><div class="tile-label">Produkte</div><div class="tile-sub">Katalog · VK · Max-EK</div></div></div>
     <div class="menu-tile active-tile" id="tile-sku"><div class="tile-accent"></div><div class="tile-icon">📦</div><div><div class="tile-label">SKU Eintragung</div><div class="tile-sub">Packtisch · PIMP</div></div></div>
     <div class="menu-tile active-tile" id="tile-ek"><div class="tile-accent"></div><div class="tile-icon">📊</div><div><div class="tile-label">Einkauf Auswertung</div><div class="tile-sub">Profit · Artikel · Status</div></div></div>
     <div class="menu-tile active-tile" id="tile-ba"><div class="tile-accent"></div><div class="tile-icon">📄</div><div><div class="tile-label">BA-Review</div><div class="tile-sub">Betriebsausgaben prüfen</div></div></div>
@@ -851,6 +859,75 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   </div>
 </div>
 
+<!-- PRODUKTE -->
+<div class="screen hidden" id="screen-produkt">
+  <div class="sub-header">
+    <button class="menu-btn" onclick="openMenu()">☰</button>
+    <button class="back-btn" id="btn-back-produkt">←</button>
+    <div class="sub-header-title" id="produkt-header-title">Produkte</div>
+  </div>
+
+  <!-- LIST VIEW -->
+  <div id="produkt-list-view" class="artikel-list-view">
+    <div class="artikel-search-section">
+      <input type="text" id="p-name" placeholder="Name / Suchbegriff…" autocomplete="off" />
+      <!-- Kategorie-Filter: Pills, Mehrfachauswahl. Leer = alle. -->
+      <div class="kimp-pills-row kimp-pills-row-wrap" id="produkt-kat-pills">
+        <button class="kimp-pill" data-cat="Pokémon-Karte" type="button">Karte</button>
+        <button class="kimp-pill" data-cat="Zubehör" type="button">Zubehör</button>
+        <button class="kimp-pill" data-cat="Spiel" type="button">Spiel</button>
+        <button class="kimp-pill" data-cat="Konsole/Set" type="button">Konsole/Set</button>
+        <button class="kimp-pill" data-cat="Plüsch" type="button">Plüsch</button>
+        <button class="kimp-pill" data-cat="Pin" type="button">Pin</button>
+        <button class="kimp-pill" data-cat="Sonstiges" type="button">Sonstiges</button>
+      </div>
+      <div class="artikel-controls-row">
+        <select id="produkt-sort" class="artikel-sort">
+          <option value="name">Sortierung: Name (A–Z)</option>
+          <option value="vk_desc">VK absteigend</option>
+          <option value="vk_asc">VK aufsteigend</option>
+          <option value="ek_desc">Max-EK absteigend</option>
+          <option value="ek_asc">Max-EK aufsteigend</option>
+          <option value="marge_desc">Marge absteigend</option>
+          <option value="verk_desc">Verkäufe/Monat absteigend</option>
+        </select>
+      </div>
+    </div>
+    <div id="produkt-cache-status" class="artikel-cache-status" style="display:none">
+      <div class="artikel-spinner"></div><span>Lade Produkte…</span>
+    </div>
+    <div id="produkt-result-count" class="artikel-result-count" style="display:none"></div>
+    <div id="produkt-results" class="artikel-results"></div>
+  </div>
+
+  <!-- DETAIL VIEW -->
+  <div id="produkt-detail-view" class="artikel-detail-view" style="display:none">
+    <div class="s-card" id="p-result-card">
+      <div class="s-card-title" id="p-result-id">—</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px" id="p-result-name">—</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px" id="p-result-kat">—</div>
+      <div class="s-card-title">Wirtschaftlichkeit</div>
+      <div class="s-breakdown" style="margin-bottom:14px">
+        <div class="s-brow"><span class="bl">VK erwartet</span><span class="br" id="p-vk">—</span></div>
+        <div class="s-brow"><span class="bl">Max-EK</span><span class="br" id="p-ek">—</span></div>
+        <div class="s-brow"><span class="bl">Marge</span><span class="br" id="p-marge">—</span></div>
+        <div class="s-brow"><span class="bl">Verkäufe/Monat</span><span class="br" id="p-verk">—</span></div>
+      </div>
+      <div class="s-card-title">Sourcing</div>
+      <div class="s-breakdown" style="margin-bottom:14px">
+        <div class="s-brow"><span class="bl">Suchbegriff</span><span class="br" id="p-such">—</span></div>
+        <div class="s-brow"><span class="bl">Marktplatz</span><span class="br" id="p-markt">—</span></div>
+      </div>
+      <div class="s-card-title">Bestand</div>
+      <div class="s-breakdown" style="margin-bottom:14px">
+        <div class="s-brow"><span class="bl">Bestand</span><span class="br" id="p-bestand">—</span></div>
+        <div class="s-brow"><span class="bl">Mindestbestand</span><span class="br" id="p-mind">—</span></div>
+      </div>
+      <a id="p-suchlink" href="#" target="_blank" rel="noopener" style="display:none;width:100%;padding:12px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:white;font-size:14px;font-weight:700;text-align:center;text-decoration:none;box-sizing:border-box">🔍 Auf Sendico suchen →</a>
+    </div>
+  </div>
+</div>
+
 <!-- SKU EINTRAGUNG -->
 <div class="screen hidden" id="screen-sku">
   <div class="sub-header">
@@ -975,6 +1052,12 @@ addNav('btn-back-artikel', null, function(){
   }
 });
 addNav('btn-back-sku', null, goBack);
+addNav('tile-produkt', 'screen-produkt', ensureProduktCache);
+addNav('btn-back-produkt', null, function(){
+  var detailView = document.getElementById('produkt-detail-view');
+  if (detailView && detailView.style.display !== 'none') closeProduktDetail();
+  else goBack();
+});
 addNav('btn-sku-reload', 'screen-sku', loadPimp);
 addNav('tile-ek', 'screen-ek');
 addNav('btn-back-ek', null, goBack);
@@ -1024,6 +1107,46 @@ function atDelete(table, recId, cb) {
     method:'DELETE',
     headers:{'Authorization':'Bearer '+AT_TOKEN}
   }).then(function(r){ return r.json(); }).then(function(d){ cb(null,d); }).catch(function(e){ cb(e,null); });
+}
+
+// ── DYNAMISCHE SELECT-OPTIONEN AUS AIRTABLE-FELDSCHEMA ──
+var atFieldOptionsCache = {};
+var atSchemaPromise = null;
+
+function atLoadSchema() {
+  if (atSchemaPromise) return atSchemaPromise;
+  atSchemaPromise = fetch('https://api.airtable.com/v0/meta/bases/' + AT_BASE + '/tables', {
+    headers: { 'Authorization': 'Bearer ' + AT_TOKEN }
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d || !d.tables) return;
+      d.tables.forEach(function(t){
+        (t.fields || []).forEach(function(f){
+          if (f.type === 'singleSelect' && f.options && f.options.choices) {
+            atFieldOptionsCache[t.name + '/' + f.name] =
+              f.options.choices.map(function(c){ return c.name; });
+          }
+        });
+      });
+    })
+    .catch(function(){ /* Fallback: HTML-Optionen bleiben erhalten */ });
+  return atSchemaPromise;
+}
+
+function atPopulateSelect(selectId, tableName, fieldName, keepFirst) {
+  var sel = document.getElementById(selectId);
+  if (!sel) return;
+  var opts = atFieldOptionsCache[tableName + '/' + fieldName];
+  if (!opts || !opts.length) return;
+  var prev = sel.value;
+  var placeholder = keepFirst && sel.options.length ? sel.options[0].outerHTML : '';
+  var html = placeholder;
+  opts.forEach(function(name){
+    html += '<option value="' + escHtml(name) + '">' + escHtml(name) + '</option>';
+  });
+  sel.innerHTML = html;
+  if (prev) sel.value = prev;
 }
 
 // ── JP KALKULATOR ──
@@ -1448,6 +1571,174 @@ document.querySelectorAll('#artikel-list-view .artikel-pill').forEach(function(b
     btn.classList.add('artikel-pill-active');
     artikelStatusFilter = btn.getAttribute('data-status');
     artikelDoSearch();
+  });
+});
+
+// ── PRODUKTE (Katalog) ──
+var PRODUKT_TABLE = 'Produkt';
+var PRODUKT_CACHE_FIELDS = [
+  'Prod_ProduktID','Prod_Klarname','PROD_Kategorie','PROD_VK_Erwartet','PROD_Max_EK',
+  'PROD_Marge','PROD_Suchbegriff','PROD_Marktplatz','PROD_Verkaeufe_pM',
+  'Prod_Mindestbestand','Prod_Bestand','PROD_Such_Link'
+];
+var produktCache = null;
+var produktCacheLoading = false;
+var produktKatFilter = {};        // Mehrfachauswahl; leer = alle
+var produktSortMode = 'name';
+var produktSearchDebounce = null;
+
+function ensureProduktCache() {
+  if (produktCache !== null || produktCacheLoading) { produktDoSearch(); return; }
+  loadProduktCache();
+}
+function loadProduktCache() {
+  produktCacheLoading = true;
+  document.getElementById('produkt-cache-status').style.display = 'flex';
+  document.getElementById('produkt-results').innerHTML = '';
+  document.getElementById('produkt-result-count').style.display = 'none';
+  atGet(PRODUKT_TABLE, '{Prod_ProduktID}!=""', PRODUKT_CACHE_FIELDS, function(err, data) {
+    produktCacheLoading = false;
+    document.getElementById('produkt-cache-status').style.display = 'none';
+    if (err) {
+      document.getElementById('produkt-results').innerHTML = '<div class="artikel-empty">Fehler beim Laden: ' + escHtml(err.message) + '</div>';
+      return;
+    }
+    produktCache = data.records || [];
+    produktDoSearch();
+  });
+}
+function scheduleProduktSearch() {
+  if (produktSearchDebounce) clearTimeout(produktSearchDebounce);
+  produktSearchDebounce = setTimeout(produktDoSearch, 200);
+}
+function produktDoSearch() {
+  if (!produktCache) return;
+  var q = document.getElementById('p-name').value.trim().toLowerCase();
+  var useQ = q.length >= 1;
+  var katKeys = Object.keys(produktKatFilter);
+  var useK = katKeys.length > 0;
+  var results = [];
+  for (var i = 0; i < produktCache.length; i++) {
+    var f = produktCache[i].fields;
+    if (useK) {
+      var kc = f['PROD_Kategorie'];
+      if (!kc || !produktKatFilter[kc]) continue;
+    }
+    if (useQ) {
+      var hay = [f['Prod_Klarname'], f['Prod_ProduktID'], f['PROD_Suchbegriff']].join(' ').toLowerCase();
+      if (hay.indexOf(q) === -1) continue;
+    }
+    results.push(produktCache[i]);
+  }
+  results.sort(produktGetSortFn(produktSortMode));
+  renderProduktResults(results, useQ || useK);
+}
+function produktNum(f, key) { var v = parseFloat(f[key]); return isNaN(v) ? null : v; }
+function produktGetSortFn(mode) {
+  if (mode === 'name') return function(a,b){ return String(a.fields['Prod_Klarname']||'').localeCompare(String(b.fields['Prod_Klarname']||'')); };
+  if (mode === 'vk_desc')  return function(a,b){ return (produktNum(b.fields,'PROD_VK_Erwartet')||0) - (produktNum(a.fields,'PROD_VK_Erwartet')||0); };
+  if (mode === 'vk_asc')   return function(a,b){ return (produktNum(a.fields,'PROD_VK_Erwartet')||0) - (produktNum(b.fields,'PROD_VK_Erwartet')||0); };
+  if (mode === 'ek_desc')  return function(a,b){ return (produktNum(b.fields,'PROD_Max_EK')||0) - (produktNum(a.fields,'PROD_Max_EK')||0); };
+  if (mode === 'ek_asc')   return function(a,b){ return (produktNum(a.fields,'PROD_Max_EK')||0) - (produktNum(b.fields,'PROD_Max_EK')||0); };
+  if (mode === 'marge_desc') return function(a,b){ return (produktNum(b.fields,'PROD_Marge')||0) - (produktNum(a.fields,'PROD_Marge')||0); };
+  if (mode === 'verk_desc')  return function(a,b){ return (produktNum(b.fields,'PROD_Verkaeufe_pM')||0) - (produktNum(a.fields,'PROD_Verkaeufe_pM')||0); };
+  return function(){ return 0; };
+}
+function produktFmtEur(v) {
+  if (v == null || v === '') return '—';
+  var n = typeof v === 'number' ? v : parseFloat(v);
+  return isNaN(n) ? '—' : n.toFixed(2) + ' €';
+}
+function renderProduktResults(results, hadFilter) {
+  var wrap = document.getElementById('produkt-results');
+  var countEl = document.getElementById('produkt-result-count');
+  if (!results.length) {
+    wrap.innerHTML = '<div class="artikel-empty">' + (hadFilter ? 'Keine Treffer' : 'Kein Produkt vorhanden') + '</div>';
+    countEl.style.display = 'none';
+    return;
+  }
+  countEl.textContent = results.length + ' Produkt' + (results.length === 1 ? '' : 'e');
+  countEl.style.display = '';
+  var max = Math.min(results.length, 300);
+  var html = '';
+  for (var i = 0; i < max; i++) {
+    var f = results[i].fields;
+    var name = f['Prod_Klarname'] || f['Prod_ProduktID'] || '—';
+    var kat = f['PROD_Kategorie'] || '—';
+    var vk = produktFmtEur(f['PROD_VK_Erwartet']);
+    var ek = produktFmtEur(f['PROD_Max_EK']);
+    var markt = f['PROD_Marktplatz'] || '';
+    var id = String(f['Prod_ProduktID'] || '');
+    var link = f['PROD_Such_Link'] || '';
+    // Zeile: links Infos, rechts optionaler Such-Button (öffnet PROD_Such_Link neuer Tab).
+    // Der Button ist ein eigenes <a>, das NICHT das Detail öffnet (stopPropagation im Handler).
+    var linkBtn = link
+      ? '<a class="produkt-such-btn" href="' + escHtml(link) + '" target="_blank" rel="noopener" data-stop="1">🔍 Suchen</a>'
+      : '';
+    var marktLine = markt ? ' · ' + escHtml(markt) : '';
+    html += '<div class="artikel-item" data-id="' + escHtml(id) + '">'+
+      '<div class="artikel-item-bar"></div>'+
+      '<div class="artikel-item-content">'+
+        '<div class="artikel-item-top">'+
+          '<span class="artikel-item-name">' + escHtml(name) + '</span>'+
+          '<span class="artikel-item-score">' + escHtml(kat) + '</span>'+
+        '</div>'+
+        '<div class="artikel-item-bottom">VK ' + vk + ' · Max-EK ' + ek + marktLine + '</div>'+
+      '</div>'+
+      linkBtn +
+    '</div>';
+  }
+  wrap.innerHTML = html;
+  // Such-Buttons: eigener Click-Handler, der NICHT ins Detail navigiert.
+  wrap.querySelectorAll('.produkt-such-btn').forEach(function(a){
+    a.addEventListener('click', function(e){ e.stopPropagation(); });
+    a.addEventListener('touchend', function(e){ e.stopPropagation(); });
+  });
+  wrap.querySelectorAll('.artikel-item').forEach(function(el) {
+    attachTouchClickHandler(el, function() {
+      var id = el.getAttribute('data-id');
+      var rec = produktCache.filter(function(r){ return String(r.fields['Prod_ProduktID']) === String(id); })[0];
+      if (rec) openProduktDetail(rec);
+    });
+  });
+}
+function openProduktDetail(rec) {
+  var f = rec.fields;
+  document.getElementById('produkt-list-view').style.display = 'none';
+  document.getElementById('produkt-detail-view').style.display = '';
+  document.getElementById('produkt-header-title').textContent = 'Produkt-Detail';
+  document.getElementById('p-result-id').textContent = f['Prod_ProduktID'] || '—';
+  document.getElementById('p-result-name').textContent = f['Prod_Klarname'] || '—';
+  document.getElementById('p-result-kat').textContent = f['PROD_Kategorie'] || '—';
+  document.getElementById('p-vk').textContent = produktFmtEur(f['PROD_VK_Erwartet']);
+  document.getElementById('p-ek').textContent = produktFmtEur(f['PROD_Max_EK']);
+  document.getElementById('p-marge').textContent = produktFmtEur(f['PROD_Marge']);
+  document.getElementById('p-verk').textContent = (f['PROD_Verkaeufe_pM'] != null && f['PROD_Verkaeufe_pM'] !== '') ? String(f['PROD_Verkaeufe_pM']) : '—';
+  document.getElementById('p-such').textContent = f['PROD_Suchbegriff'] || '—';
+  document.getElementById('p-markt').textContent = f['PROD_Marktplatz'] || '—';
+  document.getElementById('p-bestand').textContent = (f['Prod_Bestand'] != null && f['Prod_Bestand'] !== '') ? String(f['Prod_Bestand']) : '0';
+  document.getElementById('p-mind').textContent = (f['Prod_Mindestbestand'] != null && f['Prod_Mindestbestand'] !== '') ? String(f['Prod_Mindestbestand']) : '—';
+  var link = document.getElementById('p-suchlink');
+  if (f['PROD_Such_Link']) { link.href = f['PROD_Such_Link']; link.style.display = ''; }
+  else { link.style.display = 'none'; }
+}
+function closeProduktDetail() {
+  document.getElementById('produkt-detail-view').style.display = 'none';
+  document.getElementById('produkt-list-view').style.display = '';
+  document.getElementById('produkt-header-title').textContent = 'Produkte';
+}
+
+// Wire-up: Suche + Sortierung + Kategorie-Pills
+document.getElementById('p-name').addEventListener('input', scheduleProduktSearch);
+document.getElementById('produkt-sort').addEventListener('change', function(){
+  produktSortMode = this.value; produktDoSearch();
+});
+document.querySelectorAll('#produkt-kat-pills .kimp-pill').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var cat = btn.getAttribute('data-cat');
+    if (produktKatFilter[cat]) { delete produktKatFilter[cat]; btn.classList.remove('kimp-pill-active'); }
+    else { produktKatFilter[cat] = true; btn.classList.add('kimp-pill-active'); }
+    produktDoSearch();
   });
 });
 
@@ -2053,6 +2344,15 @@ function openBaDetail(recId) {
 
 function populateBaForm(rec) {
   var f = rec.fields;
+  atLoadSchema().then(function(){
+    atPopulateSelect('ba-zahlweg',   'Betriebsausgaben_2026', 'BA_Zahlweg',   true);
+    atPopulateSelect('ba-kategorie', 'Betriebsausgaben_2026', 'BA_Kategorie', true);
+    atPopulateSelect('ba-ust-satz',  'Betriebsausgaben_2026', 'BA_USt_Satz',  false);
+    if (f['BA_Zahlweg'])   document.getElementById('ba-zahlweg').value   = f['BA_Zahlweg'];
+    if (f['BA_Kategorie']) document.getElementById('ba-kategorie').value = f['BA_Kategorie'];
+    if (f['BA_USt_Satz'] != null && f['BA_USt_Satz'] !== '')
+      document.getElementById('ba-ust-satz').value = String(f['BA_USt_Satz']);
+  });
   baNettoOverride = false;
   baUstOverride = false;
   baSelectedPartnerId = null;
@@ -4859,6 +5159,11 @@ var KIMP_NEWBA_ALLOWED_MIMES = ['application/pdf','image/jpeg','image/png'];
 function openKimpNewBaModal(){
   if (!kimpCurrentRec) return;
   kimpNewBaResetForm();
+  atLoadSchema().then(function(){
+    atPopulateSelect('kimp-newba-zahlweg',   'Betriebsausgaben_2026', 'BA_Zahlweg',   true);
+    atPopulateSelect('kimp-newba-kategorie', 'Betriebsausgaben_2026', 'BA_Kategorie', true);
+    atPopulateSelect('kimp-newba-ustsatz',   'Betriebsausgaben_2026', 'BA_USt_Satz',  true);
+  });
   kimpNewBaUpdateInfoBanner();
   document.getElementById('kimp-newba-overlay').classList.add('show');
 }
@@ -5943,6 +6248,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   <div style="padding:8px 0;flex:1;overflow-y:auto">
     <div class="menu-nav-item" onclick="navTo('screen-jp')">🇯🇵 JP Import Kalkulator</div>
     <div class="menu-nav-item" onclick="navTo('screen-artikel', ensureArtikelCache)">🔍 Artikelsuche</div>
+    <div class="menu-nav-item" onclick="navTo('screen-produkt', ensureProduktCache)">🏷️ Produkte</div>
     <div class="menu-nav-item" onclick="navTo('screen-sku', loadPimp)">📦 SKU Eintragung</div>
     <div class="menu-nav-item" onclick="navTo('screen-ek')">📊 Einkauf Auswertung</div>
     <div class="menu-nav-item" onclick="navTo('screen-ba', loadBaList)">📄 BA-Review</div>
