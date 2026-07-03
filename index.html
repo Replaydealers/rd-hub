@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.8.0
-  SW Cache: rd-hub-v75
+  Version:  2.8.1
+  SW Cache: rd-hub-v76
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.8.1  (2026-07-03)  Produkte-Liste: Kennung unter Klarname + Layout-Fix Zeilen ohne Such-Link
   v2.8.0  (2026-07-02)  Dynamische Zahlweg/Kategorie-Dropdowns + neue Kachel „Produkte" (Katalog mit Sendico-Such-Link)
   v2.7.6  (2026-05-18)  Status-Pill Abgeschlossen + Verknüpfungen rechts + Beleg-Anzeige-Bug-Fix
   v2.7.5  (2026-05-18)  Modal größer + Acrobat-Auto-Open weg + Action-Buttons sticky oben
@@ -479,6 +480,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
   padding:8px 12px; font-size:12px; font-weight:700; text-decoration:none;
   white-space:nowrap; touch-action:manipulation;
 }
+.produkt-such-btn-empty{
+  flex-shrink:0; align-self:center; margin:0 10px 0 4px;
+  width:96px; display:inline-block;
+}
+.produkt-name-block{flex:1; min-width:0; display:flex; flex-direction:column}
+.produkt-kennung{
+  display:block; font-size:11px; color:var(--muted);
+  font-weight:500; margin-top:2px;
+}
 
 /* ── KIMP-CLEARING ── */
 .kimp-list-view{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
@@ -663,8 +673,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.8.0</span>
-      <span>SW rd-hub-v75</span>
+      <span>APP v2.8.1</span>
+      <span>SW rd-hub-v76</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -697,7 +707,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.8.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.8.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -1579,7 +1589,8 @@ var PRODUKT_TABLE = 'Produkt';
 var PRODUKT_CACHE_FIELDS = [
   'Prod_ProduktID','Prod_Klarname','PROD_Kategorie','PROD_VK_Erwartet','PROD_Max_EK',
   'PROD_Marge','PROD_Suchbegriff','PROD_Marktplatz','PROD_Verkaeufe_pM',
-  'Prod_Mindestbestand','Prod_Bestand','PROD_Such_Link'
+  'Prod_Mindestbestand','Prod_Bestand','PROD_Such_Link',
+  'PROD_Kennung_A','PROD_Kennung_B'
 ];
 var produktCache = null;
 var produktCacheLoading = false;
@@ -1670,17 +1681,27 @@ function renderProduktResults(results, hadFilter) {
     var markt = f['PROD_Marktplatz'] || '';
     var id = String(f['Prod_ProduktID'] || '');
     var link = f['PROD_Such_Link'] || '';
+    // Klarname (fett) + optionale Kennungszeile darunter (PROD_Kennung_A + _B).
+    var kA = f['PROD_Kennung_A'] || '';
+    var kB = f['PROD_Kennung_B'] || '';
+    var kennung = (kA + ' ' + kB).trim();
+    var nameBlock =
+      '<div class="produkt-name-block">'+
+        '<span class="artikel-item-name">' + escHtml(name) + '</span>'+
+        (kennung ? '<span class="produkt-kennung">' + escHtml(kennung) + '</span>' : '')+
+      '</div>';
     // Zeile: links Infos, rechts optionaler Such-Button (öffnet PROD_Such_Link neuer Tab).
     // Der Button ist ein eigenes <a>, das NICHT das Detail öffnet (stopPropagation im Handler).
+    // Fehlt der Link, kommt ein leerer Platzhalter gleicher Breite → Kategorie bleibt an Ort.
     var linkBtn = link
       ? '<a class="produkt-such-btn" href="' + escHtml(link) + '" target="_blank" rel="noopener" data-stop="1">🔍 Suchen</a>'
-      : '';
+      : '<span class="produkt-such-btn-empty" aria-hidden="true"></span>';
     var marktLine = markt ? ' · ' + escHtml(markt) : '';
     html += '<div class="artikel-item" data-id="' + escHtml(id) + '">'+
       '<div class="artikel-item-bar"></div>'+
       '<div class="artikel-item-content">'+
         '<div class="artikel-item-top">'+
-          '<span class="artikel-item-name">' + escHtml(name) + '</span>'+
+          nameBlock +
           '<span class="artikel-item-score">' + escHtml(kat) + '</span>'+
         '</div>'+
         '<div class="artikel-item-bottom">VK ' + vk + ' · Max-EK ' + ek + marktLine + '</div>'+
