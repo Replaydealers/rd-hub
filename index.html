@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.8.1
-  SW Cache: rd-hub-v76
+  Version:  2.9.0
+  SW Cache: rd-hub-v77
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.9.0  (2026-07-13)  KIMP-BA-Dialog konsolidiert: gemeinsamer, steuerlich vollständiger BA-Dialog (openBADialog) mit Prefill aus KIMP-Zeile + Pflicht-USt-Satz/Kategorie/Zahlweg/Vorsteuer
   v2.8.1  (2026-07-03)  Produkte-Liste: Kennung unter Klarname + Layout-Fix Zeilen ohne Such-Link
   v2.8.0  (2026-07-02)  Dynamische Zahlweg/Kategorie-Dropdowns + neue Kachel „Produkte" (Katalog mit Sendico-Such-Link)
   v2.7.6  (2026-05-18)  Status-Pill Abgeschlossen + Verknüpfungen rechts + Beleg-Anzeige-Bug-Fix
@@ -599,10 +600,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-newba-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .kimp-newba-form .kimp-newba-row-full{grid-column:1 / -1}
 .kimp-newba-field label{display:block;font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
-.kimp-newba-field input,.kimp-newba-field select{width:100%;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;outline:none;-webkit-appearance:none}
-.kimp-newba-field input:focus,.kimp-newba-field select:focus{border-color:var(--accent)}
-.kimp-newba-field input:disabled,.kimp-newba-field select:disabled{opacity:.5;cursor:not-allowed}
-.kimp-newba-field input.kimp-newba-invalid{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.kimp-newba-field input,.kimp-newba-field select,.kimp-newba-field textarea{width:100%;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;outline:none;-webkit-appearance:none;box-sizing:border-box}
+.kimp-newba-field textarea{resize:vertical;min-height:38px}
+.kimp-newba-field input:focus,.kimp-newba-field select:focus,.kimp-newba-field textarea:focus{border-color:var(--accent)}
+.kimp-newba-field input:disabled,.kimp-newba-field select:disabled,.kimp-newba-field textarea:disabled{opacity:.5;cursor:not-allowed}
+.kimp-newba-field input.kimp-newba-invalid,.kimp-newba-field select.kimp-newba-invalid,.kimp-newba-field textarea.kimp-newba-invalid{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .kimp-newba-supplier-wrap{position:relative}
 .kimp-newba-supplier-dd{position:absolute;top:100%;left:0;right:0;background:var(--card);border:.5px solid var(--border);border-radius:var(--radius-sm);max-height:180px;overflow-y:auto;z-index:5;display:none;margin-top:2px}
 .kimp-newba-supplier-dd.show{display:block}
@@ -673,8 +675,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.8.1</span>
-      <span>SW rd-hub-v76</span>
+      <span>APP v2.9.0</span>
+      <span>SW rd-hub-v77</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -707,7 +709,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.8.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.9.0</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -5177,16 +5179,94 @@ var kimpNewBaBusy = false;
 // Akzeptierte Beleg-Typen für die Hub→Apps-Script-Pipeline.
 var KIMP_NEWBA_ALLOWED_MIMES = ['application/pdf','image/jpeg','image/png'];
 
+// ── GEMEINSAMER BA-DIALOG ──
+// Wiederverwendbarer, steuerlich vollständiger BA-Erfassungsdialog (Modal).
+// Aktuell genutzt vom KIMP-Clearing ("Neue BA aus Beleg"). Das BA-Review nutzt
+// bewusst weiter seinen eigenen Inline-Flow (überlegener Partner-Picker + Seiten-PDF).
+//
+// openBADialog(prefill, onSave, opts)
+//   prefill: { partner,datum,brutto,netto,ust,ustSatz,kategorie,zahlweg,belegNr,bezeichnung,vorsteuer,notizen }
+//   onSave(data, pdf, done):  Kontext-Adapter, der das eigentliche Speichern übernimmt.
+//                             data = gesammelte Formularwerte, pdf = {base64,mime,name},
+//                             done(err) meldet Ergebnis zurück (err=null → Modal schließt).
+//   opts: { title, showKimpInfo }
+var badOnSave = null;
+var badShowKimpInfo = false;
+
+function openBADialog(prefill, onSave, opts){
+  opts = opts || {};
+  badOnSave = onSave || null;
+  badShowKimpInfo = !!opts.showKimpInfo;
+  kimpNewBaResetForm();
+  var titleEl = document.getElementById('kimp-newba-title');
+  if (titleEl) titleEl.textContent = opts.title || 'Neue BA';
+  atLoadSchema().then(function(){
+    atPopulateSelect('kimp-newba-zahlweg',   'Betriebsausgaben_2026', 'BA_Zahlweg',            true);
+    atPopulateSelect('kimp-newba-kategorie', 'Betriebsausgaben_2026', 'BA_Kategorie',          true);
+    atPopulateSelect('kimp-newba-ustsatz',   'Betriebsausgaben_2026', 'BA_USt_Satz',           true);
+    atPopulateSelect('kimp-newba-vorsteuer', 'Betriebsausgaben_2026', 'BA_Vorsteuer_absetzbar', true);
+    // Prefill nach dem dynamischen Befüllen erneut anwenden (z.B. Zahlweg "Bank",
+    // das es in den hartkodierten Fallback-Optionen evtl. noch nicht gibt).
+    badApplyPrefill(prefill);
+  });
+  badApplyPrefill(prefill);
+  if (badShowKimpInfo) kimpNewBaUpdateInfoBanner();
+  else { var b=document.getElementById('kimp-newba-kimpinfo'); if (b) b.style.display='none'; }
+  document.getElementById('kimp-newba-overlay').classList.add('show');
+}
+
+function badApplyPrefill(p){
+  if (!p) return;
+  function set(id,v){ var el=document.getElementById(id); if (el && v!=null && v!=='') el.value=v; }
+  set('kimp-newba-partner', p.partner);
+  set('kimp-newba-datum', p.datum);
+  set('kimp-newba-brutto', p.brutto);
+  set('kimp-newba-netto', p.netto);
+  set('kimp-newba-ust', p.ust);
+  set('kimp-newba-ustsatz', p.ustSatz);
+  set('kimp-newba-kategorie', p.kategorie);
+  set('kimp-newba-zahlweg', p.zahlweg);
+  set('kimp-newba-belegnr', p.belegNr);
+  set('kimp-newba-bezeichnung', p.bezeichnung);
+  set('kimp-newba-vorsteuer', p.vorsteuer);
+  set('kimp-newba-notizen', p.notizen);
+}
+
+// Fuzzy-Match von KIMP_Name auf einen bekannten Partner-Anzeigenamen (lokaler
+// Clearing-Cache, gleiche Substring-Logik wie das Lieferanten-Autocomplete).
+// Liefert den gematchten Anzeigenamen oder – ohne Treffer – den Roh-Namen zurück.
+function kimpFuzzyPartnerName(name){
+  var raw = (name==null?'':String(name)).trim();
+  if (!raw || !kimpPartnerCache) return raw;
+  var ql = raw.toLowerCase();
+  for (var id in kimpPartnerCache){
+    var pf = kimpPartnerCache[id];
+    var firm = (pf['PD_Firmenname']||'').toLowerCase();
+    var pnm  = (((pf['PD_Vorname']||'')+' '+(pf['PD_Name']||'')).trim()).toLowerCase();
+    var ka   = (pf['PD_KA_Name']||'').toLowerCase();
+    if ((firm && (ql.indexOf(firm)!==-1 || firm.indexOf(ql)!==-1)) ||
+        (pnm  && (ql.indexOf(pnm)!==-1  || pnm.indexOf(ql)!==-1)) ||
+        (ka   && (ql.indexOf(ka)!==-1   || ka.indexOf(ql)!==-1))){
+      return pf['PD_Firmenname'] || ((pf['PD_Vorname']||'')+' '+(pf['PD_Name']||'')).trim() || pf['PD_KA_Name'] || raw;
+    }
+  }
+  return raw;
+}
+
+// KIMP-Clearing: "Neue BA aus Beleg" → öffnet den gemeinsamen Dialog mit Prefill
+// aus der aktuellen KIMP-Zeile und dem KIMP-Speicher-Adapter (Apps-Script + Drive).
 function openKimpNewBaModal(){
   if (!kimpCurrentRec) return;
-  kimpNewBaResetForm();
-  atLoadSchema().then(function(){
-    atPopulateSelect('kimp-newba-zahlweg',   'Betriebsausgaben_2026', 'BA_Zahlweg',   true);
-    atPopulateSelect('kimp-newba-kategorie', 'Betriebsausgaben_2026', 'BA_Kategorie', true);
-    atPopulateSelect('kimp-newba-ustsatz',   'Betriebsausgaben_2026', 'BA_USt_Satz',  true);
-  });
-  kimpNewBaUpdateInfoBanner();
-  document.getElementById('kimp-newba-overlay').classList.add('show');
+  var f = kimpCurrentRec.fields || {};
+  var betrag = parseFloat(f['KIMP_Betrag']);
+  var prefill = {
+    datum:   f['KIMP_Buchungstag'] ? String(f['KIMP_Buchungstag']).substring(0,10) : '',
+    brutto:  isNaN(betrag) ? '' : Math.abs(betrag),
+    partner: kimpFuzzyPartnerName(f['KIMP_Name']),
+    zahlweg: 'Bank',
+    notizen: f['KIMP_Verwendungszweck'] || ''
+  };
+  openBADialog(prefill, kimpNewBaOnSave, { title:'Neue BA aus Beleg', showKimpInfo:true });
 }
 
 // Info-Banner oben im Modal: zeigt KIMP-ID + Betrag + Datum + Verwendungszweck (gekürzt).
@@ -5277,11 +5357,11 @@ function kimpNewBaResetForm(){
   document.getElementById('kimp-newba-ocr').style.display='none';
   document.getElementById('kimp-newba-file').value='';
   ['kimp-newba-partner','kimp-newba-datum','kimp-newba-brutto','kimp-newba-netto',
-   'kimp-newba-ust','kimp-newba-belegnr','kimp-newba-bezeichnung'].forEach(function(id){
+   'kimp-newba-ust','kimp-newba-belegnr','kimp-newba-bezeichnung','kimp-newba-notizen'].forEach(function(id){
     var el=document.getElementById(id); if (el){ el.value=''; el.classList.remove('kimp-newba-invalid'); el.disabled=false; }
   });
-  ['kimp-newba-ustsatz','kimp-newba-kategorie','kimp-newba-zahlweg'].forEach(function(id){
-    var el=document.getElementById(id); if (el){ el.value=''; el.disabled=false; }
+  ['kimp-newba-ustsatz','kimp-newba-kategorie','kimp-newba-zahlweg','kimp-newba-vorsteuer'].forEach(function(id){
+    var el=document.getElementById(id); if (el){ el.value=''; el.classList.remove('kimp-newba-invalid'); el.disabled=false; }
   });
   document.getElementById('kimp-newba-partner-dd').classList.remove('show');
   document.getElementById('btn-kimp-newba-submit').disabled=false;
@@ -5298,7 +5378,7 @@ function kimpNewBaHideError(){
 function kimpNewBaSetFieldsDisabled(d){
   ['kimp-newba-partner','kimp-newba-datum','kimp-newba-brutto','kimp-newba-netto',
    'kimp-newba-ust','kimp-newba-ustsatz','kimp-newba-kategorie','kimp-newba-zahlweg',
-   'kimp-newba-belegnr','kimp-newba-bezeichnung'].forEach(function(id){
+   'kimp-newba-vorsteuer','kimp-newba-belegnr','kimp-newba-bezeichnung','kimp-newba-notizen'].forEach(function(id){
     var el=document.getElementById(id); if (el) el.disabled=d;
   });
 }
@@ -5384,6 +5464,8 @@ function kimpNewBaFillFromOcr(d){
   if (d.zahlweg)   setVal('kimp-newba-zahlweg', d.zahlweg);
   setVal('kimp-newba-belegnr', d.belegNr);
   setVal('kimp-newba-bezeichnung', d.bezeichnung);
+  if (d.vorsteuer) setVal('kimp-newba-vorsteuer', d.vorsteuer);
+  if (d.notizen)   setVal('kimp-newba-notizen', d.notizen);
 }
 
 // Lieferanten-Auto-Complete aus kimpPartnerCache (lokal, keine Airtable-Round-Trip).
@@ -5418,62 +5500,91 @@ function kimpNewBaSearchPartner(q){
   });
 }
 
-function kimpNewBaSubmit(){
+// Generischer Submit-Handler des gemeinsamen BA-Dialogs: validiert die – jetzt
+// vollständigen – Pflichtfelder (inkl. USt-Satz / Kategorie / Zahlweg / Vorsteuer),
+// sammelt die Werte und delegiert das eigentliche Speichern an den Kontext-Adapter
+// (badOnSave). Ein Beleg (PDF/Bild) ist Pflicht.
+function badSubmit(){
   if (kimpNewBaBusy) return;
   kimpNewBaHideError();
   if (!kimpNewBaPdfBase64){
-    kimpNewBaShowError('Bitte erst ein PDF auswählen.');
+    kimpNewBaShowError('Bitte erst einen Beleg auswählen.');
     return;
   }
-  if (!kimpCurrentRec){
-    kimpNewBaShowError('Kein aktueller KIMP-Datensatz.');
+  if (!badOnSave){
+    kimpNewBaShowError('Kein Speicher-Handler aktiv.');
     return;
   }
-  var partner = document.getElementById('kimp-newba-partner').value.trim();
-  var datum   = document.getElementById('kimp-newba-datum').value;
-  var brutto  = parseFloat(document.getElementById('kimp-newba-brutto').value);
-  var bezg    = document.getElementById('kimp-newba-bezeichnung').value.trim();
-  var fields  = { partner:'kimp-newba-partner', datum:'kimp-newba-datum', brutto:'kimp-newba-brutto', bezeichnung:'kimp-newba-bezeichnung' };
+  function val(id){ return (document.getElementById(id).value || '').trim(); }
+  var brutto = parseFloat(document.getElementById('kimp-newba-brutto').value);
+  var required = ['kimp-newba-partner','kimp-newba-datum','kimp-newba-brutto',
+                  'kimp-newba-bezeichnung','kimp-newba-ustsatz','kimp-newba-kategorie',
+                  'kimp-newba-zahlweg','kimp-newba-vorsteuer'];
   var bad = [];
-  if (!partner)             bad.push(fields.partner);
-  if (!datum)               bad.push(fields.datum);
-  if (isNaN(brutto)||brutto===0) bad.push(fields.brutto);
-  if (!bezg)                bad.push(fields.bezeichnung);
-  // erst alle clearen, dann nur die fehlerhaften markieren
-  Object.keys(fields).forEach(function(k){ document.getElementById(fields[k]).classList.remove('kimp-newba-invalid'); });
+  required.forEach(function(id){
+    document.getElementById(id).classList.remove('kimp-newba-invalid');
+    var empty = !val(id) || (id==='kimp-newba-brutto' && (isNaN(brutto)||brutto===0));
+    if (empty) bad.push(id);
+  });
   bad.forEach(function(id){ document.getElementById(id).classList.add('kimp-newba-invalid'); });
   if (bad.length){ kimpNewBaShowError('Pflichtfelder fehlen.'); return; }
 
   function num(id){ var v=parseFloat(document.getElementById(id).value); return isNaN(v) ? undefined : v; }
-  function str(id){ var v=document.getElementById(id).value; return v ? v.trim() : ''; }
-
-  var ba_data = {
-    partner: partner,
-    datum: datum,
-    brutto: brutto,
-    netto: num('kimp-newba-netto'),
-    ust:   num('kimp-newba-ust'),
-    ustSatz: str('kimp-newba-ustsatz'),
-    kategorie: str('kimp-newba-kategorie'),
-    zahlweg: str('kimp-newba-zahlweg'),
-    belegNr: str('kimp-newba-belegnr'),
-    bezeichnung: bezg
-  };
-
-  var payload = {
-    action: 'create_ba',
-    secret: HUB_SECRET,
-    kimp_id: (kimpCurrentRec.fields && kimpCurrentRec.fields['KIMP_ID']) || '',
-    kimp_record_id: kimpCurrentRec.id,
-    pdf_base64: kimpNewBaPdfBase64,
-    mime_type: kimpNewBaPdfMime,
-    ba_data: ba_data
+  var data = {
+    partner:     val('kimp-newba-partner'),
+    datum:       val('kimp-newba-datum'),
+    brutto:      brutto,
+    netto:       num('kimp-newba-netto'),
+    ust:         num('kimp-newba-ust'),
+    ustSatz:     val('kimp-newba-ustsatz'),
+    kategorie:   val('kimp-newba-kategorie'),
+    zahlweg:     val('kimp-newba-zahlweg'),
+    belegNr:     val('kimp-newba-belegnr'),
+    bezeichnung: val('kimp-newba-bezeichnung'),
+    vorsteuer:   val('kimp-newba-vorsteuer'),
+    notizen:     val('kimp-newba-notizen')
   };
 
   kimpNewBaBusy = true;
   var btn = document.getElementById('btn-kimp-newba-submit');
   btn.disabled = true;
   btn.textContent = 'Lege an…';
+  badOnSave(data, { base64:kimpNewBaPdfBase64, mime:kimpNewBaPdfMime, name:kimpNewBaPdfName }, function(err){
+    kimpNewBaBusy = false;
+    btn.disabled = false;
+    btn.textContent = 'BA anlegen';
+    if (err){ kimpNewBaShowError(err.message || 'Anlage fehlgeschlagen'); return; }
+    closeKimpNewBaModal();
+  });
+}
+
+function kimpNewBaErrMsg(res){
+  var msg = (res && res.error) || 'Anlage fehlgeschlagen';
+  if (msg === 'forbidden') msg = 'Authentifizierung fehlgeschlagen. Hub-Secret prüfen.';
+  return msg;
+}
+
+// KIMP-Speicher-Adapter: legt die BA über das Apps-Script-Webapp an (Beleg → Drive)
+// und sichert anschließend per Airtable-PATCH die steuerlichen Felder, die das Webapp
+// nicht kennt (v.a. Vorsteuer absetzbar + Notizen). So ist die BA garantiert
+// steuerlich vollständig, ohne Apps-Script-Änderung.
+function kimpNewBaOnSave(data, pdf, done){
+  if (!kimpCurrentRec){ done(new Error('Kein aktueller KIMP-Datensatz.')); return; }
+  var ba_data = {
+    partner: data.partner, datum: data.datum, brutto: data.brutto,
+    netto: data.netto, ust: data.ust, ustSatz: data.ustSatz,
+    kategorie: data.kategorie, zahlweg: data.zahlweg,
+    belegNr: data.belegNr, bezeichnung: data.bezeichnung
+  };
+  var payload = {
+    action: 'create_ba',
+    secret: HUB_SECRET,
+    kimp_id: (kimpCurrentRec.fields && kimpCurrentRec.fields['KIMP_ID']) || '',
+    kimp_record_id: kimpCurrentRec.id,
+    pdf_base64: pdf.base64,
+    mime_type: pdf.mime,
+    ba_data: ba_data
+  };
   fetch(INVOICE_PROCESSING_WEBAPP_URL, {
     method:'POST',
     headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -5481,70 +5592,61 @@ function kimpNewBaSubmit(){
   })
   .then(function(r){ return r.json(); })
   .then(function(res){
-    if (res && res.ok && res.ba_record_id){
-      kimpNewBaOnSuccess(res);
+    if (!(res && res.ok && res.ba_record_id)){ done(new Error(kimpNewBaErrMsg(res))); return; }
+    // Steuerliche Vollständigkeit nachziehen (Felder, die create_ba nicht setzt).
+    var complete = {};
+    if (data.vorsteuer) complete['BA_Vorsteuer_absetzbar'] = data.vorsteuer;
+    if (data.notizen)   complete['BA_Notizen'] = data.notizen;
+    if (data.ustSatz)   complete['BA_USt_Satz'] = data.ustSatz;
+    if (data.kategorie) complete['BA_Kategorie'] = data.kategorie;
+    if (data.zahlweg)   complete['BA_Zahlweg'] = data.zahlweg;
+    if (Object.keys(complete).length){
+      atPatch('Betriebsausgaben_2026', res.ba_record_id, complete, function(){
+        kimpNewBaLinkAndRefresh(res, data, done);
+      });
     } else {
-      kimpNewBaOnError(res);
+      kimpNewBaLinkAndRefresh(res, data, done);
     }
   })
-  .catch(function(e){
-    kimpNewBaOnError({ error: e && e.message ? e.message : 'Netzwerk-Fehler' });
-  });
+  .catch(function(e){ done(new Error((e && e.message) ? e.message : 'Netzwerk-Fehler')); });
 }
 
-function kimpNewBaOnError(res){
-  kimpNewBaBusy = false;
-  var btn = document.getElementById('btn-kimp-newba-submit');
-  btn.disabled = false;
-  btn.textContent = 'BA anlegen';
-  var msg = (res && res.error) || 'Anlage fehlgeschlagen';
-  if (msg === 'forbidden') msg = 'Authentifizierung fehlgeschlagen. Hub-Secret prüfen.';
-  kimpNewBaShowError(msg);
-}
-
-function kimpNewBaOnSuccess(res){
-  if (!kimpCurrentRec){ closeKimpNewBaModal(); return; }
+// Verknüpft die neue BA mit dem KIMP (KIMP_BA_Link) und aktualisiert die lokalen
+// Caches + Detailansicht (kein Seitenwechsel — der Nutzer bleibt im KIMP-Clearing).
+function kimpNewBaLinkAndRefresh(res, data, done){
   var newBaRecId = res.ba_record_id;
   var baLot = res.ba_lot || newBaRecId;
   var driveUrl = res.drive_url || null;
-  // Schritt 1: KIMP_BA_Link am aktuellen KIMP patchen (neue BA-ID anhängen).
   var existingIds = kimpLinkIds(kimpCurrentRec.fields, 'KIMP_BA_Link');
   if (existingIds.indexOf(newBaRecId)===-1) existingIds.push(newBaRecId);
-  atPatch(KIMP_TABLE, kimpCurrentRec.id, { 'KIMP_BA_Link': existingIds }, function(err, data){
-    kimpNewBaBusy = false;
-    var btn = document.getElementById('btn-kimp-newba-submit');
-    btn.disabled = false;
-    btn.textContent = 'BA anlegen';
-    if (err || (data && data.error)){
-      // BA ist angelegt, Verknüpfung fehlt nur — User-freundlich melden, Modal offen lassen.
-      kimpNewBaShowError('BA ' + baLot + ' angelegt, Verknüpfung fehlgeschlagen: ' + (err?err.message:data.error.message));
+  atPatch(KIMP_TABLE, kimpCurrentRec.id, { 'KIMP_BA_Link': existingIds }, function(err, d){
+    if (err || (d && d.error)){
+      // BA ist angelegt, nur die Verknüpfung fehlt — melden, Modal offen lassen.
+      done(new Error('BA ' + baLot + ' angelegt, Verknüpfung fehlgeschlagen: ' + (err?err.message:d.error.message)));
       return;
     }
-    // Lokale Caches/State aktualisieren.
     kimpCurrentRec.fields = kimpCurrentRec.fields || {};
     kimpCurrentRec.fields['KIMP_BA_Link'] = existingIds;
-    var ba_data = {
+    var ba_cache = {
       'BA_ID': baLot,
-      'BA_Lieferant': document.getElementById('kimp-newba-partner').value.trim(),
-      'BA_Brutto': parseFloat(document.getElementById('kimp-newba-brutto').value) || 0,
-      'BA_Datum': document.getElementById('kimp-newba-datum').value,
-      'BA_Beleg_Nr': document.getElementById('kimp-newba-belegnr').value || '',
-      'BA_Bezeichnung': document.getElementById('kimp-newba-bezeichnung').value || ''
+      'BA_Lieferant': data.partner,
+      'BA_Brutto': data.brutto || 0,
+      'BA_Datum': data.datum,
+      'BA_Beleg_Nr': data.belegNr || '',
+      'BA_Bezeichnung': data.bezeichnung || ''
     };
-    if (driveUrl) ba_data['BA_Beleg'] = [{ url: driveUrl }];
+    if (driveUrl) ba_cache['BA_Beleg'] = [{ url: driveUrl }];
     // Match-Cache (für Vorschläge): neue BA pushen, damit der nächste KIMP sie sieht.
-    if (kimpMatchCache && kimpMatchCache.ba) kimpMatchCache.ba.push({ id:newBaRecId, fields: ba_data });
+    if (kimpMatchCache && kimpMatchCache.ba) kimpMatchCache.ba.push({ id:newBaRecId, fields: ba_cache });
     // BA-Beleg-Map (für Beleg-Indikator in der KIMP-Liste).
     if (kimpBaBelegSet && driveUrl) kimpBaBelegSet[newBaRecId] = true;
-    // Auto-Open des frisch importierten PDFs unterdrücken — auf manchen Systemen löst das
-    // einen externen PDF-Viewer (Acrobat) aus, was hier ungewollt ist. User kann den Beleg
-    // weiterhin manuell in der Liste links anklicken.
+    // Auto-Open des frisch importierten PDFs unterdrücken (löst sonst auf manchen
+    // Systemen Acrobat aus). User kann den Beleg weiterhin manuell anklicken.
     kimpSkipAutoPdfOnce = true;
-    // Detail neu rendern → "Aktuelle Verknüpfungen" + Beleg-Pane.
     populateKimpDetail(kimpCurrentRec);
     kimpSetMsg('✓ BA ' + baLot + ' angelegt und verknüpft', 'ok');
     setTimeout(function(){ var m=document.getElementById('kimp-save-msg'); if (m && m.textContent.indexOf('angelegt')!==-1) kimpSetMsg(''); }, 3500);
-    closeKimpNewBaModal();
+    done(null);
   });
 }
 
@@ -5631,7 +5733,7 @@ document.addEventListener('DOMContentLoaded', function setupKimp(){
   });
   document.getElementById('btn-kimp-newba-close').addEventListener('click', closeKimpNewBaModal);
   document.getElementById('btn-kimp-newba-cancel').addEventListener('click', closeKimpNewBaModal);
-  document.getElementById('btn-kimp-newba-submit').addEventListener('click', kimpNewBaSubmit);
+  document.getElementById('btn-kimp-newba-submit').addEventListener('click', badSubmit);
 
   // Lieferant-Auto-Complete
   var partnerInput = document.getElementById('kimp-newba-partner');
@@ -6133,7 +6235,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 <div id="kimp-newba-overlay">
   <div class="kimp-newba-box">
     <div class="kimp-newba-head">
-      <div class="kimp-newba-title">Neue BA aus Beleg</div>
+      <div class="kimp-newba-title" id="kimp-newba-title">Neue BA aus Beleg</div>
       <button type="button" class="kimp-newba-close" id="btn-kimp-newba-close" title="Schließen">✕</button>
     </div>
     <div class="kimp-newba-body">
@@ -6189,7 +6291,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <input type="number" step="0.01" id="kimp-newba-ust" />
         </div>
         <div class="kimp-newba-field">
-          <label>USt-Satz</label>
+          <label>USt-Satz *</label>
           <select id="kimp-newba-ustsatz">
             <option value="">—</option>
             <option value="19%">19%</option>
@@ -6199,7 +6301,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           </select>
         </div>
         <div class="kimp-newba-field">
-          <label>Kategorie</label>
+          <label>Kategorie *</label>
           <select id="kimp-newba-kategorie">
             <option value="">—</option>
             <option>Warenersatzteile</option>
@@ -6218,14 +6320,23 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           </select>
         </div>
         <div class="kimp-newba-field">
-          <label>Zahlweg</label>
+          <label>Zahlweg *</label>
           <select id="kimp-newba-zahlweg">
             <option value="">—</option>
+            <option>Bank</option>
             <option>Überweisung</option>
             <option>Lastschrift</option>
             <option>Paypal</option>
             <option>Karte</option>
             <option>eBay</option>
+          </select>
+        </div>
+        <div class="kimp-newba-field">
+          <label>Vorsteuer absetzbar *</label>
+          <select id="kimp-newba-vorsteuer">
+            <option value="">—</option>
+            <option>ja</option>
+            <option>nein</option>
           </select>
         </div>
         <div class="kimp-newba-field kimp-newba-row-full">
@@ -6235,6 +6346,10 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <div class="kimp-newba-field kimp-newba-row-full">
           <label>Bezeichnung *</label>
           <input type="text" id="kimp-newba-bezeichnung" />
+        </div>
+        <div class="kimp-newba-field kimp-newba-row-full">
+          <label>Notizen</label>
+          <textarea id="kimp-newba-notizen" rows="2"></textarea>
         </div>
       </div>
         </div>
