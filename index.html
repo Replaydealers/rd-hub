@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.9.0
-  SW Cache: rd-hub-v77
+  Version:  2.9.1
+  SW Cache: rd-hub-v78
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.9.1  (2026-07-13)  Fix: KIMP-BA-Dialog Zahlweg-Prefill "Bank" → "Überweisung" (existierende Airtable-Option)
   v2.9.0  (2026-07-13)  KIMP-BA-Dialog konsolidiert: gemeinsamer, steuerlich vollständiger BA-Dialog (openBADialog) mit Prefill aus KIMP-Zeile + Pflicht-USt-Satz/Kategorie/Zahlweg/Vorsteuer
   v2.8.1  (2026-07-03)  Produkte-Liste: Kennung unter Klarname + Layout-Fix Zeilen ohne Such-Link
   v2.8.0  (2026-07-02)  Dynamische Zahlweg/Kategorie-Dropdowns + neue Kachel „Produkte" (Katalog mit Sendico-Such-Link)
@@ -675,8 +676,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.9.0</span>
-      <span>SW rd-hub-v77</span>
+      <span>APP v2.9.1</span>
+      <span>SW rd-hub-v78</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -709,7 +710,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.9.0</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.9.1</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -5205,8 +5206,8 @@ function openBADialog(prefill, onSave, opts){
     atPopulateSelect('kimp-newba-kategorie', 'Betriebsausgaben_2026', 'BA_Kategorie',          true);
     atPopulateSelect('kimp-newba-ustsatz',   'Betriebsausgaben_2026', 'BA_USt_Satz',           true);
     atPopulateSelect('kimp-newba-vorsteuer', 'Betriebsausgaben_2026', 'BA_Vorsteuer_absetzbar', true);
-    // Prefill nach dem dynamischen Befüllen erneut anwenden (z.B. Zahlweg "Bank",
-    // das es in den hartkodierten Fallback-Optionen evtl. noch nicht gibt).
+    // Prefill nach dem dynamischen Befüllen erneut anwenden — Werte greifen erst,
+    // wenn die passende <option> aus dem Airtable-Schema geladen ist.
     badApplyPrefill(prefill);
   });
   badApplyPrefill(prefill);
@@ -5263,7 +5264,7 @@ function openKimpNewBaModal(){
     datum:   f['KIMP_Buchungstag'] ? String(f['KIMP_Buchungstag']).substring(0,10) : '',
     brutto:  isNaN(betrag) ? '' : Math.abs(betrag),
     partner: kimpFuzzyPartnerName(f['KIMP_Name']),
-    zahlweg: 'Bank',
+    zahlweg: 'Überweisung',
     notizen: f['KIMP_Verwendungszweck'] || ''
   };
   openBADialog(prefill, kimpNewBaOnSave, { title:'Neue BA aus Beleg', showKimpInfo:true });
@@ -6323,7 +6324,6 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <label>Zahlweg *</label>
           <select id="kimp-newba-zahlweg">
             <option value="">—</option>
-            <option>Bank</option>
             <option>Überweisung</option>
             <option>Lastschrift</option>
             <option>Paypal</option>
