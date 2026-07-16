@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.9.2
-  SW Cache: rd-hub-v79
+  Version:  2.9.3
+  SW Cache: rd-hub-v80
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.9.3  (2026-07-16)  Fix: KIMP-BA-Dialog nutzt geteilten ID-basierten Partner-Picker (wie BA-Review) → setzt BA_PartnerID eindeutig; Partner-Auswahl Pflicht (sonst Hinweis auf BA-Review-Anlage)
   v2.9.2  (2026-07-16)  Fix: KIMP-BA-Prefill – Lieferant per Token-Match (Schwellwert, sonst leer) + Zahlweg aus Buchungstext abgeleitet (Lastschrift/Überweisung/bar)
   v2.9.1  (2026-07-13)  Fix: KIMP-BA-Dialog Zahlweg-Prefill "Bank" → "Überweisung" (existierende Airtable-Option)
   v2.9.0  (2026-07-13)  KIMP-BA-Dialog konsolidiert: gemeinsamer, steuerlich vollständiger BA-Dialog (openBADialog) mit Prefill aus KIMP-Zeile + Pflicht-USt-Satz/Kategorie/Zahlweg/Vorsteuer
@@ -677,8 +678,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.9.2</span>
-      <span>SW rd-hub-v79</span>
+      <span>APP v2.9.3</span>
+      <span>SW rd-hub-v80</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -711,7 +712,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.9.2</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.9.3</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -2788,7 +2789,16 @@ function updateBaFieldMarkings() {
   });
 }
 
-function searchPartners(query) {
+// ── GETEILTER, ID-BASIERTER PARTNER-PICKER ──
+// Genutzt von BA-Review UND dem KIMP-BA-Dialog → eine gemeinsame Codebasis, keine
+// Drift beim Partner-Handling. cfg:
+//   ddId/inputId:    Dropdown- und Text-Eingabefeld
+//   onPick(rec):     Callback mit gewähltem Partner-Record (rec.id = Airtable-ID)
+//   allowCreate:     "+ Partner neu anlegen…" anzeigen (nur BA-Review)
+//   onCreate(query): Callback für den Anlegen-Button
+//   maxRows:         Trefferlimit (Default 15)
+// Rollengefiltert (BA-Lieferant / Mehrfach), Substring über PARTNER_SEARCH_FIELDS.
+function partnerPickerSearch(query, cfg) {
   var safe = query.replace(/"/g,'\\"');
   var textClauses = PARTNER_SEARCH_FIELDS.map(function(f){
     return 'FIND(LOWER("'+safe+'"),LOWER({'+f+'}&""))>0';
@@ -2796,17 +2806,21 @@ function searchPartners(query) {
   var roleClauses = BA_RELEVANT_ROLES.map(function(r){
     return '{PD_Rolle}="'+r+'"';
   }).join(',');
-  // Nur Partner mit BA-relevanter Rolle (BA-Lieferant oder Mehrfach), die textuell matchen.
   var formula = 'AND(OR(' + roleClauses + '),OR(' + textClauses + '))';
   atGet('Partnerdaten_2026', formula, PARTNER_DISPLAY_FIELDS, function(err, data) {
-    if (err) { hidePartnerDropdown(); return; }
-    showPartnerDropdown((data && data.records) ? data.records.slice(0, 15) : [], query);
+    if (err) { partnerPickerHide(cfg.ddId); return; }
+    partnerPickerRender((data && data.records) ? data.records.slice(0, cfg.maxRows || 15) : [], query, cfg);
   });
 }
 
-function showPartnerDropdown(records, query) {
-  baPartnerSearchRecords = records || [];
-  var dd = document.getElementById('ba-lieferant-dropdown');
+function partnerPickerHide(ddId) {
+  var dd = document.getElementById(ddId);
+  if (dd) dd.style.display = 'none';
+}
+
+function partnerPickerRender(records, query, cfg) {
+  var dd = document.getElementById(cfg.ddId);
+  if (!dd) return;
   var html = '';
   if (!records.length) {
     html += '<div class="ba-dd-empty">Keine Treffer für „'+escHtml(query)+'"</div>';
@@ -2816,38 +2830,53 @@ function showPartnerDropdown(records, query) {
       html += '<div class="ba-dd-item" data-id="'+r.id+'" data-name="'+escHtml(partnerDisplayName(f))+'">'+escHtml(partnerLabel(f))+'</div>';
     });
   }
-  html += '<div class="ba-dd-create" id="ba-dd-create-btn">+ Partner neu anlegen…</div>';
-
+  if (cfg.allowCreate) {
+    html += '<div class="ba-dd-create" id="'+cfg.ddId+'-create">+ Partner neu anlegen…</div>';
+  }
   dd.innerHTML = html;
   dd.querySelectorAll('.ba-dd-item').forEach(function(item){
     item.addEventListener('mousedown', function(e){
       e.preventDefault();
       var pickedId = item.getAttribute('data-id');
-      baSelectedPartnerId = pickedId;
-      var rec = baPartnerSearchRecords.filter(function(r){ return r.id === pickedId; })[0];
-      if (rec) {
-        baCurrentPartner = rec;
-        updatePartnerInfoLine();
-      }
-      document.getElementById('ba-lieferant').value = item.getAttribute('data-name') || item.textContent;
-      setLieferantInvalid(false);
-      hidePartnerDropdown();
+      var rec = records.filter(function(r){ return r.id === pickedId; })[0] || { id: pickedId, fields: {} };
+      var input = document.getElementById(cfg.inputId);
+      if (input) input.value = item.getAttribute('data-name') || item.textContent;
+      dd.style.display = 'none';
+      if (cfg.onPick) cfg.onPick(rec);
     });
   });
-  var createBtn = document.getElementById('ba-dd-create-btn');
-  if (createBtn) {
-    createBtn.addEventListener('mousedown', function(e){
-      e.preventDefault();
-      hidePartnerDropdown();
-      openPartnerModal(query);
-    });
+  if (cfg.allowCreate) {
+    var createBtn = document.getElementById(cfg.ddId+'-create');
+    if (createBtn) {
+      createBtn.addEventListener('mousedown', function(e){
+        e.preventDefault();
+        dd.style.display = 'none';
+        if (cfg.onCreate) cfg.onCreate(query);
+      });
+    }
   }
   dd.style.display = 'block';
 }
 
-function hidePartnerDropdown() {
-  document.getElementById('ba-lieferant-dropdown').style.display = 'none';
-}
+// BA-Review-Konfiguration (Verhalten exakt wie bisher: setzt baSelectedPartnerId,
+// baCurrentPartner, Info-Zeile; "+ Partner neu anlegen" öffnet die Partner-Pane).
+var BA_PARTNER_PICKER_CFG = {
+  ddId: 'ba-lieferant-dropdown',
+  inputId: 'ba-lieferant',
+  allowCreate: true,
+  maxRows: 15,
+  onPick: function(rec){
+    baSelectedPartnerId = rec.id;
+    baCurrentPartner = rec;
+    updatePartnerInfoLine();
+    setLieferantInvalid(false);
+  },
+  onCreate: function(query){ openPartnerModal(query); }
+};
+
+function searchPartners(query) { partnerPickerSearch(query, BA_PARTNER_PICKER_CFG); }
+
+function hidePartnerDropdown() { partnerPickerHide('ba-lieferant-dropdown'); }
 
 // ── PARTNER ANLEGEN / BEARBEITEN PANEL (ersetzt rechts neben dem PDF die BA-Form-Pane) ──
 var pmEditMode = false;  // true = bestehenden Partner bearbeiten (PATCH), false = neuen Partner anlegen (POST)
@@ -5194,6 +5223,23 @@ var KIMP_NEWBA_ALLOWED_MIMES = ['application/pdf','image/jpeg','image/png'];
 //   opts: { title, showKimpInfo }
 var badOnSave = null;
 var badShowKimpInfo = false;
+var badSelectedPartnerId = null;   // im KIMP-Dialog gewählter Partner-Record → BA_PartnerID
+var badPartnerTimer = null;        // Debounce für die Picker-Suche im KIMP-Modal
+
+// KIMP-Konfiguration des geteilten Partner-Pickers. Ohne "+ neu anlegen"
+// (Anlege-Pane hängt am BA-Review-Screen). Bei Auswahl wird die Record-ID gemerkt.
+var KIMP_PARTNER_PICKER_CFG = {
+  ddId: 'kimp-newba-partner-dd',
+  inputId: 'kimp-newba-partner',
+  allowCreate: false,
+  maxRows: 15,
+  onPick: function(rec){
+    badSelectedPartnerId = rec.id;
+    var el = document.getElementById('kimp-newba-partner');
+    if (el) el.classList.remove('kimp-newba-invalid');
+    kimpNewBaHideError();
+  }
+};
 
 function openBADialog(prefill, onSave, opts){
   opts = opts || {};
@@ -5219,6 +5265,9 @@ function openBADialog(prefill, onSave, opts){
 
 function badApplyPrefill(p){
   if (!p) return;
+  // Fuzzy-Vorauswahl trägt die Record-ID mit → vorausgewählter Picker-Eintrag,
+  // nicht loser Text. Ohne Match bleibt die ID null (Speichern blockiert später).
+  badSelectedPartnerId = p.partnerId || null;
   function set(id,v){ var el=document.getElementById(id); if (el && v!=null && v!=='') el.value=v; }
   set('kimp-newba-partner', p.partner);
   set('kimp-newba-datum', p.datum);
@@ -5240,13 +5289,15 @@ function badApplyPrefill(p){
 // KIMP_Name den Kontoinhaber trägt). Als Schwellwert dient derselbe ≥4-Zeichen-
 // Token-Matcher wie im restlichen Clearing (kimpSupplierMatch). Bei mehreren
 // Kandidaten gewinnt die höchste Token-Überschneidung (Gleichstand: längerer Name).
-// Ohne belastbaren Treffer → '' (kein Raten, Feld bleibt leer).
+// Liefert { id, name } des besten Kandidaten (id = Airtable-Partner-Record-ID, damit
+// der KIMP-Dialog eindeutig per BA_PartnerID verlinken kann). Ohne belastbaren
+// Treffer → { id:null, name:'' } (kein Raten).
 function kimpFuzzyPartnerName(kf){
-  if (!kimpPartnerCache || !kf) return '';
+  if (!kimpPartnerCache || !kf) return { id:null, name:'' };
   var kimpText = [kf['KIMP_Name'], kf['KIMP_Verwendungszweck']].filter(Boolean).join(' ');
   var kTokens = kimpSupplierTokens(kimpText);
-  if (!kTokens.length) return '';
-  var best = null, bestScore = -1;
+  if (!kTokens.length) return { id:null, name:'' };
+  var bestId = null, best = null, bestScore = -1;
   for (var id in kimpPartnerCache){
     var pf = kimpPartnerCache[id];
     var display = pf['PD_Firmenname']
@@ -5258,10 +5309,10 @@ function kimpFuzzyPartnerName(kf){
     var score = 0;
     for (var i=0;i<sTokens.length;i++) if (kTokens.indexOf(sTokens[i])!==-1) score++;
     if (score > bestScore || (score === bestScore && best && display.length > best.length)){
-      bestScore = score; best = display;
+      bestScore = score; best = display; bestId = id;
     }
   }
-  return best || '';
+  return best ? { id:bestId, name:best } : { id:null, name:'' };
 }
 
 // Leitet den BA-Zahlweg aus dem Sparkassen-Buchungstext ab. Der Buchungstext ist
@@ -5282,12 +5333,14 @@ function openKimpNewBaModal(){
   if (!kimpCurrentRec) return;
   var f = kimpCurrentRec.fields || {};
   var betrag = parseFloat(f['KIMP_Betrag']);
+  var pMatch = kimpFuzzyPartnerName(f);
   var prefill = {
-    datum:   f['KIMP_Buchungstag'] ? String(f['KIMP_Buchungstag']).substring(0,10) : '',
-    brutto:  isNaN(betrag) ? '' : Math.abs(betrag),
-    partner: kimpFuzzyPartnerName(f),
-    zahlweg: kimpZahlwegFromBuchungstext(f['KIMP_Buchungstext']),
-    notizen: f['KIMP_Verwendungszweck'] || ''
+    datum:     f['KIMP_Buchungstag'] ? String(f['KIMP_Buchungstag']).substring(0,10) : '',
+    brutto:    isNaN(betrag) ? '' : Math.abs(betrag),
+    partner:   pMatch.name,
+    partnerId: pMatch.id,
+    zahlweg:   kimpZahlwegFromBuchungstext(f['KIMP_Buchungstext']),
+    notizen:   f['KIMP_Verwendungszweck'] || ''
   };
   openBADialog(prefill, kimpNewBaOnSave, { title:'Neue BA aus Beleg', showKimpInfo:true });
 }
@@ -5386,7 +5439,8 @@ function kimpNewBaResetForm(){
   ['kimp-newba-ustsatz','kimp-newba-kategorie','kimp-newba-zahlweg','kimp-newba-vorsteuer'].forEach(function(id){
     var el=document.getElementById(id); if (el){ el.value=''; el.classList.remove('kimp-newba-invalid'); el.disabled=false; }
   });
-  document.getElementById('kimp-newba-partner-dd').classList.remove('show');
+  badSelectedPartnerId = null;
+  partnerPickerHide('kimp-newba-partner-dd');
   document.getElementById('btn-kimp-newba-submit').disabled=false;
   document.getElementById('btn-kimp-newba-submit').textContent='BA anlegen';
 }
@@ -5491,37 +5545,8 @@ function kimpNewBaFillFromOcr(d){
   if (d.notizen)   setVal('kimp-newba-notizen', d.notizen);
 }
 
-// Lieferanten-Auto-Complete aus kimpPartnerCache (lokal, keine Airtable-Round-Trip).
-// Sucht in PD_Firmenname, PD_Name, PD_Vorname, PD_KA_Name. Substring-Match, case-insensitive.
-function kimpNewBaSearchPartner(q){
-  var dd = document.getElementById('kimp-newba-partner-dd');
-  if (!kimpPartnerCache || !q || q.length<2){ dd.classList.remove('show'); dd.innerHTML=''; return; }
-  var ql = q.toLowerCase();
-  var hits = [];
-  for (var id in kimpPartnerCache){
-    var f = kimpPartnerCache[id];
-    var firm = f['PD_Firmenname']||'';
-    var name = ((f['PD_Vorname']||'')+' '+(f['PD_Name']||'')).trim();
-    var ka   = f['PD_KA_Name']||'';
-    var hay  = (firm+' '+name+' '+ka).toLowerCase();
-    if (hay.indexOf(ql)===-1) continue;
-    var display = firm || name || ka;
-    if (display) hits.push({ id:id, display:display });
-    if (hits.length>=12) break;
-  }
-  if (!hits.length){ dd.classList.remove('show'); dd.innerHTML=''; return; }
-  var html='';
-  hits.forEach(function(h){ html += '<div class="ba-dd-item" data-name="'+escHtml(h.display)+'">'+escHtml(h.display)+'</div>'; });
-  dd.innerHTML = html;
-  dd.classList.add('show');
-  dd.querySelectorAll('.ba-dd-item').forEach(function(it){
-    it.addEventListener('mousedown', function(e){
-      e.preventDefault();
-      document.getElementById('kimp-newba-partner').value = it.getAttribute('data-name');
-      dd.classList.remove('show');
-    });
-  });
-}
+// (Lieferanten-Auto-Complete läuft jetzt über den geteilten partnerPickerSearch mit
+//  KIMP_PARTNER_PICKER_CFG — rollengefiltert, ID-basiert. Wireup weiter unten.)
 
 // Generischer Submit-Handler des gemeinsamen BA-Dialogs: validiert die – jetzt
 // vollständigen – Pflichtfelder (inkl. USt-Satz / Kategorie / Zahlweg / Vorsteuer),
@@ -5540,7 +5565,7 @@ function badSubmit(){
   }
   function val(id){ return (document.getElementById(id).value || '').trim(); }
   var brutto = parseFloat(document.getElementById('kimp-newba-brutto').value);
-  var required = ['kimp-newba-partner','kimp-newba-datum','kimp-newba-brutto',
+  var required = ['kimp-newba-datum','kimp-newba-brutto',
                   'kimp-newba-bezeichnung','kimp-newba-ustsatz','kimp-newba-kategorie',
                   'kimp-newba-zahlweg','kimp-newba-vorsteuer'];
   var bad = [];
@@ -5550,6 +5575,16 @@ function badSubmit(){
     if (empty) bad.push(id);
   });
   bad.forEach(function(id){ document.getElementById(id).classList.add('kimp-newba-invalid'); });
+
+  // Partner ist ID-Pflicht: nur ein echt gewählter Partner-Record (badSelectedPartnerId)
+  // erlaubt eine eindeutige BA_PartnerID-Verknüpfung. Loser Text zählt NICHT.
+  var partnerEl = document.getElementById('kimp-newba-partner');
+  partnerEl.classList.remove('kimp-newba-invalid');
+  if (!badSelectedPartnerId){
+    partnerEl.classList.add('kimp-newba-invalid');
+    kimpNewBaShowError('Partner nicht gefunden. Neue Partner bitte zuerst in der BA-Erfassung (BA-Review) anlegen, danach hier auswählen.');
+    return;
+  }
   if (bad.length){ kimpNewBaShowError('Pflichtfelder fehlen.'); return; }
 
   function num(id){ var v=parseFloat(document.getElementById(id).value); return isNaN(v) ? undefined : v; }
@@ -5616,8 +5651,11 @@ function kimpNewBaOnSave(data, pdf, done){
   .then(function(r){ return r.json(); })
   .then(function(res){
     if (!(res && res.ok && res.ba_record_id)){ done(new Error(kimpNewBaErrMsg(res))); return; }
-    // Steuerliche Vollständigkeit nachziehen (Felder, die create_ba nicht setzt).
+    // Steuerliche Vollständigkeit nachziehen (Felder, die create_ba nicht setzt) +
+    // eindeutige Partner-Verknüpfung per Record-ID (überschreibt jedes Server-Raten).
+    // BA_Lieferant bleibt unangetastet (Lookup aus BA_PartnerID).
     var complete = {};
+    if (badSelectedPartnerId) complete['BA_PartnerID'] = [badSelectedPartnerId];
     if (data.vorsteuer) complete['BA_Vorsteuer_absetzbar'] = data.vorsteuer;
     if (data.notizen)   complete['BA_Notizen'] = data.notizen;
     if (data.ustSatz)   complete['BA_USt_Satz'] = data.ustSatz;
@@ -5758,10 +5796,18 @@ document.addEventListener('DOMContentLoaded', function setupKimp(){
   document.getElementById('btn-kimp-newba-cancel').addEventListener('click', closeKimpNewBaModal);
   document.getElementById('btn-kimp-newba-submit').addEventListener('click', badSubmit);
 
-  // Lieferant-Auto-Complete
+  // Lieferant-Picker (geteilt mit BA-Review, ID-basiert, rollengefiltert).
+  // Tippen macht eine vorherige Auswahl ungültig (badSelectedPartnerId → null),
+  // damit nie ein veralteter Link gespeichert wird. Debounce wie im BA-Review.
   var partnerInput = document.getElementById('kimp-newba-partner');
-  partnerInput.addEventListener('input', function(){ kimpNewBaSearchPartner(partnerInput.value.trim()); });
-  partnerInput.addEventListener('blur', function(){ setTimeout(function(){ document.getElementById('kimp-newba-partner-dd').classList.remove('show'); }, 180); });
+  partnerInput.addEventListener('input', function(){
+    badSelectedPartnerId = null;
+    var q = partnerInput.value.trim();
+    if (badPartnerTimer) clearTimeout(badPartnerTimer);
+    if (q.length < 2){ partnerPickerHide('kimp-newba-partner-dd'); return; }
+    badPartnerTimer = setTimeout(function(){ partnerPickerSearch(q, KIMP_PARTNER_PICKER_CFG); }, 250);
+  });
+  partnerInput.addEventListener('blur', function(){ setTimeout(function(){ partnerPickerHide('kimp-newba-partner-dd'); }, 180); });
 });
 
 // ── BUILD DATE (letzter Commit auf main) ──
