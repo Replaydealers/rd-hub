@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.9.1
-  SW Cache: rd-hub-v78
+  Version:  2.9.2
+  SW Cache: rd-hub-v79
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.9.2  (2026-07-16)  Fix: KIMP-BA-Prefill – Lieferant per Token-Match (Schwellwert, sonst leer) + Zahlweg aus Buchungstext abgeleitet (Lastschrift/Überweisung/bar)
   v2.9.1  (2026-07-13)  Fix: KIMP-BA-Dialog Zahlweg-Prefill "Bank" → "Überweisung" (existierende Airtable-Option)
   v2.9.0  (2026-07-13)  KIMP-BA-Dialog konsolidiert: gemeinsamer, steuerlich vollständiger BA-Dialog (openBADialog) mit Prefill aus KIMP-Zeile + Pflicht-USt-Satz/Kategorie/Zahlweg/Vorsteuer
   v2.8.1  (2026-07-03)  Produkte-Liste: Kennung unter Klarname + Layout-Fix Zeilen ohne Such-Link
@@ -676,8 +677,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.9.1</span>
-      <span>SW rd-hub-v78</span>
+      <span>APP v2.9.2</span>
+      <span>SW rd-hub-v79</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -710,7 +711,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div><div class="title">RD Hub</div><div class="subtitle">Replay Dealers</div></div>
     <div style="margin-left:auto;margin-right:12px;text-align:right">
       <div style="font-size:10px;color:var(--hint)">Version</div>
-      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.9.1</div>
+      <div style="font-size:12px;font-weight:600;color:var(--muted)">v2.9.2</div>
     </div>
     <button class="lock-btn" id="btn-lock">🔒</button>
   </div>
@@ -5233,25 +5234,46 @@ function badApplyPrefill(p){
   set('kimp-newba-notizen', p.notizen);
 }
 
-// Fuzzy-Match von KIMP_Name auf einen bekannten Partner-Anzeigenamen (lokaler
-// Clearing-Cache, gleiche Substring-Logik wie das Lieferanten-Autocomplete).
-// Liefert den gematchten Anzeigenamen oder – ohne Treffer – den Roh-Namen zurück.
-function kimpFuzzyPartnerName(name){
-  var raw = (name==null?'':String(name)).trim();
-  if (!raw || !kimpPartnerCache) return raw;
-  var ql = raw.toLowerCase();
+// Lieferant-Prefill: sucht im lokalen Clearing-Cache den Partner, dessen Name am
+// stärksten mit den KIMP-Textfeldern übereinstimmt. Quelle ist KIMP_Name PLUS
+// KIMP_Verwendungszweck (Firmenname steht bei Lastschriften oft nur dort, während
+// KIMP_Name den Kontoinhaber trägt). Als Schwellwert dient derselbe ≥4-Zeichen-
+// Token-Matcher wie im restlichen Clearing (kimpSupplierMatch). Bei mehreren
+// Kandidaten gewinnt die höchste Token-Überschneidung (Gleichstand: längerer Name).
+// Ohne belastbaren Treffer → '' (kein Raten, Feld bleibt leer).
+function kimpFuzzyPartnerName(kf){
+  if (!kimpPartnerCache || !kf) return '';
+  var kimpText = [kf['KIMP_Name'], kf['KIMP_Verwendungszweck']].filter(Boolean).join(' ');
+  var kTokens = kimpSupplierTokens(kimpText);
+  if (!kTokens.length) return '';
+  var best = null, bestScore = -1;
   for (var id in kimpPartnerCache){
     var pf = kimpPartnerCache[id];
-    var firm = (pf['PD_Firmenname']||'').toLowerCase();
-    var pnm  = (((pf['PD_Vorname']||'')+' '+(pf['PD_Name']||'')).trim()).toLowerCase();
-    var ka   = (pf['PD_KA_Name']||'').toLowerCase();
-    if ((firm && (ql.indexOf(firm)!==-1 || firm.indexOf(ql)!==-1)) ||
-        (pnm  && (ql.indexOf(pnm)!==-1  || pnm.indexOf(ql)!==-1)) ||
-        (ka   && (ql.indexOf(ka)!==-1   || ka.indexOf(ql)!==-1))){
-      return pf['PD_Firmenname'] || ((pf['PD_Vorname']||'')+' '+(pf['PD_Name']||'')).trim() || pf['PD_KA_Name'] || raw;
+    var display = pf['PD_Firmenname']
+      || ((pf['PD_Vorname']||'')+' '+(pf['PD_Name']||'')).trim()
+      || pf['PD_KA_Name'] || '';
+    if (!display) continue;
+    if (!kimpSupplierMatch(display, kimpText)) continue;   // Schwellwert
+    var sTokens = kimpSupplierTokens(display);
+    var score = 0;
+    for (var i=0;i<sTokens.length;i++) if (kTokens.indexOf(sTokens[i])!==-1) score++;
+    if (score > bestScore || (score === bestScore && best && display.length > best.length)){
+      bestScore = score; best = display;
     }
   }
-  return raw;
+  return best || '';
+}
+
+// Leitet den BA-Zahlweg aus dem Sparkassen-Buchungstext ab. Der Buchungstext ist
+// immer GROSSGESCHRIEBEN (Umlaut als "UE"); daher case-insensitiver Substring-Match
+// auf die real vorkommenden Muster. Nur belastbare Treffer, sonst '' (kein Raten).
+// Rückgabe = exakte Airtable-BA_Zahlweg-Optionen.
+function kimpZahlwegFromBuchungstext(txt){
+  var t = String(txt||'').toUpperCase();
+  if (t.indexOf('LASTSCHRIFT')  !== -1) return 'Lastschrift';   // FOLGELASTSCHRIFT, EINMAL LASTSCHRIFT, SEPA-ELV-LASTSCHRIFT
+  if (t.indexOf('UEBERWEISUNG') !== -1) return 'Überweisung';   // ONLINE-/ECHTZEIT-/GUTSCHR. UEBERWEISUNG
+  if (t.indexOf('BARGELD')      !== -1) return 'bar';
+  return '';
 }
 
 // KIMP-Clearing: "Neue BA aus Beleg" → öffnet den gemeinsamen Dialog mit Prefill
@@ -5263,8 +5285,8 @@ function openKimpNewBaModal(){
   var prefill = {
     datum:   f['KIMP_Buchungstag'] ? String(f['KIMP_Buchungstag']).substring(0,10) : '',
     brutto:  isNaN(betrag) ? '' : Math.abs(betrag),
-    partner: kimpFuzzyPartnerName(f['KIMP_Name']),
-    zahlweg: 'Überweisung',
+    partner: kimpFuzzyPartnerName(f),
+    zahlweg: kimpZahlwegFromBuchungstext(f['KIMP_Buchungstext']),
     notizen: f['KIMP_Verwendungszweck'] || ''
   };
   openBADialog(prefill, kimpNewBaOnSave, { title:'Neue BA aus Beleg', showKimpInfo:true });

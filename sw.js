@@ -1,5 +1,5 @@
 // Service Worker - kein Caching, immer frisch vom Server
-// Version: rd-hub-v78 (RD Hub v2.9.1)
+// Version: rd-hub-v79 (RD Hub v2.9.2)
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => {
   e.waitUntil(
