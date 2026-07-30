@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.9.3
-  SW Cache: rd-hub-v80
+  Version:  2.9.4
+  SW Cache: rd-hub-v81
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.9.4  (2026-07-30)  Fix: EK-Auswertung Partner-Suche – Klick auf Partner lädt jetzt die Einkäufe (Filter über verknüpfte EK-Record-IDs statt Record-ID im Link-Text)
   v2.9.3  (2026-07-16)  Fix: KIMP-BA-Dialog nutzt geteilten ID-basierten Partner-Picker (wie BA-Review) → setzt BA_PartnerID eindeutig; Partner-Auswahl Pflicht (sonst Hinweis auf BA-Review-Anlage)
   v2.9.2  (2026-07-16)  Fix: KIMP-BA-Prefill – Lieferant per Token-Match (Schwellwert, sonst leer) + Zahlweg aus Buchungstext abgeleitet (Lastschrift/Überweisung/bar)
   v2.9.1  (2026-07-13)  Fix: KIMP-BA-Dialog Zahlweg-Prefill "Bank" → "Überweisung" (existierende Airtable-Option)
@@ -679,7 +680,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="name">RD Hub</div>
     <div class="lock-versions">
       <span>APP v2.9.3</span>
-      <span>SW rd-hub-v80</span>
+      <span>SW rd-hub-v81</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -2001,7 +2002,7 @@ function doEkPartnerSearch() {
   var name = document.getElementById('ek-partner-input').value.trim(); if (!name) return;
   ekShowLoading(true);
   document.getElementById('ek-partner-results').innerHTML = '';
-  atGet('Partnerdaten_2026', 'NOT({PD_Name}="")', ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name'], function(err, data) {
+  atGet('Partnerdaten_2026', 'NOT({PD_Name}="")', ['PD_ID','PD_Anzeigename','PD_Vorname','PD_Name','PD_Einkauf_2026'], function(err, data) {
     ekShowLoading(false);
     if (err || !data.records) { ekShowError('Verbindungsfehler.'); return; }
     var scored = data.records.map(function(rec){
@@ -2015,23 +2016,29 @@ function doEkPartnerSearch() {
       return {rec:rec, display:display, score:score};
     }).filter(function(x){ return x.score >= 0.5; }).sort(function(a,b){ return b.score-a.score; });
     if (!scored.length) { ekShowError('Kein Partner gefunden.'); return; }
-    if (scored.length === 1) { loadEkByPartner(scored[0].rec.fields['PD_ID'], scored[0].rec.id); return; }
+    if (scored.length === 1) { loadEkByPartner(scored[0].rec.fields['PD_Einkauf_2026'], scored[0].rec.fields['PD_ID']); return; }
     var wrap = document.getElementById('ek-partner-results');
     scored.forEach(function(x){
       var div=document.createElement('div'); div.className='ek-partner-item';
       div.style.cssText='display:flex;justify-content:space-between;align-items:center';
       div.innerHTML='<span>'+escHtml(x.display)+'</span><span style="color:var(--muted);font-size:11px;flex-shrink:0;margin-left:8px">'+Math.round(x.score*100)+'%</span>';
-      var pdId=x.rec.fields['PD_ID']; var recId=x.rec.id;
-      function go(e){ if(e.cancelable) e.preventDefault(); loadEkByPartner(pdId, recId); }
+      var ekLinks=x.rec.fields['PD_Einkauf_2026']; var pdId=x.rec.fields['PD_ID'];
+      function go(e){ if(e.cancelable) e.preventDefault(); loadEkByPartner(ekLinks, pdId); }
       div.addEventListener('click',go); div.addEventListener('touchend',go,{passive:false});
       wrap.appendChild(div);
     });
   });
 }
-function loadEkByPartner(pdId, partnerRecId) {
+function loadEkByPartner(ekLinks, pdId) {
   ekShowLoading(true);
   document.getElementById('ek-partner-results').innerHTML = '';
-  var filter = partnerRecId ? 'FIND("'+partnerRecId+'",{EK_PartnerID})>0' : '{EK_PartnerID}="'+pdId+'"';
+  // EK_PartnerID ist ein Link-Feld → {EK_PartnerID} rendert in der Formel den PD_ID-Text
+  // (z.B. "PD-172"), nicht die Record-ID. Deshalb direkt über die verknüpften
+  // Einkauf-Record-IDs filtern; Fallback: FIND auf den PD_ID-Text.
+  var ekIds = (ekLinks || []).map(function(l){ return l.id; }).filter(Boolean);
+  var filter = ekIds.length
+    ? 'OR(' + ekIds.map(function(id){ return 'RECORD_ID()="'+id+'"'; }).join(',') + ')'
+    : 'FIND("'+pdId+'",{EK_PartnerID})>0';
   atGet('Einkauf_2026', filter, ['EK_Lot','EK_Status','EK_Gesamtbetrag','EK_PartnerID','EK_Kaufdatum'], function(err, data) {
     ekShowLoading(false);
     if (err || !data.records || !data.records.length) { ekShowError('Keine Einkäufe gefunden.'); return; }
