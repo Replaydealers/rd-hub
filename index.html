@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.9.5
-  SW Cache: rd-hub-v82
+  Version:  2.9.6
+  SW Cache: rd-hub-v83
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.9.6  (2026-07-30)  EK-Auswertung lesbarer: Kennzahl „Marge Σ" (statt „Reingewinn") + Legende, Umsatz & Verkauft-Quote im Kopf, Artikel-Zähler in Überschriften, Zeilen mit EK→VK und beschrifteter Marge (rot bei Verlust), verkaufte nach Marge sortiert
   v2.9.5  (2026-07-30)  EK-Auswertung: alle Einkäufe eines Partners als vertikale Liste sichtbar + loadEkResult implementiert (Klick auf Einkauf zeigt Kennzahlen: Artikel gesamt/verkauft/Reingewinn/offen + Artikel-Listen)
   v2.9.4  (2026-07-30)  Fix: EK-Auswertung Partner-Suche – Klick auf Partner lädt jetzt die Einkäufe (Filter über verknüpfte EK-Record-IDs statt Record-ID im Link-Text)
   v2.9.3  (2026-07-16)  Fix: KIMP-BA-Dialog nutzt geteilten ID-basierten Partner-Picker (wie BA-Review) → setzt BA_PartnerID eindeutig; Partner-Auswahl Pflicht (sonst Hinweis auf BA-Review-Anlage)
@@ -681,7 +682,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="name">RD Hub</div>
     <div class="lock-versions">
       <span>APP v2.9.3</span>
-      <span>SW rd-hub-v82</span>
+      <span>SW rd-hub-v83</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -2077,8 +2078,12 @@ function loadEkResult(rec) {
   document.getElementById('ek-res-partner').textContent = kimpJoin(f['EK_Verkaeufer']) || '—';
   document.getElementById('ek-res-status').textContent = f['EK_Status'] || '—';
   ['ek-kz-gesamt','ek-kz-verkauft','ek-kz-gewinn','ek-kz-offen'].forEach(function(id){ document.getElementById(id).textContent='…'; });
+  document.getElementById('ek-res-umsatz').textContent = '…';
+  document.getElementById('ek-res-quote').textContent = '…';
   document.getElementById('ek-offen-list').innerHTML = '';
   document.getElementById('ek-verkauft-list').innerHTML = '';
+  document.getElementById('ek-verkauft-title').textContent = 'Verkaufte Artikel';
+  document.getElementById('ek-offen-title').textContent = 'Offene Artikel';
   document.getElementById('ek-result').style.display = '';
   document.getElementById('ek-result').scrollIntoView({behavior:'smooth',block:'start'});
 
@@ -2088,6 +2093,8 @@ function loadEkResult(rec) {
     document.getElementById('ek-kz-verkauft').textContent = '0';
     document.getElementById('ek-kz-gewinn').textContent = '0.00 €';
     document.getElementById('ek-kz-offen').textContent = '0';
+    document.getElementById('ek-res-umsatz').textContent = '—';
+    document.getElementById('ek-res-quote').textContent = '—';
     document.getElementById('ek-offen-list').innerHTML = '<div style="color:var(--muted);font-size:13px;padding:4px 0">Keine Artikel verknüpft</div>';
     document.getElementById('ek-verkauft-list').innerHTML = '<div style="color:var(--muted);font-size:13px;padding:4px 0">Keine Artikel verknüpft</div>';
     return;
@@ -2100,31 +2107,52 @@ function loadEkResult(rec) {
     var recs = data.records;
     var verkauft = recs.filter(function(r){ return r.fields['ITEM_Status']==='verkauft'; });
     var offen = recs.filter(function(r){ return r.fields['ITEM_Status']!=='verkauft'; });
-    var gewinn = recs.reduce(function(s,r){ var m=parseFloat(r.fields['ITEM_Marge']); return s+(isNaN(m)?0:m); }, 0);
+    var num = function(v){ var n=parseFloat(v); return isNaN(n)?0:n; };
+    var margeSum = verkauft.reduce(function(s,r){ return s+num(r.fields['ITEM_Marge']); }, 0);
+    var umsatz    = verkauft.reduce(function(s,r){ return s+num(r.fields['ITEM_VK_Preis']); }, 0);
+    var quote = recs.length ? Math.round(verkauft.length/recs.length*100) : 0;
+
     document.getElementById('ek-kz-gesamt').textContent = recs.length;
     document.getElementById('ek-kz-verkauft').textContent = verkauft.length;
-    document.getElementById('ek-kz-gewinn').textContent = gewinn.toFixed(2)+' €';
+    var gEl = document.getElementById('ek-kz-gewinn');
+    gEl.textContent = margeSum.toFixed(2)+' €';
+    gEl.style.color = margeSum < 0 ? 'var(--accent)' : '#1D9E75';
     document.getElementById('ek-kz-offen').textContent = offen.length;
+    document.getElementById('ek-res-umsatz').textContent = umsatz.toFixed(2)+' €';
+    document.getElementById('ek-res-quote').textContent = verkauft.length+' / '+recs.length+' ('+quote+' %)';
+    document.getElementById('ek-verkauft-title').textContent = 'Verkaufte Artikel ('+verkauft.length+')';
+    document.getElementById('ek-offen-title').textContent = 'Offene Artikel ('+offen.length+')';
+
+    function byMargeDesc(a,b){ return num(b.fields['ITEM_Marge']) - num(a.fields['ITEM_Marge']); }
     function byName(a,b){ return String(a.fields['ITEM_Artikel']||'').localeCompare(String(b.fields['ITEM_Artikel']||'')); }
+    document.getElementById('ek-verkauft-list').innerHTML = verkauft.length
+      ? verkauft.sort(byMargeDesc).map(ekArtikelRow).join('')
+      : '<div style="color:var(--muted);font-size:13px;padding:4px 0">Noch nichts verkauft</div>';
     document.getElementById('ek-offen-list').innerHTML = offen.length
       ? offen.sort(byName).map(ekArtikelRow).join('')
       : '<div style="color:var(--muted);font-size:13px;padding:4px 0">Keine offenen Artikel</div>';
-    document.getElementById('ek-verkauft-list').innerHTML = verkauft.length
-      ? verkauft.sort(byName).map(ekArtikelRow).join('')
-      : '<div style="color:var(--muted);font-size:13px;padding:4px 0">Noch nichts verkauft</div>';
   });
 }
 
 // Eine Artikel-Zeile in den EK-Auswertungs-Listen (offen / verkauft).
+// Verkauft: EK → VK links, Marge (VK−EK) rechts. Offen: EK links, Status-Chip rechts.
 function ekArtikelRow(r) {
   var f = r.fields;
   var nr = f['ITEM_Artikelnummer'] || '—';
   var name = f['ITEM_Artikel'] || '—';
   var sold = f['ITEM_Status']==='verkauft';
-  var right = sold
-    ? '<span style="color:var(--green);font-weight:600">'+fmtEurOrDash(f['ITEM_Marge'])+'</span>'
-    : '<span style="color:var(--muted)">'+fmtEurOrDash(f['ITEM_EK_Preis'])+' EK</span>';
-  var sub = '#'+escHtml(nr) + (sold && f['ITEM_VK_Preis']!=null ? ' · VK '+fmtEurOrDash(f['ITEM_VK_Preis']) : '');
+  var right, sub;
+  if (sold) {
+    var m = parseFloat(f['ITEM_Marge']); if (isNaN(m)) m = 0;
+    var col = m < 0 ? 'var(--accent)' : 'var(--green)';
+    var sign = m > 0 ? '+' : '';
+    right = '<div style="color:'+col+';font-weight:700;font-size:15px">'+sign+fmtEurOrDash(f['ITEM_Marge'])+'</div>'+
+            '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Marge</div>';
+    sub = '#'+escHtml(nr)+' · EK '+fmtEurOrDash(f['ITEM_EK_Preis'])+' → VK '+fmtEurOrDash(f['ITEM_VK_Preis']);
+  } else {
+    right = '<div style="font-size:12px;color:var(--muted)">'+escHtml(f['ITEM_Status']||'—')+'</div>';
+    sub = '#'+escHtml(nr)+' · EK '+fmtEurOrDash(f['ITEM_EK_Preis']);
+  }
   return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:.5px solid var(--border)">'+
     '<div style="min-width:0;margin-right:10px"><div style="font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(name)+'</div>'+
     '<div style="font-size:11px;color:var(--muted)">'+sub+'</div></div>'+
@@ -5945,21 +5973,26 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <div class="s-breakdown">
           <div class="s-brow"><span class="bl">Partner</span><span class="br" id="ek-res-partner">—</span></div>
           <div class="s-brow"><span class="bl">Status</span><span class="br" id="ek-res-status">—</span></div>
+          <div class="s-brow"><span class="bl">Umsatz (verkauft)</span><span class="br" id="ek-res-umsatz">—</span></div>
+          <div class="s-brow"><span class="bl">Verkauft-Quote</span><span class="br" id="ek-res-quote">—</span></div>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">
         <div class="s-metric"><div class="mlabel">Artikel gesamt</div><div class="mval" id="ek-kz-gesamt">—</div></div>
         <div class="s-metric"><div class="mlabel">Verkauft</div><div class="mval good" id="ek-kz-verkauft">—</div></div>
-        <div class="s-metric"><div class="mlabel">Reingewinn</div><div class="mval" id="ek-kz-gewinn">—</div></div>
+        <div class="s-metric"><div class="mlabel">Marge Σ</div><div class="mval" id="ek-kz-gewinn">—</div></div>
         <div class="s-metric"><div class="mlabel">Noch offen</div><div class="mval" id="ek-kz-offen">—</div></div>
       </div>
-      <div class="s-card" id="ek-offen-card">
-        <div class="s-card-title">Offene Artikel</div>
-        <div id="ek-offen-list"></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.4">
+        Marge = Verkaufspreis − Einkaufspreis (vor Gebühren, Versand &amp; USt). „Verkauft" zählt Artikel mit Status <b>verkauft</b>.
       </div>
       <div class="s-card" id="ek-verkauft-card">
-        <div class="s-card-title">Verkaufte Artikel</div>
+        <div class="s-card-title" id="ek-verkauft-title">Verkaufte Artikel</div>
         <div id="ek-verkauft-list"></div>
+      </div>
+      <div class="s-card" id="ek-offen-card">
+        <div class="s-card-title" id="ek-offen-title">Offene Artikel</div>
+        <div id="ek-offen-list"></div>
       </div>
     </div>
   </div>
