@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.13.0
-  SW Cache: rd-hub-v87
+  Version:  2.13.1
+  SW Cache: rd-hub-v88
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.13.1 (2026-10-11)  KIMP-Detail: Status per Dropdown änderbar – abgeschlossene KIMPs lassen sich wieder auf „offen" / „in Bearbeitung" setzen (Abschließen weiter nur über den Button mit Beleg-Prüfung)
   v2.13.0 (2026-10-11)  KIMP-Clearing: Datumsfilter von/bis (Kalender-Auswahl) + Status-Filter als Mehrfachauswahl (z. B. Offen + In Bearbeitung gleichzeitig)
   v2.12.0 (2026-10-11)  KIMP-Kategorie auch in der KIMP-Übersicht änderbar: Klick auf die Kategorie-Zelle öffnet ein Dropdown (Mehrfachauswahl), jede Änderung speichert sofort per PATCH, bei Fehler Rollback
   v2.11.0 (2026-10-11)  KIMP-Kategorie direkt im KIMP-Clearing änderbar: Kategorie-Pills in der Detail-Ansicht (Mehrfachauswahl wie in Airtable), Klick speichert sofort per PATCH; Optionen dynamisch aus dem Airtable-Schema (multipleSelects jetzt mit gecacht)
@@ -578,6 +579,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-search-section .kimp-date-row input[type=date]{flex:1;min-width:0;width:auto;padding:7px 8px;font-size:14px;color-scheme:dark}
 .kimp-date-row button{border:.5px solid var(--border);background:var(--card2);color:var(--muted);border-radius:var(--radius-sm);padding:7px 10px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap}
 .kimp-date-row button:hover{color:var(--text)}
+/* v2.13.1: Status-Dropdown in der KIMP-Detail-Ansicht (sieht aus wie die Status-Pill) */
+select.kimp-status-select{border:0;font-family:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;padding:3px 22px 3px 10px;font-size:12px;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 11px) 55%,calc(100% - 7px) 55%;background-size:4px 4px;background-repeat:no-repeat}
+select.kimp-status-select option{background:var(--card);color:var(--text)}
+select.kimp-status-select:disabled{opacity:.6;cursor:default}
 .kimp-link-section{margin-bottom:14px}
 .kimp-link-section .kls-title{font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 .kimp-link-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;margin-bottom:5px;color:var(--text)}
@@ -706,8 +711,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.13.0</span>
-      <span>SW rd-hub-v87</span>
+      <span>APP v2.13.1</span>
+      <span>SW rd-hub-v88</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -4395,10 +4400,7 @@ function populateKimpDetail(rec){
   var f=rec.fields;
   kimpSetMsg('');
   document.getElementById('kimp-id-display').textContent=f['KIMP_ID']||'—';
-  var status=f['KIMP_Status']||'—';
-  var st=document.getElementById('kimp-status-display');
-  st.textContent=status;
-  st.className='ba-status-pill '+kimpStatusCls(status);
+  kimpShowStatus(f['KIMP_Status']||'');
 
   var notizen=String(f['KIMP_Notizen']||'');
 
@@ -5517,9 +5519,7 @@ function kimpSaveAndGo(opts){
     }
     if (opts.status){
       kimpCurrentRec.fields['KIMP_Status']=opts.status;
-      var st=document.getElementById('kimp-status-display');
-      st.textContent=opts.status;
-      st.className='ba-status-pill '+kimpStatusCls(opts.status);
+      kimpShowStatus(opts.status);
     }
 
     if (opts.after==='list'){ kimpGoToList(opts.infoMsg||null); return; }
@@ -5532,6 +5532,45 @@ function kimpSaveAndGo(opts){
       return;
     }
     kimpSetMsg(opts.okMsg||'✓ Gespeichert','ok');
+  });
+}
+
+// ── v2.13.1: Status in der Detail-Ansicht per Dropdown ändern ──
+// „abgeschlossen" ist nur wählbar, wenn es schon gesetzt ist – Abschließen läuft weiter
+// über den Button mit Beleg-Prüfung. Zurücksetzen auf offen / in Bearbeitung geht immer.
+var KIMP_STATUS_OPTIONS = ['offen','in Bearbeitung','abgeschlossen'];
+
+function kimpShowStatus(status){
+  var sel=document.getElementById('kimp-status-display');
+  var opts=KIMP_STATUS_OPTIONS.slice();
+  if (status && opts.indexOf(status)<0) opts.push(status);
+  sel.innerHTML=(status ? '' : '<option value="" selected>—</option>')+opts.map(function(o){
+    var dis = (o==='abgeschlossen' && status!=='abgeschlossen') ? ' disabled' : '';
+    return '<option value="'+escHtml(o)+'"'+(o===status?' selected':'')+dis+'>'+escHtml(o)+'</option>';
+  }).join('');
+  sel.className='ba-status-pill kimp-status-select '+kimpStatusCls(status||'—');
+}
+
+function kimpChangeStatus(next){
+  if (!kimpCurrentRec) return;
+  var rec=kimpCurrentRec;
+  var before=rec.fields['KIMP_Status']||'';
+  if (!next || next===before) return;
+  var sel=document.getElementById('kimp-status-display');
+  sel.disabled=true;
+  kimpShowStatus(next);
+  kimpSetMsg('Speichere Status…');
+  atPatch(KIMP_TABLE, rec.id, { 'KIMP_Status': next }, function(err,data){
+    sel.disabled=false;
+    var failed = err || (data && data.error);
+    var value = failed ? before : next;
+    rec.fields['KIMP_Status']=value;
+    var local=kimpList.filter(function(r){ return r.id===rec.id; })[0];
+    if (local && local!==rec) local.fields['KIMP_Status']=value;
+    if (kimpCurrentRec!==rec) return;
+    kimpShowStatus(value);
+    if (failed) kimpSetMsg('Status nicht gespeichert: '+(err ? err.message : data.error.message),'err');
+    else kimpSetMsg('✓ Status: '+value,'ok');
   });
 }
 
@@ -6127,6 +6166,7 @@ document.addEventListener('DOMContentLoaded', function setupKimp(){
     });
   });
 
+  document.getElementById('kimp-status-display').addEventListener('change', function(){ kimpChangeStatus(this.value); });
   document.getElementById('btn-kimp-cancel').addEventListener('click', kimpCancel);
   document.getElementById('btn-kimp-list').addEventListener('click', function(){
     kimpSaveAndGo({ after:'list' });
@@ -6638,7 +6678,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <div style="font-size:11px;color:var(--hint);text-transform:uppercase;letter-spacing:.08em">KIMP</div>
           <div id="kimp-id-display" style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.3px">—</div>
         </div>
-        <div id="kimp-status-display" class="ba-status-pill" style="margin-top:4px">—</div>
+        <select id="kimp-status-display" class="ba-status-pill kimp-status-select" style="margin-top:4px" title="Status ändern"></select>
       </div>
       <div id="kimp-ro-block"></div>
       <div class="kimp-links-section" id="kimp-links-section">
