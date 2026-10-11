@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.11.0
-  SW Cache: rd-hub-v85
+  Version:  2.12.0
+  SW Cache: rd-hub-v86
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.12.0 (2026-10-11)  KIMP-Kategorie auch in der KIMP-Übersicht änderbar: Klick auf die Kategorie-Zelle öffnet ein Dropdown (Mehrfachauswahl), jede Änderung speichert sofort per PATCH, bei Fehler Rollback
   v2.11.0 (2026-10-11)  KIMP-Kategorie direkt im KIMP-Clearing änderbar: Kategorie-Pills in der Detail-Ansicht (Mehrfachauswahl wie in Airtable), Klick speichert sofort per PATCH; Optionen dynamisch aus dem Airtable-Schema (multipleSelects jetzt mit gecacht)
   v2.10.0 (2026-07-30)  EK-Auswertung neu aufgebaut: Break-even-Balken (Umsatz verkauft ÷ Gesamt-EK, „wie viel ist wieder drin"), KPIs Marge Σ / Abverkauf / Ø Marge / Restwert offen, offene Artikel nach EK sortiert (gebundenes Kapital zuerst)
   v2.9.6  (2026-07-30)  EK-Auswertung lesbarer: Kennzahl „Marge Σ" (statt „Reingewinn") + Legende, Umsatz & Verkauft-Quote im Kopf, Artikel-Zähler in Überschriften, Zeilen mit EK→VK und beschrifteter Marge (rot bei Verlust), verkaufte nach Marge sortiert
@@ -557,6 +558,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-ro-field .kro-val.kro-multiline{max-height:5.6em;overflow-y:auto}
 #kimp-detail-kat-pills .kimp-pill{flex:1 1 calc(33.333% - 6px)}
 #kimp-detail-kat-pills.kimp-kat-saving .kimp-pill{opacity:.55;pointer-events:none}
+/* v2.12.0: Kategorie-Dropdown in der KIMP-Übersicht */
+.kimp-kat-cell{cursor:pointer;white-space:nowrap}
+.kimp-kat-cell:hover .kimp-kat-txt{text-decoration:underline dotted}
+.kimp-kat-caret{margin-left:6px;color:var(--hint);font-size:11px}
+.kimp-kat-cell:hover .kimp-kat-caret,.kimp-kat-cell-open .kimp-kat-caret{color:var(--text)}
+.kimp-kat-dd{position:fixed;z-index:9999;min-width:200px;max-height:320px;overflow-y:auto;background:var(--card);border:.5px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 8px 24px rgba(0,0,0,.45);padding:4px}
+.kimp-kat-dd-opt{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border:0;background:none;color:var(--text);font-family:inherit;font-size:13px;text-align:left;cursor:pointer;border-radius:6px;min-height:36px;touch-action:manipulation}
+.kimp-kat-dd-opt:hover{background:var(--card2)}
+.kimp-kat-dd-box{width:16px;height:16px;flex-shrink:0;border:1px solid var(--border);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;line-height:1}
+.kimp-kat-dd-opt.on .kimp-kat-dd-box{background:#3B82C4;border-color:#3B82C4;color:#fff}
+.kimp-kat-dd.kimp-kat-saving .kimp-kat-dd-opt{opacity:.55;pointer-events:none}
+.kimp-kat-dd-msg{padding:4px 10px 6px;font-size:11px;color:var(--muted)}
+.kimp-kat-dd-msg:empty{display:none}
 .kimp-link-section{margin-bottom:14px}
 .kimp-link-section .kls-title{font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 .kimp-link-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;margin-bottom:5px;color:var(--text)}
@@ -685,8 +699,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.11.0</span>
-      <span>SW rd-hub-v85</span>
+      <span>APP v2.12.0</span>
+      <span>SW rd-hub-v86</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -4280,6 +4294,7 @@ function kimpHasLinkedBeleg(f){
 }
 
 function renderKimpTable(){
+  kimpCloseKatDropdown(true);   // v2.12.0: Zellen werden neu gebaut → offenes Dropdown verwaisen lassen
   var rows=kimpFilteredRecords();
   document.getElementById('kimp-list-count').textContent = rows.length + ' KIMP' + (rows.length===1?'':'s');
   function arr(col){ return kimpSortCol===col ? '<span class="kimp-sort-arr">'+(kimpSortDir==='asc'?' ↑':' ↓')+'</span>' : ''; }
@@ -4305,7 +4320,7 @@ function renderKimpTable(){
       '<td>'+escHtml(kimpDateDE(f['KIMP_Buchungstag']))+'</td>'+
       '<td style="text-align:right" class="'+betCls+'">'+escHtml(betTxt)+'</td>'+
       '<td>'+escHtml(kimpTrunc(f['KIMP_Name'],30))+'</td>'+
-      '<td>'+escHtml(kimpJoin(f['KIMP_Kategorie']))+'</td>'+
+      '<td class="kimp-kat-cell" title="Kategorie ändern">'+kimpKatCellHtml(f['KIMP_Kategorie'])+'</td>'+
       '<td>'+escHtml(kimpTrunc(f['KIMP_Verwendungszweck'],50))+'</td>'+
       '<td><span class="ba-status-pill '+kimpStatusCls(status)+'">'+escHtml(status)+'</span></td>'+
       '<td style="text-align:center">'+(hasBeleg?'<span class="ba-pdf-yes">●</span>':'<span class="ba-pdf-no">○</span>')+'</td>'+
@@ -4326,6 +4341,15 @@ function renderKimpTable(){
     attachTouchClickHandler(tr, function(){
       if (dragged){ dragged=false; return; }
       openKimpDetail(tr.getAttribute('data-id'));
+    });
+  });
+  // v2.12.0: Kategorie-Zelle öffnet das Dropdown statt der Detail-Ansicht.
+  // stopPropagation zuerst registrieren, damit der Zeilen-Handler nicht mitfeuert.
+  wrap.querySelectorAll('td.kimp-kat-cell').forEach(function(td){
+    td.addEventListener('touchend', function(e){ e.stopPropagation(); });
+    td.addEventListener('click', function(e){ e.stopPropagation(); });
+    attachTouchClickHandler(td, function(){
+      kimpOpenKatDropdown(td, td.parentNode.getAttribute('data-id'));
     });
   });
   wrap.querySelectorAll('th.kimp-th-sort').forEach(function(th){
@@ -4464,6 +4488,132 @@ function kimpToggleKategorie(name){
     }
   });
 }
+
+// ── v2.12.0: KIMP_Kategorie direkt in der Übersicht ändern (Dropdown je Zeile) ──
+// Nutzt Optionen + Speicher-Sperre (kimpKatSaving) aus v2.11.0.
+var kimpKatDd = null;   // offenes Dropdown: { el, recId, cell, changed, msg }
+
+function kimpKatArr(v){ return Array.isArray(v) ? v.slice() : (v ? [v] : []); }
+function kimpKatCellHtml(v){
+  return '<span class="kimp-kat-txt">' + escHtml(kimpJoin(v)) + '</span><span class="kimp-kat-caret">▾</span>';
+}
+function kimpFindListRec(recId){
+  return kimpList.filter(function(r){ return r.id === recId; })[0] || null;
+}
+
+function kimpOpenKatDropdown(cell, recId){
+  if (!document.body.contains(cell)) return;   // Zelle durch Neu-Zeichnen verwaist
+  if (kimpKatDd && kimpKatDd.recId === recId){ kimpCloseKatDropdown(); return; }
+  kimpCloseKatDropdown();
+  var el = document.createElement('div');
+  el.className = 'kimp-kat-dd';
+  document.body.appendChild(el);
+  kimpKatDd = { el:el, recId:recId, cell:cell, changed:false, msg:null };
+  cell.classList.add('kimp-kat-cell-open');
+  kimpRenderKatDropdown();
+  atLoadSchema().then(function(){ if (kimpKatDd && kimpKatDd.el === el) kimpRenderKatDropdown(); });
+}
+
+function kimpRenderKatDropdown(){
+  var dd = kimpKatDd;
+  if (!dd) return;
+  var rec = kimpFindListRec(dd.recId);
+  if (!rec){ kimpCloseKatDropdown(true); return; }
+  var cur = kimpKatArr(rec.fields['KIMP_Kategorie']);
+  var opts = kimpKatOptions().slice();
+  cur.forEach(function(c){ if (opts.indexOf(c) < 0) opts.push(c); });
+  var msgStyle = dd.msg ? (dd.msg.kind === 'err' ? 'color:var(--accent)' : (dd.msg.kind === 'ok' ? 'color:var(--green)' : '')) : '';
+  dd.el.innerHTML = opts.map(function(name){
+    var on = cur.indexOf(name) >= 0;
+    return '<button type="button" class="kimp-kat-dd-opt' + (on ? ' on' : '') + '" data-kat="' + escHtml(name) + '">' +
+      '<span class="kimp-kat-dd-box">' + (on ? '✓' : '') + '</span>' + escHtml(name) + '</button>';
+  }).join('') + '<div class="kimp-kat-dd-msg" style="' + msgStyle + '">' + (dd.msg ? escHtml(dd.msg.t) : '') + '</div>';
+  dd.el.classList.toggle('kimp-kat-saving', kimpKatSaving);
+  dd.el.querySelectorAll('.kimp-kat-dd-opt').forEach(function(btn){
+    attachTouchClickHandler(btn, function(){ kimpListToggleKategorie(btn.getAttribute('data-kat')); });
+  });
+  kimpPositionKatDropdown();
+}
+
+function kimpPositionKatDropdown(){
+  var dd = kimpKatDd;
+  if (!dd) return;
+  var r = dd.cell.getBoundingClientRect();
+  var w = dd.el.offsetWidth, h = dd.el.offsetHeight;
+  var top = r.bottom + 4;
+  if (top + h > window.innerHeight - 8 && r.top - h - 4 > 8) top = r.top - h - 4;   // kein Platz unten → nach oben
+  var left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+  dd.el.style.top = top + 'px';
+  dd.el.style.left = left + 'px';
+}
+
+function kimpCloseKatDropdown(skipRerender){
+  var dd = kimpKatDd;
+  if (!dd) return;
+  kimpKatDd = null;
+  if (dd.el.parentNode) dd.el.parentNode.removeChild(dd.el);
+  dd.cell.classList.remove('kimp-kat-cell-open');
+  // Zelle ist schon aktualisiert. Neu zeichnen nur, wenn Filter/Sortierung/Suche von der
+  // Kategorie abhängen (Zeile kann rausfallen oder wandern).
+  if (!dd.changed || skipRerender) return;
+  var search = document.getElementById('kimp-search');
+  if (Object.keys(kimpKatFilter).length || kimpSortCol === 'kat' || (search && search.value.trim())) renderKimpTable();
+}
+
+function kimpUpdateKatCell(rec){
+  var tr = document.querySelector('#kimp-list-table-wrap tr[data-id="' + rec.id + '"]');
+  var td = tr && tr.querySelector('td.kimp-kat-cell');
+  if (td) td.innerHTML = kimpKatCellHtml(rec.fields['KIMP_Kategorie']);
+}
+
+function kimpListToggleKategorie(name){
+  var dd = kimpKatDd;
+  if (!dd || kimpKatSaving) return;
+  var rec = kimpFindListRec(dd.recId);
+  if (!rec) return;
+  var before = kimpKatArr(rec.fields['KIMP_Kategorie']);
+  var next = before.indexOf(name) >= 0
+    ? before.filter(function(c){ return c !== name; })
+    : before.concat([name]);
+
+  // Optimistisch anzeigen, bei Fehler zurückrollen.
+  rec.fields['KIMP_Kategorie'] = next;
+  dd.changed = true;
+  dd.msg = { t:'Speichere…' };
+  kimpKatSaving = true;
+  kimpUpdateKatCell(rec);
+  kimpRenderKatDropdown();
+
+  atPatch(KIMP_TABLE, rec.id, { 'KIMP_Kategorie': next }, function(err, data){
+    kimpKatSaving = false;
+    var failed = err || (data && data.error);
+    var value = failed ? before : ((data && data.fields && data.fields['KIMP_Kategorie']) || []);
+    rec.fields['KIMP_Kategorie'] = value;
+    if (kimpCurrentRec && kimpCurrentRec.id === rec.id && kimpCurrentRec !== rec) kimpCurrentRec.fields['KIMP_Kategorie'] = value;
+    kimpUpdateKatCell(rec);
+    if (kimpKatDd === dd){
+      dd.msg = failed
+        ? { t:'Nicht gespeichert: ' + (err ? err.message : data.error.message), kind:'err' }
+        : { t:'✓ Gespeichert', kind:'ok' };
+      kimpRenderKatDropdown();
+    }
+  });
+}
+
+// Schließen bei Klick/Tap außerhalb, Escape, Scrollen (außer im Dropdown) und Resize.
+(function(){
+  function outside(e){
+    var dd = kimpKatDd;
+    if (dd && !dd.el.contains(e.target) && !dd.cell.contains(e.target)) kimpCloseKatDropdown();
+  }
+  document.addEventListener('mousedown', outside, true);
+  document.addEventListener('touchstart', outside, { capture:true, passive:true });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') kimpCloseKatDropdown(); });
+  document.addEventListener('scroll', function(e){
+    if (kimpKatDd && !kimpKatDd.el.contains(e.target)) kimpCloseKatDropdown();
+  }, true);
+  window.addEventListener('resize', function(){ kimpCloseKatDropdown(); });
+})();
 
 function setupKimpMailLink(f){
   var id=f['KIMP_ID']||'';
