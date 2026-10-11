@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.10.0
-  SW Cache: rd-hub-v84
+  Version:  2.11.0
+  SW Cache: rd-hub-v85
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.11.0 (2026-10-11)  KIMP-Kategorie direkt im KIMP-Clearing änderbar: Kategorie-Pills in der Detail-Ansicht (Mehrfachauswahl wie in Airtable), Klick speichert sofort per PATCH; Optionen dynamisch aus dem Airtable-Schema (multipleSelects jetzt mit gecacht)
   v2.10.0 (2026-07-30)  EK-Auswertung neu aufgebaut: Break-even-Balken (Umsatz verkauft ÷ Gesamt-EK, „wie viel ist wieder drin"), KPIs Marge Σ / Abverkauf / Ø Marge / Restwert offen, offene Artikel nach EK sortiert (gebundenes Kapital zuerst)
   v2.9.6  (2026-07-30)  EK-Auswertung lesbarer: Kennzahl „Marge Σ" (statt „Reingewinn") + Legende, Umsatz & Verkauft-Quote im Kopf, Artikel-Zähler in Überschriften, Zeilen mit EK→VK und beschrifteter Marge (rot bei Verlust), verkaufte nach Marge sortiert
   v2.9.5  (2026-07-30)  EK-Auswertung: alle Einkäufe eines Partners als vertikale Liste sichtbar + loadEkResult implementiert (Klick auf Einkauf zeigt Kennzahlen: Artikel gesamt/verkauft/Reingewinn/offen + Artikel-Listen)
@@ -554,6 +555,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-ro-field .kro-label{font-size:12px;color:var(--muted);margin-bottom:3px}
 .kimp-ro-field .kro-val{font-size:14px;color:var(--text);background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px;word-break:break-word;white-space:pre-wrap}
 .kimp-ro-field .kro-val.kro-multiline{max-height:5.6em;overflow-y:auto}
+#kimp-detail-kat-pills .kimp-pill{flex:1 1 calc(33.333% - 6px)}
+#kimp-detail-kat-pills.kimp-kat-saving .kimp-pill{opacity:.55;pointer-events:none}
 .kimp-link-section{margin-bottom:14px}
 .kimp-link-section .kls-title{font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 .kimp-link-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;margin-bottom:5px;color:var(--text)}
@@ -682,8 +685,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.9.3</span>
-      <span>SW rd-hub-v84</span>
+      <span>APP v2.11.0</span>
+      <span>SW rd-hub-v85</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -1142,7 +1145,7 @@ function atLoadSchema() {
       if (!d || !d.tables) return;
       d.tables.forEach(function(t){
         (t.fields || []).forEach(function(f){
-          if (f.type === 'singleSelect' && f.options && f.options.choices) {
+          if ((f.type === 'singleSelect' || f.type === 'multipleSelects') && f.options && f.options.choices) {
             atFieldOptionsCache[t.name + '/' + f.name] =
               f.options.choices.map(function(c){ return c.name; });
           }
@@ -4369,7 +4372,10 @@ function populateKimpDetail(rec){
     roField('Name', f['KIMP_Name']) +
     roField('Buchungstext', f['KIMP_Buchungstext']) +
     roField('Verwendungszweck', f['KIMP_Verwendungszweck'], true) +
-    roField('Kategorie', kimpJoin(f['KIMP_Kategorie']));
+    '<div class="kimp-ro-field"><div class="kro-label">Kategorie <span style="color:var(--hint)">· Klick speichert sofort</span></div>'+
+    '<div class="kimp-pills-row kimp-pills-row-wrap" id="kimp-detail-kat-pills"></div></div>';
+  renderKimpDetailKatPills();
+  atLoadSchema().then(function(){ if (kimpCurrentRec===rec) renderKimpDetailKatPills(); });
 
   var nrow=document.getElementById('kimp-notizen-row');
   if (kimpHasNotizen){ nrow.style.display=''; document.getElementById('kimp-notizen').value=notizen; }
@@ -4393,6 +4399,70 @@ function populateKimpDetail(rec){
   // ensureKimpMatchCache() rendert nach Abschluss nach).
   ensureKimpMatchCache();
   renderKimpSuggestions();
+}
+
+// ── v2.11.0: KIMP_Kategorie (multipleSelects) direkt in der Detail-Ansicht ändern ──
+var KIMP_KAT_FALLBACK = ['Umsatz','Wareneinkauf','Betriebsausgabe','Kapitalbewegung','Bargeld','Klärfall'];
+var kimpKatSaving = false;
+
+function kimpKatOptions(){
+  var o = atFieldOptionsCache[KIMP_TABLE + '/KIMP_Kategorie'];
+  return (o && o.length) ? o : KIMP_KAT_FALLBACK;
+}
+
+function renderKimpDetailKatPills(){
+  var wrap = document.getElementById('kimp-detail-kat-pills');
+  if (!wrap || !kimpCurrentRec) return;
+  var cur = kimpCurrentRec.fields['KIMP_Kategorie'];
+  cur = Array.isArray(cur) ? cur : (cur ? [cur] : []);
+  var opts = kimpKatOptions().slice();
+  // Werte, die (noch) nicht im Schema stehen, trotzdem anzeigen, damit nichts verloren geht.
+  cur.forEach(function(c){ if (opts.indexOf(c) < 0) opts.push(c); });
+  wrap.innerHTML = opts.map(function(name){
+    var on = cur.indexOf(name) >= 0;
+    return '<button type="button" class="kimp-pill' + (on ? ' kimp-pill-active' : '') + '" data-kat="' + escHtml(name) + '">' + escHtml(name) + '</button>';
+  }).join('');
+  wrap.querySelectorAll('.kimp-pill[data-kat]').forEach(function(btn){
+    btn.addEventListener('click', function(){ kimpToggleKategorie(btn.getAttribute('data-kat')); });
+  });
+}
+
+function kimpToggleKategorie(name){
+  if (!kimpCurrentRec || kimpKatSaving) return;
+  var rec = kimpCurrentRec;
+  var before = rec.fields['KIMP_Kategorie'];
+  before = Array.isArray(before) ? before.slice() : (before ? [before] : []);
+  var next = before.indexOf(name) >= 0
+    ? before.filter(function(c){ return c !== name; })
+    : before.concat([name]);
+
+  // Optimistisch anzeigen, bei Fehler zurückrollen.
+  rec.fields['KIMP_Kategorie'] = next;
+  renderKimpDetailKatPills();
+  var wrap = document.getElementById('kimp-detail-kat-pills');
+  kimpKatSaving = true;
+  if (wrap) wrap.classList.add('kimp-kat-saving');
+  kimpSetMsg('Speichere Kategorie…');
+
+  atPatch(KIMP_TABLE, rec.id, { 'KIMP_Kategorie': next }, function(err, data){
+    kimpKatSaving = false;
+    var w = document.getElementById('kimp-detail-kat-pills');
+    if (w) w.classList.remove('kimp-kat-saving');
+    if (err || (data && data.error)){
+      rec.fields['KIMP_Kategorie'] = before;
+      if (kimpCurrentRec === rec) renderKimpDetailKatPills();
+      kimpSetMsg('Kategorie nicht gespeichert: ' + (err ? err.message : data.error.message), 'err');
+      return;
+    }
+    var saved = (data && data.fields && data.fields['KIMP_Kategorie']) || [];
+    rec.fields['KIMP_Kategorie'] = saved;
+    var local = kimpList.filter(function(r){ return r.id === rec.id; })[0];
+    if (local && local !== rec) local.fields['KIMP_Kategorie'] = saved;
+    if (kimpCurrentRec === rec){
+      renderKimpDetailKatPills();
+      kimpSetMsg('✓ Kategorie: ' + (saved.length ? saved.join(', ') : '—'), 'ok');
+    }
+  });
 }
 
 function setupKimpMailLink(f){
