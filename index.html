@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.16.1
-  SW Cache: rd-hub-v93
+  Version:  2.16.2
+  SW Cache: rd-hub-v94
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.16.2 (2026-10-11)  KIMP-Detail: Kapitalbewegung (KIMP_KapBew_ID → Kapitalbewegung_2026) als Verknüpfung inkl. Eigenbeleg-PDF (KB_Eigenbeleg) anzeigen; zählt als Beleg beim Abschließen und in der Listen-Spalte „Beleg“
   v2.16.1 (2026-10-11)  KIMP-Detail: „Öffnen“-Button auch direkt in der BA-Karte unter „Aktuelle Verknüpfungen“ (links)
   v2.16.0 (2026-10-11)  KIMP-Detail: verknüpfte BA per „Öffnen“ direkt im BA-Editor öffnen und abschließen; nach Abschließen/Zurück geht es zum KIMP zurück (Verknüpfungen + Status neu geladen)
   v2.15.0 (2026-10-11)  KIMP-BA-Dialog: Lieferant direkt im Dialog neu anlegen („+ Partner neu anlegen" im Picker bzw. automatisch beim Speichern ohne Treffer) inkl. Duplikat-Prüfung über alle Rollen; bestehender Partner mit anderer Rolle wird übernommen (Rolle → Mehrfach)
@@ -742,8 +743,8 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.16.1</span>
-      <span>SW rd-hub-v93</span>
+      <span>APP v2.16.2</span>
+      <span>SW rd-hub-v94</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -4182,7 +4183,7 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
 var KIMP_TABLE = 'KontoImport_2026';
 // Pflicht-Felder (immer vorhanden). KIMP_EK_Link & KIMP_Notizen werden separat
 // optional geladen — fehlen sie in Airtable, läuft das Feature defensiv ohne sie weiter.
-var KIMP_CORE_FIELDS = ['KIMP_ID','KIMP_Buchungstag','KIMP_Betrag','KIMP_Name','KIMP_Buchungstext','KIMP_Verwendungszweck','KIMP_Kategorie','KIMP_Status','KIMP_BA_Link','KIMP_VK_Link'];
+var KIMP_CORE_FIELDS = ['KIMP_ID','KIMP_Buchungstag','KIMP_Betrag','KIMP_Name','KIMP_Buchungstext','KIMP_Verwendungszweck','KIMP_Kategorie','KIMP_Status','KIMP_BA_Link','KIMP_VK_Link','KIMP_KapBew_ID'];
 var KIMP_OPT_FIELDS  = ['KIMP_EK_Link','KIMP_Notizen'];
 
 var kimpList = [];
@@ -4199,7 +4200,7 @@ var kimpHasNotizen = true;   // KIMP_Notizen existiert in Airtable
 var kimpLinkedCache = {};    // 'Table/recId' → fields (Session-Cache der verknüpften Records)
 var kimpBaBelegSet = null;   // { baRecId: true } für BAs mit Beleg (Session-Cache, für Listen-Indikator)
 var kimpBaBelegLoading = false;
-var kimpDetailLinks = { ba:[], ek:[], vk:[] }; // aufgelöste verknüpfte Records der aktuellen Detail-Ansicht
+var kimpDetailLinks = { ba:[], ek:[], vk:[], kb:[] }; // aufgelöste verknüpfte Records der aktuellen Detail-Ansicht
 var kimpLinkSearchTimers = {};
 var kimpConfirmCb = null;
 // Auto-Vorschläge: globaler Session-Cache aller BA/EK/VK für den Match-Score.
@@ -4371,6 +4372,8 @@ function kimpFilteredRecords(){
 function scheduleKimpSearch(){ if(kimpSearchDebounce) clearTimeout(kimpSearchDebounce); kimpSearchDebounce=setTimeout(renderKimpTable,200); }
 
 function kimpHasLinkedBeleg(f){
+  // v2.16.2: Kapitalbewegungen haben ihren Eigenbeleg am KB-Record (KB_Eigenbeleg).
+  if (kimpLinkIds(f,'KIMP_KapBew_ID').length) return true;
   if (!kimpBaBelegSet) return false;
   var ids=kimpLinkIds(f,'KIMP_BA_Link');
   for (var i=0;i<ids.length;i++) if (kimpBaBelegSet[ids[i]]) return true;
@@ -4498,7 +4501,7 @@ function populateKimpDetail(rec){
   var empty=document.getElementById('kimp-pdf-empty');
   empty.style.display=''; empty.textContent='Belege werden geladen…';
 
-  kimpDetailLinks={ba:[],ek:[],vk:[]};
+  kimpDetailLinks={ba:[],ek:[],vk:[],kb:[]};
   renderKimpLinkSections();
   resolveKimpLinked(rec, null);
 
@@ -4794,10 +4797,11 @@ function kimpFetchLinked(table, recId, cb){
 function resolveKimpLinked(rec, cb){
   var f=rec.fields;
   var tasks=[];
-  kimpDetailLinks={ba:[],ek:[],vk:[]};
+  kimpDetailLinks={ba:[],ek:[],vk:[],kb:[]};
   kimpLinkIds(f,'KIMP_BA_Link').forEach(function(id){ tasks.push(['ba','Betriebsausgaben_2026',id]); });
   if (kimpHasEk) kimpLinkIds(f,'KIMP_EK_Link').forEach(function(id){ tasks.push(['ek','Einkauf_2026',id]); });
   kimpLinkIds(f,'KIMP_VK_Link').forEach(function(id){ tasks.push(['vk','Verkauf_2026',id]); });
+  kimpLinkIds(f,'KIMP_KapBew_ID').forEach(function(id){ tasks.push(['kb','Kapitalbewegung_2026',id]); });
   var pending=tasks.length;
   if (!pending){ renderKimpBelegPane(); renderKimpLinkSections(); if (cb) cb(); return; }
   tasks.forEach(function(t){
@@ -4901,6 +4905,17 @@ function renderKimpBelegPane(){
       hasBeleg:!!rUrl,
       url:rUrl?kimpDriveEmbed(rUrl):null,
       yesLabel:'Rechnung vorhanden'
+    });
+  });
+  kimpDetailLinks.kb.forEach(function(x){
+    var f=x.fields, b=f['KB_Eigenbeleg'], has=Array.isArray(b)&&b.length>0;
+    entries.push({
+      label:(f['KB_ID']||'KB')+' – '+(f['KB_Typ']||'Kapitalbewegung'),
+      amount:f['Wert'],
+      datum:f['KB_Datum'],
+      hasBeleg:has,
+      url:has?b[0].url:null,
+      yesLabel:'Eigenbeleg vorhanden'
     });
   });
 
@@ -5718,8 +5733,10 @@ function kimpChangeStatus(next){
 }
 
 function kimpApproveValidationOk(){
-  var total=kimpDetailLinks.ba.length+kimpDetailLinks.ek.length+kimpDetailLinks.vk.length;
+  var total=kimpDetailLinks.ba.length+kimpDetailLinks.ek.length+kimpDetailLinks.vk.length+kimpDetailLinks.kb.length;
   if (total<1) return false;
+  // v2.16.2: Eigenbeleg einer verknüpften Kapitalbewegung zählt als Beleg.
+  if (kimpDetailLinks.kb.some(function(x){ var b=x.fields['KB_Eigenbeleg']; return Array.isArray(b)&&b.length>0; })) return true;
   if (kimpDetailLinks.ba.some(function(x){ return kimpBaHasBeleg(x.fields); })) return true;
   // Ein verknüpfter VK mit erzeugter Rechnung zählt ebenfalls als Beleg.
   return kimpDetailLinks.vk.some(function(x){ return !!kimpVkRechnungUrl(x.id, x.fields); });
