@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.15.0
-  SW Cache: rd-hub-v91
+  Version:  2.16.0
+  SW Cache: rd-hub-v92
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.16.0 (2026-10-11)  KIMP-Detail: verknüpfte BA per „Öffnen“ direkt im BA-Editor öffnen und abschließen; nach Abschließen/Zurück geht es zum KIMP zurück (Verknüpfungen + Status neu geladen)
   v2.15.0 (2026-10-11)  KIMP-BA-Dialog: Lieferant direkt im Dialog neu anlegen („+ Partner neu anlegen" im Picker bzw. automatisch beim Speichern ohne Treffer) inkl. Duplikat-Prüfung über alle Rollen; bestehender Partner mit anderer Rolle wird übernommen (Rolle → Mehrfach)
   v2.14.0 (2026-10-11)  KIMP-Übersicht: Name und Verwendungszweck per Stift-Symbol direkt in der Zeile bearbeitbar (Enter/Klick daneben speichert per PATCH, Esc bricht ab, Rollback bei Fehler)
   v2.13.2 (2026-10-11)  Fix: abgeschlossene KIMPs verschwanden nach dem Abschließen aus der Liste statt als „abgeschlossen" zu erscheinen (Altlast vor v2.7.6) + Aktualisieren-Button im KIMP-Clearing beschriftet
@@ -601,6 +602,7 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
 .kimp-link-chip .klc-rech:disabled{opacity:.6;cursor:default}
 .kimp-link-chip .klc-rech-view{background:#2D6CDF}
 .kimp-link-chip .klc-rech-gen{background:var(--green)}
+.kimp-link-chip .klc-ba-open{background:#2D6CDF}
 .kimp-link-search-wrap{position:relative}
 .kimp-link-input{width:100%;border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
 .kimp-link-input:focus{border-color:var(--accent)}
@@ -736,8 +738,8 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.15.0</span>
-      <span>SW rd-hub-v91</span>
+      <span>APP v2.16.0</span>
+      <span>SW rd-hub-v92</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -2253,6 +2255,8 @@ function navTo(screenId, onShow) {
 var BA_LIST_FIELDS = ['BA_ID','BA_Datum','BA_Lieferant','BA_Brutto','BA_Status','BA_Beleg','BA_Notizen','BA_Bezeichnung','BA_Beleg_Nr'];
 var baList = [];
 var baCurrentRec = null;
+// v2.16.0: KIMP-Record-ID, aus dessen Detail die BA geöffnet wurde → nach Abschließen/Zurück dorthin zurück.
+var baReturnToKimp = null;
 var baCurrentPartner = null;   // verknüpfter Partner-Record (lazy fetch nach openBaDetail)
 // null = Default (BA_Datum aufsteigend, kein Header-Icon). Sonst aktive Spalte:
 // 'id'|'date'|'supplier'|'amount'|'status' + baSortDir 'asc'|'desc'.
@@ -2323,6 +2327,7 @@ function showBaDetailView() {
 }
 
 function loadBaList() {
+  baReturnToKimp = null;
   showBaListView();
   var loadEl = document.getElementById('ba-list-loading');
   var errEl = document.getElementById('ba-list-error');
@@ -3638,6 +3643,11 @@ function baSaveProceed(opts) {
         return;
       }
 
+      if (baReturnToKimp) {
+        baBackToKimp(opts.successMsg || '✓ Gespeichert');
+        return;
+      }
+
       if (opts.afterSave === 'list') {
         baGoToList(null);
         return;
@@ -3717,6 +3727,28 @@ function setBaButtonsDisabled(disabled) {
     var b = document.getElementById(id);
     if (b) b.disabled = disabled;
   });
+}
+
+// v2.16.0: BA aus dem KIMP-Detail heraus öffnen (Button „Öffnen“ an der BA-Verknüpfung).
+function kimpOpenBa(baId){
+  if (!kimpCurrentRec) return;
+  baReturnToKimp = kimpCurrentRec.id;
+  showScreen('screen-ba');
+  openBaDetail(baId);
+}
+
+// Zurück ins KIMP-Detail; verknüpfte BAs neu laden, damit Status/Beleg aktuell sind.
+function baBackToKimp(infoMsg){
+  var kimpId = baReturnToKimp;
+  baReturnToKimp = null;
+  var baId = baCurrentRec && baCurrentRec.id;
+  baCancel();
+  if (baId) delete kimpLinkedCache['Betriebsausgaben_2026/'+baId];
+  goBack();
+  if (kimpCurrentRec && kimpCurrentRec.id === kimpId){
+    resolveKimpLinked(kimpCurrentRec);
+    if (infoMsg) kimpSetMsg(infoMsg, 'ok');
+  }
 }
 
 function baCancel() {
@@ -4087,6 +4119,7 @@ document.addEventListener('DOMContentLoaded', function setupBa() {
 
   // Zurück-Pfeil im BA-Screen: erst von Detail zur Liste, dann eine Stufe in der History zurück.
   addNav('btn-back-ba', null, function(){
+    if (baReturnToKimp) { baBackToKimp(''); return; }
     if (baCurrentRec) {
       // aktuell in Detail-View → zurück zur Liste (Sort + Cache bleiben erhalten)
       baCancel();
@@ -4929,6 +4962,7 @@ function renderKimpLinkSection(type){
       else                  lbl=(rf['VK_Lot']||id)+' – '+kimpJoin(rf['VK_Name']);
     } else lbl=id;
     var rechBtn='';
+    if (type==='ba') rechBtn='<button type="button" class="klc-rech klc-ba-open" data-id="'+escHtml(id)+'" title="BA öffnen und bearbeiten/abschließen">↗ Öffnen</button>';
     if (type==='vk'){
       var vkLot=(rf&&rf['VK_Lot'])||(kimpVkCacheFields(id)&&kimpVkCacheFields(id)['VK_Lot'])||'';
       var rUrl=kimpVkRechnungUrl(id, rf);
@@ -4948,6 +4982,9 @@ function renderKimpLinkSection(type){
 
   container.querySelectorAll('.klc-x').forEach(function(b){
     attachTouchClickHandler(b, function(){ kimpRemoveLink(b.getAttribute('data-type'), b.getAttribute('data-id')); });
+  });
+  container.querySelectorAll('.klc-ba-open').forEach(function(b){
+    attachTouchClickHandler(b, function(){ kimpOpenBa(b.getAttribute('data-id')); });
   });
   container.querySelectorAll('.klc-rech-view').forEach(function(b){
     attachTouchClickHandler(b, function(){ window.open(b.getAttribute('data-url'), '_blank'); });
