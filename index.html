@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.18.0
-  SW Cache: rd-hub-v96
+  Version:  2.18.1
+  SW Cache: rd-hub-v97
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.18.1 (2026-10-11)  EK-Dialog: Status „abgeschlossen“ sobald ein Beleg dabei ist; kein Verkäufer-Prefill aus KIMP_Name (war PayPal/eBay); OCR des hochgeladenen Belegs schlägt Verkäufer, Datum und Kurzbeschreibung vor
   v2.18.0 (2026-10-11)  KIMP-Clearing: „Neuen Einkauf (EK) anlegen“ – EK-Dialog mit Lot-Vorschlag (nächste EK7xxxx-Nummer, Duplikat-Check), Verkäufer-Picker (EK-Lieferant/Mehrfach, Neuanlage mit Duplikat-Prüfung), Rechnung hochladen / Eigenbeleg Wareneinkauf / Beleg später → EK_Rechnungsdokument; verknüpft per KIMP_EK_Link. EK-Beleg wird in Verknüpfungen angezeigt und zählt beim Abschließen
   v2.17.0 (2026-10-11)  BA-Dialog: „Kein Beleg? → Eigenbeleg erzeugen“ – erzeugt im Browser (eigener PDF-Writer, keine Library) bei fehlendem Fremdbeleg (z. B. Kleinanzeigen-Privatkauf) ein Eigenbeleg-PDF (Belegnummer = KIMP-ID, Zahlungsempfänger, Grund, Aussteller) und legt damit die BA an; Vorsteuer = nein / USt 0 %
   v2.16.2 (2026-10-11)  KIMP-Detail: Kapitalbewegung (KIMP_KapBew_ID → Kapitalbewegung_2026) als Verknüpfung inkl. Eigenbeleg-PDF (KB_Eigenbeleg) anzeigen; zählt als Beleg beim Abschließen und in der Listen-Spalte „Beleg“
@@ -755,8 +756,8 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.18.0</span>
-      <span>SW rd-hub-v96</span>
+      <span>APP v2.18.1</span>
+      <span>SW rd-hub-v97</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -6085,9 +6086,8 @@ function openKimpNewEkModal(){
   var vz = String(f['KIMP_Verwendungszweck']||'').toLowerCase();
   document.getElementById('kimp-newek-plattform').value = /kleinanzeigen/.test(vz) ? 'Kleinanzeigen' : (/ebay/.test(vz) ? 'ebay' : '');
   // Vorauswahl Verkäufer per Fuzzy-Match (nur Vorschlag; KIMP_Name ist bei Überweisungen der Empfänger).
-  var pm = kimpFuzzyPartnerName(f);
-  if (pm.id){ kimpNewEk.partnerId = pm.id; kimpNewEk.partnerName = pm.name; document.getElementById('kimp-newek-partner').value = pm.name; }
-  else if (f['KIMP_Name']) document.getElementById('kimp-newek-partner').value = f['KIMP_Name'];
+  // v2.18.1: kein Verkäufer-Prefill aus dem KIMP – KIMP_Name ist bei EKs meist PayPal/eBay/Bank,
+  // nicht der Verkäufer. Vorschlag kommt aus der OCR des hochgeladenen Belegs.
   kimpNewEkSetMode('upload');
 
   var betStr = isNaN(betrag) ? '—' : kimpNum(betrag) + ' €';
@@ -6146,6 +6146,33 @@ function kimpNewEkHandleFile(file){
   document.getElementById('kimp-newek-file-name').textContent = file.name;
   document.getElementById('kimp-newek-file-info').style.display='';
   kimpNewEkShowPreview(file, mime);
+  kimpNewEkRunOcr(file, mime);
+}
+
+// v2.18.1: Verkäufer/Datum aus dem Beleg lesen (gleiche OCR wie im BA-Dialog) und als
+// Suchbegriff in den Verkäufer-Picker übernehmen – Auswahl bleibt beim Nutzer (ID-basiert).
+function kimpNewEkRunOcr(file, mime){
+  var fr = new FileReader();
+  fr.onload = function(){
+    var b64 = String(fr.result).split(',')[1] || '';
+    var pEl = document.getElementById('kimp-newek-partner');
+    var oldPh = pEl.placeholder; pEl.placeholder = 'Beleg wird ausgewertet…';
+    fetch(INVOICE_PROCESSING_WEBAPP_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({ action:'ocr_extract', secret:HUB_SECRET, pdf_base64:b64, mime_type:mime })
+    }).then(function(r){ return r.json(); }).then(function(res){
+      pEl.placeholder = oldPh;
+      var d = res && res.ok && res.data; if (!d) return;
+      if (d.datum) document.getElementById('kimp-newek-datum').value = d.datum;
+      if (d.partner && !kimpNewEk.partnerId){
+        pEl.value = d.partner;
+        partnerPickerSearch(d.partner, KIMP_EK_PARTNER_PICKER_CFG);
+      }
+      var kurz = document.getElementById('kimp-newek-kurz');
+      if (d.bezeichnung && !kurz.value) kurz.value = d.bezeichnung;
+    }).catch(function(){ pEl.placeholder = oldPh; });
+  };
+  fr.readAsDataURL(file);
 }
 
 // Neuer Verkäufer (Rolle EK-Lieferant) mit Duplikat-Prüfung über alle Rollen.
@@ -6283,7 +6310,8 @@ function kimpNewEkSubmit(){
       'EK_Kaufplattform': v('kimp-newek-plattform'),
       'EK_Zahlweg': v('kimp-newek-zahlweg'),
       'EK_Kurzbeschreibung': v('kimp-newek-kurz'),
-      'EK_Status': 'in Bearbeitung'
+      // v2.18.1: mit Beleg direkt abgeschlossen, nur „Beleg später“ bleibt in Bearbeitung
+      'EK_Status': beleg ? 'abgeschlossen' : 'in Bearbeitung'
     };
     var zahler = document.getElementById('kimp-newek-zahler').value; if (zahler) fields['EK_Zahler'] = zahler;
     if (v('kimp-newek-steuerart')) fields['EK_Steuerart'] = v('kimp-newek-steuerart');
