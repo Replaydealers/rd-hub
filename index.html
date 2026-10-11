@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.13.1
-  SW Cache: rd-hub-v88
+  Version:  2.13.2
+  SW Cache: rd-hub-v89
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.13.2 (2026-10-11)  Fix: abgeschlossene KIMPs verschwanden nach dem Abschließen aus der Liste statt als „abgeschlossen" zu erscheinen (Altlast vor v2.7.6) + Aktualisieren-Button im KIMP-Clearing beschriftet
   v2.13.1 (2026-10-11)  KIMP-Detail: Status per Dropdown änderbar – abgeschlossene KIMPs lassen sich wieder auf „offen" / „in Bearbeitung" setzen (Abschließen weiter nur über den Button mit Beleg-Prüfung)
   v2.13.0 (2026-10-11)  KIMP-Clearing: Datumsfilter von/bis (Kalender-Auswahl) + Status-Filter als Mehrfachauswahl (z. B. Offen + In Bearbeitung gleichzeitig)
   v2.12.0 (2026-10-11)  KIMP-Kategorie auch in der KIMP-Übersicht änderbar: Klick auf die Kategorie-Zelle öffnet ein Dropdown (Mehrfachauswahl), jede Änderung speichert sofort per PATCH, bei Fehler Rollback
@@ -711,8 +712,8 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.13.1</span>
-      <span>SW rd-hub-v88</span>
+      <span>APP v2.13.2</span>
+      <span>SW rd-hub-v89</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -5506,16 +5507,12 @@ function kimpSaveAndGo(opts){
     kimpCurrentRec.fields=kimpCurrentRec.fields||{};
     if (kimpHasNotizen) kimpCurrentRec.fields['KIMP_Notizen']=patch['KIMP_Notizen'];
     var currentId=kimpCurrentRec.id;
-    var removeIt=opts.status==='abgeschlossen';
-
-    if (removeIt){
-      kimpList=kimpList.filter(function(r){ return r.id!==currentId; });
-    } else {
-      var local=kimpList.filter(function(r){ return r.id===currentId; })[0];
-      if (local){
-        if (kimpHasNotizen) local.fields['KIMP_Notizen']=patch['KIMP_Notizen'];
-        if (opts.status) local.fields['KIMP_Status']=opts.status;
-      }
+    // v2.13.2: Abgeschlossene KIMPs bleiben in der Liste (seit v2.7.6 werden alle Status
+    // geladen) und zeigen dort ihren neuen Status, statt zu verschwinden.
+    var local=kimpList.filter(function(r){ return r.id===currentId; })[0];
+    if (local){
+      if (kimpHasNotizen) local.fields['KIMP_Notizen']=patch['KIMP_Notizen'];
+      if (opts.status) local.fields['KIMP_Status']=opts.status;
     }
     if (opts.status){
       kimpCurrentRec.fields['KIMP_Status']=opts.status;
@@ -6616,7 +6613,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     <button class="menu-btn" onclick="openMenu()">☰</button>
     <button class="back-btn" id="btn-back-kimp">←</button>
     <div class="sub-header-title" id="kimp-header-title">KIMP-Clearing</div>
-    <button class="refresh-btn" id="btn-kimp-reload" style="margin-left:auto;width:32px;height:32px;padding:0;font-size:14px;">↻</button>
+    <button class="refresh-btn" id="btn-kimp-reload" title="Liste neu aus Airtable laden" style="margin-left:auto;height:32px;padding:0 12px;font-size:13px;">↻ Aktualisieren</button>
   </div>
 
   <div id="kimp-list-view" class="kimp-list-view">
