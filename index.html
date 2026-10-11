@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.13.2
-  SW Cache: rd-hub-v89
+  Version:  2.14.0
+  SW Cache: rd-hub-v90
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.14.0 (2026-10-11)  KIMP-Übersicht: Name und Verwendungszweck per Stift-Symbol direkt in der Zeile bearbeitbar (Enter/Klick daneben speichert per PATCH, Esc bricht ab, Rollback bei Fehler)
   v2.13.2 (2026-10-11)  Fix: abgeschlossene KIMPs verschwanden nach dem Abschließen aus der Liste statt als „abgeschlossen" zu erscheinen (Altlast vor v2.7.6) + Aktualisieren-Button im KIMP-Clearing beschriftet
   v2.13.1 (2026-10-11)  KIMP-Detail: Status per Dropdown änderbar – abgeschlossene KIMPs lassen sich wieder auf „offen" / „in Bearbeitung" setzen (Abschließen weiter nur über den Button mit Beleg-Prüfung)
   v2.13.0 (2026-10-11)  KIMP-Clearing: Datumsfilter von/bis (Kalender-Auswahl) + Status-Filter als Mehrfachauswahl (z. B. Offen + In Bearbeitung gleichzeitig)
@@ -563,6 +564,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 #kimp-detail-kat-pills.kimp-kat-saving .kimp-pill{opacity:.55;pointer-events:none}
 /* v2.12.0: Kategorie-Dropdown in der KIMP-Übersicht */
 .kimp-kat-cell{cursor:pointer;white-space:nowrap}
+/* v2.14.0: Name/Verwendungszweck per Stift bearbeiten */
+.kimp-edit-btn{border:0;background:none;color:var(--hint);cursor:pointer;font-size:13px;padding:2px 4px;margin-left:4px;opacity:.45;font-family:inherit;touch-action:manipulation}
+tr:hover .kimp-edit-btn{opacity:1}
+.kimp-edit-btn:hover{color:var(--text)}
+.kimp-edit-input{width:100%;min-width:160px;border:.5px solid var(--accent);background:var(--card2);color:var(--text);border-radius:6px;padding:5px 7px;font-size:13px;font-family:inherit;outline:none}
+.kimp-edit-input:disabled{opacity:.6}
 .kimp-kat-cell:hover .kimp-kat-txt{text-decoration:underline dotted}
 .kimp-kat-caret{margin-left:6px;color:var(--hint);font-size:11px}
 .kimp-kat-cell:hover .kimp-kat-caret,.kimp-kat-cell-open .kimp-kat-caret{color:var(--text)}
@@ -712,8 +719,8 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.13.2</span>
-      <span>SW rd-hub-v89</span>
+      <span>APP v2.14.0</span>
+      <span>SW rd-hub-v90</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -4342,9 +4349,9 @@ function renderKimpTable(){
       '<td>'+escHtml(f['KIMP_ID']||'—')+'</td>'+
       '<td>'+escHtml(kimpDateDE(f['KIMP_Buchungstag']))+'</td>'+
       '<td style="text-align:right" class="'+betCls+'">'+escHtml(betTxt)+'</td>'+
-      '<td>'+escHtml(kimpTrunc(f['KIMP_Name'],30))+'</td>'+
+      '<td class="kimp-edit-cell" data-field="KIMP_Name">'+kimpEditCellHtml(f,'KIMP_Name')+'</td>'+
       '<td class="kimp-kat-cell" title="Kategorie ändern">'+kimpKatCellHtml(f['KIMP_Kategorie'])+'</td>'+
-      '<td>'+escHtml(kimpTrunc(f['KIMP_Verwendungszweck'],50))+'</td>'+
+      '<td class="kimp-edit-cell" data-field="KIMP_Verwendungszweck">'+kimpEditCellHtml(f,'KIMP_Verwendungszweck')+'</td>'+
       '<td><span class="ba-status-pill '+kimpStatusCls(status)+'">'+escHtml(status)+'</span></td>'+
       '<td style="text-align:center">'+(hasBeleg?'<span class="ba-pdf-yes">●</span>':'<span class="ba-pdf-no">○</span>')+'</td>'+
       '</tr>';
@@ -4368,6 +4375,8 @@ function renderKimpTable(){
   });
   // v2.12.0: Kategorie-Zelle öffnet das Dropdown statt der Detail-Ansicht.
   // stopPropagation zuerst registrieren, damit der Zeilen-Handler nicht mitfeuert.
+  // v2.14.0: Stift-Symbol → Inline-Bearbeitung (Zeilen-Klick darf nicht mitfeuern).
+  wrap.querySelectorAll('td.kimp-edit-cell').forEach(kimpWireEditCell);
   wrap.querySelectorAll('td.kimp-kat-cell').forEach(function(td){
     td.addEventListener('touchend', function(e){ e.stopPropagation(); });
     td.addEventListener('click', function(e){ e.stopPropagation(); });
@@ -4584,6 +4593,76 @@ function kimpUpdateKatCell(rec){
   var tr = document.querySelector('#kimp-list-table-wrap tr[data-id="' + rec.id + '"]');
   var td = tr && tr.querySelector('td.kimp-kat-cell');
   if (td) td.innerHTML = kimpKatCellHtml(rec.fields['KIMP_Kategorie']);
+}
+
+// ── v2.14.0: KIMP_Name / KIMP_Verwendungszweck in der Übersicht bearbeiten ──
+var KIMP_EDIT_TRUNC = { 'KIMP_Name':30, 'KIMP_Verwendungszweck':50 };
+
+function kimpEditCellHtml(f, field){
+  var v = f[field] == null ? '' : String(f[field]);
+  return '<span class="kimp-edit-txt" title="' + escHtml(v) + '">' + escHtml(kimpTrunc(v, KIMP_EDIT_TRUNC[field])) + '</span>' +
+    '<button type="button" class="kimp-edit-btn" title="Bearbeiten">✎</button>';
+}
+
+function kimpStopRowEvents(el){
+  ['click','touchend','mousedown'].forEach(function(ev){ el.addEventListener(ev, function(e){ e.stopPropagation(); }); });
+}
+
+function kimpWireEditCell(td){
+  var btn = td.querySelector('.kimp-edit-btn');
+  if (!btn) return;
+  kimpStopRowEvents(btn);
+  attachTouchClickHandler(btn, function(){ kimpStartEdit(td); });
+}
+
+function kimpRenderEditCell(td, rec){
+  td.innerHTML = kimpEditCellHtml(rec.fields, td.getAttribute('data-field'));
+  kimpWireEditCell(td);
+}
+
+function kimpListMsg(t, kind){
+  var el = document.getElementById('kimp-list-error');
+  if (!el) return;
+  el.textContent = t;
+  el.style.color = kind === 'err' ? 'var(--accent)' : 'var(--green)';
+  el.style.display = t ? '' : 'none';
+}
+
+function kimpStartEdit(td){
+  var recId = td.parentNode.getAttribute('data-id');
+  var field = td.getAttribute('data-field');
+  var rec = kimpFindListRec(recId);
+  if (!rec) return;
+  var before = rec.fields[field] == null ? '' : String(rec.fields[field]);
+  td.innerHTML = '<input type="text" class="kimp-edit-input" />';
+  var inp = td.querySelector('input');
+  inp.value = before;
+  kimpStopRowEvents(inp);
+  var done = false;
+  function finish(save){
+    if (done) return;
+    done = true;
+    var next = inp.value.trim();
+    if (!save || next === before){ kimpRenderEditCell(td, rec); return; }
+    rec.fields[field] = next;
+    inp.disabled = true;
+    kimpListMsg('');
+    var patch = {}; patch[field] = next;
+    atPatch(KIMP_TABLE, rec.id, patch, function(err, data){
+      var failed = err || (data && data.error);
+      if (failed) rec.fields[field] = before;
+      if (kimpCurrentRec && kimpCurrentRec.id === rec.id && kimpCurrentRec !== rec) kimpCurrentRec.fields[field] = rec.fields[field];
+      if (document.body.contains(td)) kimpRenderEditCell(td, rec);
+      if (failed) kimpListMsg('Nicht gespeichert (' + (field === 'KIMP_Name' ? 'Name' : 'Verwendungszweck') + '): ' + (err ? err.message : data.error.message), 'err');
+    });
+  }
+  inp.addEventListener('keydown', function(e){
+    if (e.key === 'Enter'){ e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); finish(false); }
+  });
+  inp.addEventListener('blur', function(){ finish(true); });
+  inp.focus();
+  inp.select();
 }
 
 function kimpListToggleKategorie(name){
