@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.16.0
-  SW Cache: rd-hub-v92
+  Version:  2.16.1
+  SW Cache: rd-hub-v93
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.16.1 (2026-10-11)  KIMP-Detail: „Öffnen“-Button auch direkt in der BA-Karte unter „Aktuelle Verknüpfungen“ (links)
   v2.16.0 (2026-10-11)  KIMP-Detail: verknüpfte BA per „Öffnen“ direkt im BA-Editor öffnen und abschließen; nach Abschließen/Zurück geht es zum KIMP zurück (Verknüpfungen + Status neu geladen)
   v2.15.0 (2026-10-11)  KIMP-BA-Dialog: Lieferant direkt im Dialog neu anlegen („+ Partner neu anlegen" im Picker bzw. automatisch beim Speichern ohne Treffer) inkl. Duplikat-Prüfung über alle Rollen; bestehender Partner mit anderer Rolle wird übernommen (Rolle → Mehrfach)
   v2.14.0 (2026-10-11)  KIMP-Übersicht: Name und Verwendungszweck per Stift-Symbol direkt in der Zeile bearbeitbar (Enter/Klick daneben speichert per PATCH, Esc bricht ab, Rollback bei Fehler)
@@ -546,6 +547,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-beleg-item .kb-id{font-weight:700}
 .kimp-beleg-item .kb-beleg-yes{color:var(--green)}
 .kimp-beleg-item .kb-beleg-no{color:var(--hint)}
+.kimp-beleg-item .kbi-line1{display:flex;align-items:center;gap:8px}
+.kimp-beleg-item .kbi-line1-txt{flex:1;min-width:0}
+.kimp-beleg-item .kbi-open{flex-shrink:0;border:none;border-radius:8px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;color:#fff;background:#2D6CDF;white-space:nowrap;touch-action:manipulation}
 .kimp-beleg-item .kbi-line2{margin-top:3px;font-size:11px;color:var(--muted)}
 .kimp-link-status{font-weight:600}
 .kimp-link-status.kls-offen{color:var(--amber)}
@@ -738,8 +742,8 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.16.0</span>
-      <span>SW rd-hub-v92</span>
+      <span>APP v2.16.1</span>
+      <span>SW rd-hub-v93</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -4865,6 +4869,7 @@ function renderKimpBelegPane(){
   kimpDetailLinks.ba.forEach(function(x){
     var f=x.fields, has=kimpBaHasBeleg(f);
     entries.push({
+      baId:x.id,
       label:(f['BA_ID']||'BA')+' – '+(f['BA_Lieferant']||'—'),
       amount:f['BA_Brutto'],
       datum:f['BA_Datum'],
@@ -4920,7 +4925,8 @@ function renderKimpBelegPane(){
       ? '<span class="kb-beleg-yes">'+escHtml(e.yesLabel||'Beleg vorhanden')+'</span>'
       : '<span class="kb-beleg-no">kein Beleg</span>');
     html+='<div class="kimp-beleg-item">'+
-      '<div class="kbi-line1"><span class="kb-id">'+escHtml(e.label)+'</span> · '+escHtml(amt)+'</div>'+
+      '<div class="kbi-line1"><span class="kbi-line1-txt"><span class="kb-id">'+escHtml(e.label)+'</span> · '+escHtml(amt)+'</span>'+
+        (e.baId ? '<button type="button" class="kbi-open" title="BA öffnen und bearbeiten/abschließen">↗ Öffnen</button>' : '')+'</div>'+
       '<div class="kbi-line2">'+line2Parts.join(' · ')+'</div>'+
       '</div>';
   });
@@ -4930,6 +4936,13 @@ function renderKimpBelegPane(){
   items.forEach(function(el,idx){
     var e=entries[idx];
     attachTouchClickHandler(el, function(){ if (e.url) kimpShowPdf(e.url, el); });
+    var openBtn=el.querySelector('.kbi-open');
+    if (openBtn){
+      // Klick auf „Öffnen“ darf nicht zusätzlich die PDF-Vorschau der Karte auslösen.
+      openBtn.addEventListener('click', function(ev){ ev.stopPropagation(); });
+      openBtn.addEventListener('touchend', function(ev){ ev.stopPropagation(); });
+      attachTouchClickHandler(openBtn, function(){ kimpOpenBa(e.baId); });
+    }
     if (e.url) withPdf.push({ el:el, url:e.url });
   });
   if (kimpSkipAutoPdfOnce){
