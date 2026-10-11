@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.12.0
-  SW Cache: rd-hub-v86
+  Version:  2.13.0
+  SW Cache: rd-hub-v87
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.13.0 (2026-10-11)  KIMP-Clearing: Datumsfilter von/bis (Kalender-Auswahl) + Status-Filter als Mehrfachauswahl (z. B. Offen + In Bearbeitung gleichzeitig)
   v2.12.0 (2026-10-11)  KIMP-Kategorie auch in der KIMP-Übersicht änderbar: Klick auf die Kategorie-Zelle öffnet ein Dropdown (Mehrfachauswahl), jede Änderung speichert sofort per PATCH, bei Fehler Rollback
   v2.11.0 (2026-10-11)  KIMP-Kategorie direkt im KIMP-Clearing änderbar: Kategorie-Pills in der Detail-Ansicht (Mehrfachauswahl wie in Airtable), Klick speichert sofort per PATCH; Optionen dynamisch aus dem Airtable-Schema (multipleSelects jetzt mit gecacht)
   v2.10.0 (2026-07-30)  EK-Auswertung neu aufgebaut: Break-even-Balken (Umsatz verkauft ÷ Gesamt-EK, „wie viel ist wieder drin"), KPIs Marge Σ / Abverkauf / Ø Marge / Restwert offen, offene Artikel nach EK sortiert (gebundenes Kapital zuerst)
@@ -571,6 +572,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .kimp-kat-dd.kimp-kat-saving .kimp-kat-dd-opt{opacity:.55;pointer-events:none}
 .kimp-kat-dd-msg{padding:4px 10px 6px;font-size:11px;color:var(--muted)}
 .kimp-kat-dd-msg:empty{display:none}
+/* v2.13.0: Datumsfilter von/bis */
+.kimp-date-row{display:flex;align-items:center;gap:6px}
+.kimp-date-row label{font-size:12px;color:var(--muted);white-space:nowrap}
+.kimp-search-section .kimp-date-row input[type=date]{flex:1;min-width:0;width:auto;padding:7px 8px;font-size:14px;color-scheme:dark}
+.kimp-date-row button{border:.5px solid var(--border);background:var(--card2);color:var(--muted);border-radius:var(--radius-sm);padding:7px 10px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.kimp-date-row button:hover{color:var(--text)}
 .kimp-link-section{margin-bottom:14px}
 .kimp-link-section .kls-title{font-size:11px;font-weight:600;color:var(--hint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 .kimp-link-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card2);border:.5px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-size:13px;margin-bottom:5px;color:var(--text)}
@@ -699,8 +706,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.12.0</span>
-      <span>SW rd-hub-v86</span>
+      <span>APP v2.13.0</span>
+      <span>SW rd-hub-v87</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -4117,7 +4124,7 @@ var kimpCurrentRec = null;
 // 'id'|'date'|'amount'|'name'|'kat' + kimpSortDir 'asc'|'desc'.
 var kimpSortCol = null;
 var kimpSortDir = 'asc';
-var kimpStatusFilter = 'all';
+var kimpStatusFilter = {};   // v2.13.0 Multi-Select: { 'offen':true, ... }; leer = alle Status
 var kimpKatFilter = {};      // Multi-Select: { 'Umsatz':true, ... }; leer = alle Kategorien
 var kimpSearchDebounce = null;
 var kimpHasEk = true;        // KIMP_EK_Link existiert in Airtable
@@ -4265,10 +4272,20 @@ function kimpFilteredRecords(){
   // KIMP-Kategorie übereinstimmt (OR-Verknüpfung). Leer = alles durchlassen.
   var katKeys=Object.keys(kimpKatFilter);
   var useK=katKeys.length>0;
+  var useS=Object.keys(kimpStatusFilter).length>0;
+  // Datumsfilter (v2.13.0): ISO-Strings 'YYYY-MM-DD' → direkter String-Vergleich, Grenzen inklusive.
+  var dFrom=document.getElementById('kimp-date-from').value||'';
+  var dTo=document.getElementById('kimp-date-to').value||'';
   var out=[];
   for (var i=0;i<kimpList.length;i++){
     var f=kimpList[i].fields;
-    if (kimpStatusFilter!=='all' && (f['KIMP_Status']||'')!==kimpStatusFilter) continue;
+    if (useS && !kimpStatusFilter[f['KIMP_Status']||'']) continue;
+    if (dFrom || dTo){
+      var bt=String(f['KIMP_Buchungstag']||'').substring(0,10);
+      if (!bt) continue;
+      if (dFrom && bt<dFrom) continue;
+      if (dTo && bt>dTo) continue;
+    }
     if (useK){
       var kc=f['KIMP_Kategorie'];
       var recKats = Array.isArray(kc) ? kc : (kc==null||kc==='' ? [] : [String(kc)]);
@@ -6070,15 +6087,30 @@ document.addEventListener('DOMContentLoaded', function setupKimp(){
   });
   document.getElementById('kimp-search').addEventListener('input', scheduleKimpSearch);
 
-  // Status-Pills: single-select. Selector scoped auf [data-status], damit die neuen
-  // Kategorie-Pills (data-cat) hier NICHT mit-zurückgesetzt werden.
+  // Status-Pills (v2.13.0): Mehrfachauswahl. „Alle" leert die Auswahl; sind keine
+  // Status gewählt, ist „Alle" aktiv. Selector scoped auf [data-status] (Kategorie-Pills unberührt).
   document.querySelectorAll('#kimp-list-view .kimp-pill[data-status]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      document.querySelectorAll('#kimp-list-view .kimp-pill[data-status]').forEach(function(b){ b.classList.remove('kimp-pill-active'); });
-      btn.classList.add('kimp-pill-active');
-      kimpStatusFilter=btn.getAttribute('data-status');
+      var st=btn.getAttribute('data-status');
+      if (st==='all') kimpStatusFilter={};
+      else if (kimpStatusFilter[st]) delete kimpStatusFilter[st];
+      else kimpStatusFilter[st]=true;
+      var none=!Object.keys(kimpStatusFilter).length;
+      document.querySelectorAll('#kimp-list-view .kimp-pill[data-status]').forEach(function(b){
+        var s2=b.getAttribute('data-status');
+        b.classList.toggle('kimp-pill-active', s2==='all' ? none : !!kimpStatusFilter[s2]);
+      });
       renderKimpTable();
     });
+  });
+  // Datumsfilter von/bis (v2.13.0): native Kalender-Auswahl, ✕ setzt beide zurück.
+  ['kimp-date-from','kimp-date-to'].forEach(function(id){
+    document.getElementById(id).addEventListener('change', renderKimpTable);
+  });
+  document.getElementById('kimp-date-clear').addEventListener('click', function(){
+    document.getElementById('kimp-date-from').value='';
+    document.getElementById('kimp-date-to').value='';
+    renderKimpTable();
   });
   // Kategorie-Pills: multi-select. Klick toggelt einzelne Pill. Leer = alle durchlassen.
   document.querySelectorAll('#kimp-list-view .kimp-pill[data-cat]').forEach(function(btn){
@@ -6557,6 +6589,13 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
         <button class="kimp-pill" data-cat="Kapitalbewegung" type="button">Kapitalbewegung</button>
         <button class="kimp-pill" data-cat="Bargeld" type="button">Bargeld</button>
         <button class="kimp-pill" data-cat="Klärfall" type="button">Klärfall</button>
+      </div>
+      <div class="kimp-date-row">
+        <label for="kimp-date-from">Von</label>
+        <input type="date" id="kimp-date-from" />
+        <label for="kimp-date-to">Bis</label>
+        <input type="date" id="kimp-date-to" />
+        <button type="button" id="kimp-date-clear" title="Datumsfilter zurücksetzen">✕</button>
       </div>
       <div class="kimp-pills-row">
         <button class="kimp-pill kimp-pill-active" data-status="all" type="button">Alle</button>
