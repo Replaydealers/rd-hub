@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.14.0
-  SW Cache: rd-hub-v90
+  Version:  2.15.0
+  SW Cache: rd-hub-v91
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.15.0 (2026-10-11)  KIMP-BA-Dialog: Lieferant direkt im Dialog neu anlegen („+ Partner neu anlegen" im Picker bzw. automatisch beim Speichern ohne Treffer) inkl. Duplikat-Prüfung über alle Rollen; bestehender Partner mit anderer Rolle wird übernommen (Rolle → Mehrfach)
   v2.14.0 (2026-10-11)  KIMP-Übersicht: Name und Verwendungszweck per Stift-Symbol direkt in der Zeile bearbeitbar (Enter/Klick daneben speichert per PATCH, Esc bricht ab, Rollback bei Fehler)
   v2.13.2 (2026-10-11)  Fix: abgeschlossene KIMPs verschwanden nach dem Abschließen aus der Liste statt als „abgeschlossen" zu erscheinen (Altlast vor v2.7.6) + Aktualisieren-Button im KIMP-Clearing beschriftet
   v2.13.1 (2026-10-11)  KIMP-Detail: Status per Dropdown änderbar – abgeschlossene KIMPs lassen sich wieder auf „offen" / „in Bearbeitung" setzen (Abschließen weiter nur über den Button mit Beleg-Prüfung)
@@ -654,6 +655,22 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
 .kimp-newba-supplier-dd.show{display:block}
 .kimp-newba-supplier-dd .ba-dd-item{padding:7px 10px;font-size:12px;color:var(--text);cursor:pointer;border-bottom:.5px solid var(--border)}
 .kimp-newba-supplier-dd .ba-dd-item:hover{background:var(--card2)}
+/* v2.15.0: Lieferant im KIMP-BA-Dialog neu anlegen */
+.kimp-np-panel{grid-column:1/-1;border:.5px solid var(--accent);border-radius:var(--radius-sm);background:rgba(230,57,70,.05);padding:10px;display:none}
+.kimp-np-panel.show{display:block}
+.kimp-np-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px}
+.kimp-np-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kimp-np-grid .kimp-np-full{grid-column:1/-1}
+.kimp-np-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.kimp-np-actions button,.kimp-np-dup button{border:.5px solid var(--border);background:var(--card2);color:var(--text);border-radius:var(--radius-sm);padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.kimp-np-actions button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.kimp-np-actions button:disabled{opacity:.6;cursor:wait}
+.kimp-np-msg{font-size:12px;color:var(--accent);margin-top:8px}
+.kimp-np-msg:empty{display:none}
+.kimp-np-dups{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.kimp-np-dups:empty{display:none}
+.kimp-np-dup{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border:.5px solid var(--border);border-radius:6px;background:var(--card);font-size:12px;color:var(--text)}
+.kimp-np-dup small{color:var(--muted)}
 .kimp-newba-foot{padding:12px 18px;border-top:.5px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
 .kimp-newba-foot button{padding:10px 14px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation}
 .kimp-newba-cancel{background:var(--card2);color:var(--text);border:.5px solid var(--border)}
@@ -719,8 +736,8 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.14.0</span>
-      <span>SW rd-hub-v90</span>
+      <span>APP v2.15.0</span>
+      <span>SW rd-hub-v91</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -5706,20 +5723,123 @@ var badShowKimpInfo = false;
 var badSelectedPartnerId = null;   // im KIMP-Dialog gewählter Partner-Record → BA_PartnerID
 var badPartnerTimer = null;        // Debounce für die Picker-Suche im KIMP-Modal
 
-// KIMP-Konfiguration des geteilten Partner-Pickers. Ohne "+ neu anlegen"
-// (Anlege-Pane hängt am BA-Review-Screen). Bei Auswahl wird die Record-ID gemerkt.
+// KIMP-Konfiguration des geteilten Partner-Pickers. Bei Auswahl wird die Record-ID
+// gemerkt. v2.15.0: „+ Partner neu anlegen" öffnet das Inline-Anlege-Panel im Dialog.
 var KIMP_PARTNER_PICKER_CFG = {
   ddId: 'kimp-newba-partner-dd',
   inputId: 'kimp-newba-partner',
-  allowCreate: false,
+  allowCreate: true,
   maxRows: 15,
   onPick: function(rec){
     badSelectedPartnerId = rec.id;
     var el = document.getElementById('kimp-newba-partner');
     if (el) el.classList.remove('kimp-newba-invalid');
+    kimpNpHide();
     kimpNewBaHideError();
-  }
+  },
+  onCreate: function(query){ kimpNpShow(query); }
 };
+
+// ── v2.15.0: Lieferant im KIMP-BA-Dialog neu anlegen ──
+// Duplikat-Prüfung über ALLE Rollen (checkPartnerDuplicates). Wird ein bestehender
+// Partner gewählt, dessen Rolle nicht BA-Lieferant/Mehrfach ist, wird sie auf
+// „Mehrfach" gesetzt (wie useExistingPartner im BA-Review).
+var kimpNpBusy = false;
+
+function kimpNpMsg(t){ document.getElementById('kimp-np-msg').textContent = t || ''; }
+function kimpNpShow(name){
+  var p = document.getElementById('kimp-np-panel');
+  document.getElementById('kimp-np-name').value = (name || document.getElementById('kimp-newba-partner').value || '').trim();
+  ['kimp-np-strasse','kimp-np-plz','kimp-np-ort'].forEach(function(id){ document.getElementById(id).value = ''; });
+  document.getElementById('kimp-np-typ').value = 'Unternehmen';
+  document.getElementById('kimp-np-ust').value = '19%';
+  document.getElementById('kimp-np-dups').innerHTML = '';
+  kimpNpMsg('');
+  p.classList.add('show');
+  partnerPickerHide('kimp-newba-partner-dd');
+  document.getElementById('kimp-np-name').focus();
+}
+function kimpNpHide(){
+  var p = document.getElementById('kimp-np-panel');
+  if (p) p.classList.remove('show');
+}
+function kimpNpSetBusy(b){
+  kimpNpBusy = b;
+  document.getElementById('btn-kimp-np-save').disabled = b;
+  document.getElementById('btn-kimp-np-save').textContent = b ? 'Speichere…' : 'Lieferant anlegen';
+}
+
+// Partner-Record als gewählten Lieferanten in den Dialog übernehmen.
+function kimpNpUse(rec){
+  badSelectedPartnerId = rec.id;
+  var input = document.getElementById('kimp-newba-partner');
+  input.value = partnerDisplayName(rec.fields || {});
+  input.classList.remove('kimp-newba-invalid');
+  if (kimpPartnerCache) kimpPartnerCache[rec.id] = rec.fields || {};
+  kimpNpHide();
+  kimpNewBaHideError();
+}
+
+function kimpNpUseExisting(rec){
+  var rolle = rec.fields['PD_Rolle'];
+  if (rolle === 'BA-Lieferant' || rolle === 'Mehrfach'){ kimpNpUse(rec); return; }
+  kimpNpSetBusy(true);
+  atPatch('Partnerdaten_2026', rec.id, { 'PD_Rolle': 'Mehrfach' }, function(err, data){
+    kimpNpSetBusy(false);
+    if (!err && !(data && data.error)) rec.fields['PD_Rolle'] = 'Mehrfach';
+    kimpNpUse(rec);   // Verknüpfung klappt auch ohne Rollen-Update
+  });
+}
+
+function kimpNpSave(skipDupCheck){
+  if (kimpNpBusy) return;
+  var name = document.getElementById('kimp-np-name').value.trim();
+  var typ = document.getElementById('kimp-np-typ').value;
+  var plz = document.getElementById('kimp-np-plz').value.trim();
+  if (!name){ kimpNpMsg('Bitte Firmenname / Name eintragen.'); return; }
+  kimpNpMsg('');
+
+  function doPost(){
+    var fields = { 'PD_Typ': typ, 'PD_Rolle': 'BA-Lieferant', 'PD_USt_Status': document.getElementById('kimp-np-ust').value };
+    fields[typ === 'Privatperson' ? 'PD_Name' : 'PD_Firmenname'] = name;
+    function add(f, id){ var v = document.getElementById(id).value.trim(); if (v) fields[f] = v; }
+    add('PD_Strasse','kimp-np-strasse'); add('PD_PLZ','kimp-np-plz'); add('PD_Ort','kimp-np-ort');
+    kimpNpSetBusy(true);
+    atPost('Partnerdaten_2026', fields, function(err, data){
+      kimpNpSetBusy(false);
+      if (err || (data && data.error) || !data || !data.id){
+        kimpNpMsg('Lieferant nicht angelegt: ' + (err ? err.message : (data && data.error ? data.error.message : 'unerwartete Antwort')));
+        return;
+      }
+      kimpNpUse({ id: data.id, fields: data.fields || fields });
+    });
+  }
+  if (skipDupCheck){ doPost(); return; }
+
+  kimpNpSetBusy(true);
+  var input = typ === 'Privatperson' ? { name: name, plz: plz } : { firmenname: name, plz: plz };
+  checkPartnerDuplicates(input, function(hits){
+    kimpNpSetBusy(false);
+    if (!hits.length){ doPost(); return; }
+    var box = document.getElementById('kimp-np-dups');
+    box.innerHTML = '<div style="font-size:12px;color:var(--amber)">Ähnliche Partner gefunden – bestehenden übernehmen?</div>' +
+      hits.slice(0, 5).map(function(h){
+        var f = h.rec.fields;
+        var loc = [f['PD_PLZ'], f['PD_Ort']].filter(Boolean).join(' ');
+        return '<div class="kimp-np-dup"><span>' + escHtml(f['PD_ID'] ? f['PD_ID'] + ' · ' : '') + escHtml(partnerDisplayName(f)) +
+          ' <small>' + escHtml((f['PD_Rolle'] || '—') + (loc ? ' · ' + loc : '')) + ' · ' + Math.round(h.score * 100) + '%</small></span>' +
+          '<button type="button" data-id="' + h.rec.id + '">Übernehmen</button></div>';
+      }).join('') +
+      '<div class="kimp-np-actions" style="margin-top:4px"><button type="button" id="btn-kimp-np-force">Trotzdem neu anlegen</button></div>';
+    box.querySelectorAll('.kimp-np-dup button').forEach(function(b){
+      b.addEventListener('click', function(){
+        var h = hits.filter(function(x){ return x.rec.id === b.getAttribute('data-id'); })[0];
+        if (h) kimpNpUseExisting(h.rec);
+      });
+    });
+    document.getElementById('btn-kimp-np-force').addEventListener('click', function(){ kimpNpSave(true); });
+  });
+}
 
 function openBADialog(prefill, onSave, opts){
   opts = opts || {};
@@ -5921,6 +6041,7 @@ function kimpNewBaResetForm(){
   });
   badSelectedPartnerId = null;
   partnerPickerHide('kimp-newba-partner-dd');
+  kimpNpHide();
   document.getElementById('btn-kimp-newba-submit').disabled=false;
   document.getElementById('btn-kimp-newba-submit').textContent='BA anlegen';
 }
@@ -6062,7 +6183,8 @@ function badSubmit(){
   partnerEl.classList.remove('kimp-newba-invalid');
   if (!badSelectedPartnerId){
     partnerEl.classList.add('kimp-newba-invalid');
-    kimpNewBaShowError('Partner nicht gefunden. Neue Partner bitte zuerst in der BA-Erfassung (BA-Review) anlegen, danach hier auswählen.');
+    kimpNewBaShowError('Lieferant nicht ausgewählt. Bitte aus der Liste wählen oder unten neu anlegen.');
+    kimpNpShow(partnerEl.value);
     return;
   }
   if (bad.length){ kimpNewBaShowError('Pflichtfelder fehlen.'); return; }
@@ -6304,6 +6426,13 @@ document.addEventListener('DOMContentLoaded', function setupKimp(){
     badPartnerTimer = setTimeout(function(){ partnerPickerSearch(q, KIMP_PARTNER_PICKER_CFG); }, 250);
   });
   partnerInput.addEventListener('blur', function(){ setTimeout(function(){ partnerPickerHide('kimp-newba-partner-dd'); }, 180); });
+  // v2.15.0: vorbefüllter Text ohne Auswahl → beim Reinklicken Treffer (und „+ neu anlegen") zeigen.
+  partnerInput.addEventListener('focus', function(){
+    var q = partnerInput.value.trim();
+    if (!badSelectedPartnerId && q.length >= 2) partnerPickerSearch(q, KIMP_PARTNER_PICKER_CFG);
+  });
+  document.getElementById('btn-kimp-np-save').addEventListener('click', function(){ kimpNpSave(false); });
+  document.getElementById('btn-kimp-np-cancel').addEventListener('click', kimpNpHide);
 });
 
 // ── BUILD DATE (letzter Commit auf main) ──
@@ -6867,6 +6996,25 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <label>Lieferant *</label>
           <input type="text" id="kimp-newba-partner" autocomplete="off" placeholder="z.B. Kleinanzeigen.de GmbH" />
           <div class="kimp-newba-supplier-dd" id="kimp-newba-partner-dd"></div>
+        </div>
+        <div class="kimp-np-panel" id="kimp-np-panel">
+          <div class="kimp-np-title">Neuen Lieferanten anlegen (Rolle: BA-Lieferant)</div>
+          <div class="kimp-np-grid">
+            <div class="kimp-newba-field kimp-np-full"><label>Firmenname / Name *</label><input type="text" id="kimp-np-name" autocomplete="off" /></div>
+            <div class="kimp-newba-field"><label>Typ *</label>
+              <select id="kimp-np-typ"><option>Unternehmen</option><option>Privatperson</option></select></div>
+            <div class="kimp-newba-field"><label>USt-Status *</label>
+              <select id="kimp-np-ust"><option>19%</option><option>7%</option><option>0%</option></select></div>
+            <div class="kimp-newba-field kimp-np-full"><label>Straße</label><input type="text" id="kimp-np-strasse" autocomplete="off" /></div>
+            <div class="kimp-newba-field"><label>PLZ</label><input type="text" id="kimp-np-plz" autocomplete="off" /></div>
+            <div class="kimp-newba-field"><label>Ort</label><input type="text" id="kimp-np-ort" autocomplete="off" /></div>
+          </div>
+          <div class="kimp-np-dups" id="kimp-np-dups"></div>
+          <div class="kimp-np-msg" id="kimp-np-msg"></div>
+          <div class="kimp-np-actions">
+            <button type="button" id="btn-kimp-np-cancel">Abbrechen</button>
+            <button type="button" class="primary" id="btn-kimp-np-save">Lieferant anlegen</button>
+          </div>
         </div>
         <div class="kimp-newba-field">
           <label>Datum *</label>
