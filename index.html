@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.16.2
-  SW Cache: rd-hub-v94
+  Version:  2.17.0
+  SW Cache: rd-hub-v95
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.17.0 (2026-10-11)  BA-Dialog: „Kein Beleg? → Eigenbeleg erzeugen“ – erzeugt im Browser (eigener PDF-Writer, keine Library) bei fehlendem Fremdbeleg (z. B. Kleinanzeigen-Privatkauf) ein Eigenbeleg-PDF (Belegnummer = KIMP-ID, Zahlungsempfänger, Grund, Aussteller) und legt damit die BA an; Vorsteuer = nein / USt 0 %
   v2.16.2 (2026-10-11)  KIMP-Detail: Kapitalbewegung (KIMP_KapBew_ID → Kapitalbewegung_2026) als Verknüpfung inkl. Eigenbeleg-PDF (KB_Eigenbeleg) anzeigen; zählt als Beleg beim Abschließen und in der Listen-Spalte „Beleg“
   v2.16.1 (2026-10-11)  KIMP-Detail: „Öffnen“-Button auch direkt in der BA-Karte unter „Aktuelle Verknüpfungen“ (links)
   v2.16.0 (2026-10-11)  KIMP-Detail: verknüpfte BA per „Öffnen“ direkt im BA-Editor öffnen und abschließen; nach Abschließen/Zurück geht es zum KIMP zurück (Verknüpfungen + Status neu geladen)
@@ -632,6 +633,11 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
 .kimp-newba-drop:hover,.kimp-newba-drop.dragover{border-color:var(--accent);color:var(--text)}
 .kimp-newba-drop strong{color:var(--text)}
 .kimp-newba-drop-sub{font-size:11px;color:var(--hint);margin-top:4px}
+.kimp-newba-eb-toggle{background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:2px 0;text-align:left}
+.kimp-newba-eb-toggle:hover{color:var(--text)}
+.kimp-newba-eb{border:.5px solid var(--border);border-radius:var(--radius-sm);background:var(--card2);padding:12px;display:flex;flex-direction:column;gap:8px}
+.kimp-newba-eb-title{font-size:13px;font-weight:700;color:var(--text)}
+.kimp-newba-eb-hint{font-size:11px;color:var(--hint)}
 .kimp-newba-file{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--text)}
 .kimp-newba-file-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kimp-newba-file-change{background:none;border:.5px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;font-family:inherit}
@@ -743,8 +749,8 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.16.2</span>
-      <span>SW rd-hub-v94</span>
+      <span>APP v2.17.0</span>
+      <span>SW rd-hub-v95</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
     <div class="lock-build" id="build-date">…</div>
@@ -5787,6 +5793,7 @@ var KIMP_NEWBA_ALLOWED_MIMES = ['application/pdf','image/jpeg','image/png'];
 //   opts: { title, showKimpInfo }
 var badOnSave = null;
 var badShowKimpInfo = false;
+var kimpNewBaEbMode = false;   // v2.17.0: Eigenbeleg statt hochgeladenem Beleg
 var badSelectedPartnerId = null;   // im KIMP-Dialog gewählter Partner-Record → BA_PartnerID
 var badPartnerTimer = null;        // Debounce für die Picker-Suche im KIMP-Modal
 
@@ -6088,6 +6095,13 @@ function kimpNewBaShowPreview(mime, url){
   preview.style.display = '';   // CSS hat kein display:none mehr → fällt sauber auf 'block' zurück
 }
 function kimpNewBaResetForm(){
+  kimpNewBaEbMode = false;
+  document.getElementById('kimp-newba-eb').style.display='none';
+  document.getElementById('btn-kimp-newba-change').style.display='';
+  document.getElementById('btn-kimp-newba-eb').style.display='';
+  ['kimp-newba-eb-empf','kimp-newba-eb-grund'].forEach(function(id){
+    var el=document.getElementById(id); el.value=''; el.classList.remove('kimp-newba-invalid');
+  });
   kimpNewBaPdfBase64 = null;
   kimpNewBaPdfName = null;
   kimpNewBaPdfMime = null;
@@ -6216,6 +6230,271 @@ function kimpNewBaFillFromOcr(d){
 // (Lieferanten-Auto-Complete läuft jetzt über den geteilten partnerPickerSearch mit
 //  KIMP_PARTNER_PICKER_CFG — rollengefiltert, ID-basiert. Wireup weiter unten.)
 
+// ── v2.17.0: Eigenbeleg für BAs ohne Fremdbeleg ──
+var EB_COMPANY_TRADE = 'Replaydealers GbR';
+var EB_COMPANY_LEGAL = 'Bastian Karlshaus und Daniel Hecker GbR';
+var EB_COMPANY_ADDRESS = 'Heinz-Fangmann-Str. 2, 42287 Wuppertal (im W-tec)';
+var EB_COMPANY_VAT_ID = 'DE 370001609';
+var EB_DEFAULT_GRUND = 'Privatkauf von Privatperson ohne Rechnung (z. B. Kleinanzeigen)';
+var kimpEbLogoPromise = null;
+
+// Minimaler PDF-Writer (A4, mm, Ursprung oben links) – ohne externe Library.
+// Schrift: Helvetica/Helvetica-Bold (Standard-14, WinAnsi); Textbreiten per Canvas
+// (Arial-Metrik = Helvetica-Metrik). Bilder nur als JPEG (DCTDecode).
+var EB_WINANSI = { '€':0x80,'‚':0x82,'„':0x84,'…':0x85,'‘':0x91,'’':0x92,'“':0x93,'”':0x94,'•':0x95,'–':0x96,'—':0x97 };
+function EbPdf(){
+  this.ops = []; this.images = [];
+  this.ctx = document.createElement('canvas').getContext('2d');
+  this.size = 10; this.bold = false;
+}
+EbPdf.prototype.k = 72/25.4;
+EbPdf.prototype.H = 297;
+EbPdf.prototype.font = function(bold, size){ this.bold = !!bold; this.size = size; return this; };
+EbPdf.prototype.width = function(str){
+  this.ctx.font = (this.bold ? 'bold ' : '') + '100px Arial, Helvetica, sans-serif';
+  return this.ctx.measureText(str).width / 100 * this.size / this.k;
+};
+EbPdf.prototype.split = function(str, maxW){
+  var out = [];
+  String(str || '').split('\n').forEach(function(par){
+    var words = par.split(/\s+/).filter(Boolean), cur = '';
+    words.forEach(function(w){
+      var t = cur ? cur + ' ' + w : w;
+      if (!cur || this.width(t) <= maxW) cur = t; else { out.push(cur); cur = w; }
+    }, this);
+    out.push(cur);
+  }, this);
+  return out;
+};
+EbPdf.prototype.esc = function(str){
+  var r = '';
+  for (var i=0;i<str.length;i++){
+    var ch = str[i], c = EB_WINANSI[ch] || str.charCodeAt(i);
+    if (c > 255) c = 63;   // '?' für nicht darstellbare Zeichen
+    if (c === 40 || c === 41 || c === 92) r += '\\' + ch;
+    else if (c < 32 || c > 126) r += '\\' + ('00' + c.toString(8)).slice(-3);
+    else r += ch;
+  }
+  return r;
+};
+EbPdf.prototype.n = function(v){ return (Math.round(v*100)/100).toString(); };
+EbPdf.prototype.color = function(rgb, stroke){
+  var c = rgb.map(function(x){ return this.n(x/255); }, this).join(' ');
+  this.ops.push(c + (stroke ? ' RG' : ' rg'));
+  return this;
+};
+EbPdf.prototype.text = function(x, y, str, align){
+  str = String(str == null ? '' : str);
+  if (align === 'right') x -= this.width(str);
+  this.ops.push('BT /' + (this.bold ? 'F2' : 'F1') + ' ' + this.n(this.size) + ' Tf ' +
+    this.n(x*this.k) + ' ' + this.n((this.H-y)*this.k) + ' Td (' + this.esc(str) + ') Tj ET');
+  return this;
+};
+EbPdf.prototype.line = function(x1, y1, x2, y2, w){
+  this.ops.push(this.n(w||0.3) + ' w ' + this.n(x1*this.k) + ' ' + this.n((this.H-y1)*this.k) + ' m ' +
+    this.n(x2*this.k) + ' ' + this.n((this.H-y2)*this.k) + ' l S');
+  return this;
+};
+EbPdf.prototype.rect = function(x, y, w, h, mode){
+  this.ops.push(this.n(x*this.k) + ' ' + this.n((this.H-y-h)*this.k) + ' ' + this.n(w*this.k) + ' ' + this.n(h*this.k) + ' re ' + (mode||'f'));
+  return this;
+};
+EbPdf.prototype.image = function(jpegBytes, pxW, pxH, x, y, w, h){
+  var name = 'Im' + (this.images.length + 1);
+  this.images.push({ name:name, bytes:jpegBytes, w:pxW, h:pxH });
+  this.ops.push('q ' + this.n(w*this.k) + ' 0 0 ' + this.n(h*this.k) + ' ' + this.n(x*this.k) + ' ' +
+    this.n((this.H-y-h)*this.k) + ' cm /' + name + ' Do Q');
+  return this;
+};
+EbPdf.prototype.output = function(title){
+  var chunks = [], len = 0, offsets = [];
+  function bytes(str){ var u=new Uint8Array(str.length); for (var i=0;i<str.length;i++) u[i]=str.charCodeAt(i)&255; return u; }
+  function push(u){ chunks.push(u); len += u.length; }
+  function obj(num, body, stream){
+    offsets[num] = len;
+    if (stream){
+      push(bytes(num + ' 0 obj\n' + body + '\nstream\n')); push(stream); push(bytes('\nendstream\nendobj\n'));
+    } else push(bytes(num + ' 0 obj\n' + body + '\nendobj\n'));
+  }
+  var content = bytes(this.ops.join('\n'));
+  var imgBase = 7, xobj = this.images.map(function(im, i){ return '/' + im.name + ' ' + (imgBase+i) + ' 0 R'; }).join(' ');
+  push(bytes('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'));
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  obj(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Contents 4 0 R ' +
+    '/Resources << /Font << /F1 5 0 R /F2 6 0 R >>' + (xobj ? ' /XObject << ' + xobj + ' >>' : '') + ' >> >>');
+  obj(4, '<< /Length ' + content.length + ' >>', content);
+  obj(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  obj(6, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  this.images.forEach(function(im, i){
+    obj(imgBase+i, '<< /Type /XObject /Subtype /Image /Width ' + im.w + ' /Height ' + im.h +
+      ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + im.bytes.length + ' >>', im.bytes);
+  });
+  var infoNum = imgBase + this.images.length;
+  obj(infoNum, '<< /Title (' + this.esc(title||'') + ') /Producer (RD Hub) >>');
+  var xref = len, total = infoNum + 1;
+  var x = 'xref\n0 ' + total + '\n0000000000 65535 f \n';
+  for (var i=1;i<total;i++) x += ('0000000000' + offsets[i]).slice(-10) + ' 00000 n \n';
+  push(bytes(x + 'trailer\n<< /Size ' + total + ' /Root 1 0 R /Info ' + infoNum + ' 0 R >>\nstartxref\n' + xref + '\n%%EOF\n'));
+  var out = new Uint8Array(len), o = 0;
+  chunks.forEach(function(c){ out.set(c, o); o += c.length; });
+  return out;
+};
+
+// Logo als JPEG (weißer Hintergrund) für den Eigenbeleg. Fehlt es, ohne Logo weiter.
+function kimpEbLoadLogo(){
+  if (kimpEbLogoPromise) return kimpEbLogoPromise;
+  kimpEbLogoPromise = new Promise(function(resolve){
+    var img = new Image();
+    img.onload = function(){
+      try {
+        var c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+        var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(img,0,0);
+        var d = c.toDataURL('image/jpeg', 0.92), bin = atob(d.substring(d.indexOf(',')+1));
+        var u = new Uint8Array(bin.length); for (var i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+        resolve({ bytes:u, w:c.width, h:c.height });
+      } catch(e){ resolve(null); }
+    };
+    img.onerror = function(){ resolve(null); };
+    img.src = 'logo.png';
+  });
+  return kimpEbLogoPromise;
+}
+
+function kimpEbSetMode(on){
+  kimpNewBaEbMode = !!on;
+  document.getElementById('kimp-newba-eb').style.display = on ? '' : 'none';
+  document.getElementById('btn-kimp-newba-eb').style.display = on ? 'none' : '';
+  kimpNewBaClearPreview();
+  kimpNewBaPdfBase64 = null; kimpNewBaPdfMime = null; kimpNewBaPdfName = null;
+  document.getElementById('kimp-newba-file-info').style.display = 'none';
+  document.getElementById('kimp-newba-drop').style.display = on ? 'none' : '';
+  document.getElementById('btn-kimp-newba-change').style.display = '';
+  if (!on) return;
+  function setIfEmpty(id, v){ var el=document.getElementById(id); if (el && !el.value) el.value=v; }
+  // Eigenbeleg = kein Rechnungsbeleg → kein Vorsteuerabzug.
+  document.getElementById('kimp-newba-vorsteuer').value = 'nein';
+  document.getElementById('kimp-newba-ustsatz').value = '0%';
+  var b = parseFloat(document.getElementById('kimp-newba-brutto').value);
+  if (!isNaN(b)){ document.getElementById('kimp-newba-netto').value = b; document.getElementById('kimp-newba-ust').value = 0; }
+  setIfEmpty('kimp-newba-eb-grund', EB_DEFAULT_GRUND);
+  var kid = kimpEbKimpId();
+  if (kid) setIfEmpty('kimp-newba-belegnr', kid);
+  var k = kimpEbKimpFields();
+  var name = (k && k['KIMP_Name']) || '';
+  var sel = document.getElementById('kimp-newba-eb-aussteller');
+  if (/daniel/i.test(name)) sel.value = 'Daniel Hecker';
+  else if (/bastian/i.test(name)) sel.value = 'Bastian Karlshaus';
+}
+function kimpEbKimpFields(){ return (badShowKimpInfo && kimpCurrentRec && kimpCurrentRec.fields) ? kimpCurrentRec.fields : null; }
+function kimpEbKimpId(){ var k=kimpEbKimpFields(); return (k && k['KIMP_ID']) || ''; }
+
+function kimpEbValidate(){
+  var bad = [];
+  ['kimp-newba-eb-empf','kimp-newba-eb-grund'].forEach(function(id){
+    var el=document.getElementById(id); el.classList.remove('kimp-newba-invalid');
+    if (!el.value.trim()){ el.classList.add('kimp-newba-invalid'); bad.push(id); }
+  });
+  var b = parseFloat(document.getElementById('kimp-newba-brutto').value);
+  if (!document.getElementById('kimp-newba-datum').value || isNaN(b) || b===0 || !document.getElementById('kimp-newba-bezeichnung').value.trim())
+    return 'Für den Eigenbeleg fehlen Datum, Brutto oder Bezeichnung.';
+  return bad.length ? 'Eigenbeleg: Zahlungsempfänger und Grund ausfüllen.' : '';
+}
+
+function kimpEbFmtEur(v){
+  return Math.abs(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' EUR';
+}
+function kimpEbFmtDate(iso){ var p=String(iso||'').split('-'); return p.length===3 ? p[2]+'.'+p[1]+'.'+p[0] : (iso||''); }
+
+// Erzeugt das Eigenbeleg-PDF aus den Formularwerten und setzt es als Beleg des Dialogs.
+function kimpEbBuild(showPreview){
+  return kimpEbLoadLogo().then(function(logo){
+    function v(id){ return (document.getElementById(id).value || '').trim(); }
+    var k = kimpEbKimpFields();
+    var kimpId = kimpEbKimpId();
+    var belegNr = kimpId || v('kimp-newba-belegnr') || '—';
+    var today = new Date().toISOString().slice(0,10);
+    var TEXT=[26,26,26], MUTED=[102,102,102], LINE=[204,204,204], ACCENT=[31,111,209], BOX=[243,246,251];
+    var pdf = new EbPdf();
+    var L = 20, R = 190, y;
+    if (logo){ var lw = 52; pdf.image(logo.bytes, logo.w, logo.h, L-3, 12, lw, lw*logo.h/logo.w); }
+    pdf.color(TEXT).font(true,10).text(R, 20, EB_COMPANY_TRADE, 'right');
+    pdf.color(MUTED).font(false,8.5);
+    [EB_COMPANY_LEGAL, EB_COMPANY_ADDRESS, 'USt-IdNr.: ' + EB_COMPANY_VAT_ID].forEach(function(t, i){ pdf.text(R, 24.5 + i*4.2, t, 'right'); });
+
+    y = 62;
+    pdf.color(ACCENT, true).line(L, y-9, R, y-9, 1.2);
+    pdf.color(TEXT).font(true,16).text(L, y, 'Eigenbeleg – Betriebsausgabe');
+    pdf.color(MUTED).font(false,9).text(L, y+6, 'Interner Beleg gem. GoBD für eine Ausgabe ohne Fremdbeleg');
+    pdf.color(BOX).color(ACCENT, true).rect(R-62, y-8, 62, 16, 'B');
+    pdf.color(MUTED).font(false,7.5).text(R-58, y-3.5, kimpId ? 'BELEGNUMMER (KIMP-ID)' : 'BELEGNUMMER');
+    pdf.color(TEXT).font(true,13).text(R-58, y+4, belegNr);
+
+    var rows = [
+      ['Datum der Ausgabe', kimpEbFmtDate(v('kimp-newba-datum'))],
+      ['Zahlungsempfänger / Verkäufer', v('kimp-newba-eb-empf')],
+      ['Gegenstand / Leistung', v('kimp-newba-bezeichnung')],
+      ['Kategorie', v('kimp-newba-kategorie') || '—'],
+      ['Zahlweg', v('kimp-newba-zahlweg') || '—'],
+      ['Grund für fehlenden Beleg', v('kimp-newba-eb-grund')]
+    ];
+    if (k){
+      rows.push(['Bankbuchung', (k['KIMP_ID']||'') + ' vom ' + kimpEbFmtDate(k['KIMP_Buchungstag']) + ', ' + (k['KIMP_Name']||'')]);
+      rows.push(['Verwendungszweck Bank', k['KIMP_Verwendungszweck'] || '—']);
+    }
+    if (v('kimp-newba-notizen')) rows.push(['Anmerkung', v('kimp-newba-notizen')]);
+    rows.push(['Umsatzsteuer', 'kein gesonderter USt-Ausweis, kein Vorsteuerabzug']);
+    y += 22;
+    rows.forEach(function(row){
+      pdf.font(false,9.5);
+      var lines = pdf.split(row[1] || '—', R - L - 55);
+      pdf.color(MUTED).font(false,8.5).text(L, y, row[0]);
+      pdf.color(TEXT).font(false,9.5);
+      lines.forEach(function(ln, i){ pdf.text(L+55, y + i*4.8, ln); });
+      y += lines.length * 4.8 + 2.6;
+      pdf.color(LINE, true).line(L, y-4.4, R, y-4.4, 0.4);
+    });
+
+    y += 4;
+    pdf.color(BOX).rect(L, y-6, R-L, 14, 'f');
+    pdf.color(TEXT).font(true,11).text(L+4, y+2.5, 'Betrag (brutto)');
+    pdf.font(true,15).text(R-4, y+2.5, kimpEbFmtEur(parseFloat(v('kimp-newba-brutto'))), 'right');
+
+    y += 18;
+    pdf.font(true,9.5).text(L, y, 'Erläuterung');
+    pdf.font(false,9);
+    var expl = 'Für diese betrieblich veranlasste Ausgabe liegt kein Fremdbeleg vor. Der Eigenbeleg wurde ' +
+      'nachträglich erstellt und dokumentiert Datum, Betrag, Zahlungsempfänger und Gegenstand der Ausgabe. ' +
+      'Die Angaben entsprechen den Tatsachen.';
+    pdf.split(expl, R-L).forEach(function(ln){ y += 4.6; pdf.text(L, y, ln); });
+
+    y += 30;
+    pdf.text(L, y-8, 'Wuppertal, ' + kimpEbFmtDate(today));
+    pdf.color(TEXT, true).line(L, y, L+75, y, 0.6);
+    pdf.font(false,8.5).text(L, y+4, v('kimp-newba-eb-aussteller'));
+    pdf.color(MUTED).font(false,7.5).text(L, y+7.5, 'Aussteller für die ' + EB_COMPANY_TRADE);
+
+    pdf.color(LINE, true).line(L, 279, R, 279, 0.4);
+    pdf.color(MUTED).font(false,7).text(L, 283, EB_COMPANY_LEGAL + ' · ' + EB_COMPANY_ADDRESS + ' · USt-IdNr. ' + EB_COMPANY_VAT_ID);
+    pdf.text(R, 286.5, 'Eigenbeleg ' + belegNr + ' · erstellt ' + kimpEbFmtDate(today), 'right');
+
+    var bytes = pdf.output('Eigenbeleg ' + belegNr);
+    var bin = '';
+    for (var i=0;i<bytes.length;i+=0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+0x8000));
+    kimpNewBaPdfBase64 = btoa(bin);
+    kimpNewBaPdfMime = 'application/pdf';
+    kimpNewBaPdfName = 'Eigenbeleg_' + belegNr.replace(/\//g,'-') + '.pdf';
+    if (showPreview){
+      kimpNewBaClearPreview();
+      kimpNewBaPreviewUrl = URL.createObjectURL(new Blob([bytes], { type:'application/pdf' }));
+      kimpNewBaShowPreview('application/pdf', kimpNewBaPreviewUrl);
+      // Drop-Zone bleibt im Eigenbeleg-Modus versteckt; Datei-Info zeigt den Namen.
+      document.getElementById('kimp-newba-file-name').textContent = kimpNewBaPdfName;
+      document.getElementById('btn-kimp-newba-change').style.display = 'none';
+    }
+  });
+}
+
 // Generischer Submit-Handler des gemeinsamen BA-Dialogs: validiert die – jetzt
 // vollständigen – Pflichtfelder (inkl. USt-Satz / Kategorie / Zahlweg / Vorsteuer),
 // sammelt die Werte und delegiert das eigentliche Speichern an den Kontext-Adapter
@@ -6223,6 +6502,26 @@ function kimpNewBaFillFromOcr(d){
 function badSubmit(){
   if (kimpNewBaBusy) return;
   kimpNewBaHideError();
+  if (kimpNewBaEbMode){
+    // Eigenbeleg wird bei jedem Anlegen frisch aus den aktuellen Formularwerten erzeugt.
+    var ebErr = kimpEbValidate();
+    if (ebErr){ kimpNewBaShowError(ebErr); return; }
+    if (!badOnSave){ kimpNewBaShowError('Kein Speicher-Handler aktiv.'); return; }
+    var sb = document.getElementById('btn-kimp-newba-submit');
+    sb.disabled = true; sb.textContent = 'Erzeuge Eigenbeleg…';
+    kimpEbBuild(false).then(function(){
+      sb.disabled = false; sb.textContent = 'BA anlegen';
+      kimpEbSubmitAfterBuild();
+    }).catch(function(e){
+      sb.disabled = false; sb.textContent = 'BA anlegen';
+      kimpNewBaShowError('Eigenbeleg konnte nicht erzeugt werden: ' + (e && e.message ? e.message : e));
+    });
+    return;
+  }
+  badSubmitCore();
+}
+function kimpEbSubmitAfterBuild(){ badSubmitCore(); }
+function badSubmitCore(){
   if (!kimpNewBaPdfBase64){
     kimpNewBaShowError('Bitte erst einen Beleg auswählen.');
     return;
@@ -6480,6 +6779,14 @@ document.addEventListener('DOMContentLoaded', function setupKimp(){
   document.getElementById('btn-kimp-newba-close').addEventListener('click', closeKimpNewBaModal);
   document.getElementById('btn-kimp-newba-cancel').addEventListener('click', closeKimpNewBaModal);
   document.getElementById('btn-kimp-newba-submit').addEventListener('click', badSubmit);
+  document.getElementById('btn-kimp-newba-eb').addEventListener('click', function(){ kimpEbSetMode(true); });
+  document.getElementById('btn-kimp-newba-eb-off').addEventListener('click', function(){ kimpEbSetMode(false); });
+  document.getElementById('btn-kimp-newba-eb-preview').addEventListener('click', function(){
+    kimpNewBaHideError();
+    var err = kimpEbValidate();
+    if (err){ kimpNewBaShowError(err); return; }
+    kimpEbBuild(true).catch(function(e){ kimpNewBaShowError('Eigenbeleg konnte nicht erzeugt werden: ' + (e && e.message ? e.message : e)); });
+  });
 
   // Lieferant-Picker (geteilt mit BA-Review, ID-basiert, rollengefiltert).
   // Tippen macht eine vorherige Auswahl ungültig (badSelectedPartnerId → null),
@@ -7039,6 +7346,19 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
           <div class="kimp-newba-drop" id="kimp-newba-drop">
             <div><strong>Beleg hierher ziehen</strong> oder klicken zum Auswählen</div>
             <div class="kimp-newba-drop-sub">PDF, JPG oder PNG — OCR startet automatisch</div>
+          </div>
+          <button type="button" class="kimp-newba-eb-toggle" id="btn-kimp-newba-eb">Kein Beleg vorhanden? → Eigenbeleg erzeugen</button>
+          <div class="kimp-newba-eb" id="kimp-newba-eb" style="display:none">
+            <div class="kimp-newba-eb-title">Eigenbeleg (kein Fremdbeleg vorhanden)</div>
+            <div class="kimp-newba-eb-hint">Beim Anlegen wird aus den Formularfeldern ein Eigenbeleg-PDF erzeugt (Belegnummer = KIMP-ID) und als Beleg an die BA gehängt. Kein Vorsteuerabzug.</div>
+            <div class="kimp-newba-field"><label>Zahlungsempfänger / Verkäufer *</label>
+              <input type="text" id="kimp-newba-eb-empf" autocomplete="off" placeholder="z. B. Kleinanzeigen-Nutzer „max123“, Name falls bekannt" /></div>
+            <div class="kimp-newba-field"><label>Grund für fehlenden Beleg *</label>
+              <input type="text" id="kimp-newba-eb-grund" autocomplete="off" /></div>
+            <div class="kimp-newba-field"><label>Aussteller *</label>
+              <select id="kimp-newba-eb-aussteller"><option>Bastian Karlshaus</option><option>Daniel Hecker</option></select></div>
+            <button type="button" class="kimp-newba-file-change" id="btn-kimp-newba-eb-preview">Vorschau erzeugen</button>
+            <button type="button" class="kimp-newba-eb-toggle" id="btn-kimp-newba-eb-off">← doch Beleg hochladen</button>
           </div>
           <input type="file" id="kimp-newba-file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" style="display:none" />
           <div class="kimp-newba-file" id="kimp-newba-file-info" style="display:none">
