@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deine Bestellung – Tsumiki</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/mode.js"></script>
+</head>
+<body>
+<main>
+  <section style="padding-top:40px">
+    <div class="wrap" id="out"><p class="muted">Bestellung wird geladen …</p></div>
+  </section>
+</main>
+<script type="module">
+  import { renderChrome, eur, esc, date, $ } from './assets/site.js';
+  import { api } from './assets/api.js';
+  renderChrome();
+  const p = new URLSearchParams(location.search);
+  let token = p.get('b');
+  if (!token) { try { token = sessionStorage.getItem('tsumiki-last-token'); } catch (x) { /* egal */ } }
+  const out = $('#out');
+  const POS = { angefragt: ['Wird gekauft', ''], gekauft: ['Gekauft, liegt in Japan', 'ok'], nicht_verfuegbar: ['Nicht mehr verfügbar, nicht berechnet', 'red'], unterwegs: ['In der Kiste unterwegs', 'blue'], angekommen: ['In Wuppertal, wird gepackt', 'blue'], versendet: ['Versendet', 'ok'], retoure: ['Zurückgegeben', 'warn'] };
+  try {
+    const o = await api.order(token);
+    const order = ['neu', 'gekauft', 'unterwegs', 'angekommen', 'versendet'];
+    const idx = o.status === 'zahlung_offen' ? -1 : order.indexOf(o.status);
+    const steps = [
+      ['Bestellt', o.paymentMethod === 'ueberweisung' ? (o.paymentStatus === 'warten_auf_zahlung' ? 'Wir warten auf deine Überweisung.' : 'Zahlung eingegangen.') : `${eur(o.gross)} vorgemerkt, noch nicht abgebucht.`],
+      ['Gekauft in Japan', 'Erst jetzt wird abgebucht, und nur für Artikel, die wir bekommen haben.'],
+      ['In der Kiste unterwegs', `Bestellschluss der nächsten Kiste: ${date(o.cutoff.cutoff)}.`],
+      ['In Wuppertal angekommen', 'Wir prüfen und packen deine Artikel.'],
+      ['Versendet', o.trackingNo ? `Sendungsnummer ${esc(o.trackingNo)}` : 'Du bekommst die Sendungsnummer per E-Mail.'],
+    ];
+    const cls = (i) => (o.status === 'storniert' ? '' : i < idx || (i === idx && o.status === 'versendet') ? 'done' : i === idx ? 'now' : i === 0 && idx === -1 ? 'now' : '');
+    out.innerHTML = `
+      ${p.get('fehler') ? `<p class="note">${esc(p.get('fehler'))}</p>` : ''}
+      ${p.get('neu') ? `<p class="note ok">Danke, ${esc(o.name.split(' ')[0])}! Deine Bestellung ist bei uns. Speichere dir diese Seite, hier siehst du jederzeit den Stand.</p>` : ''}
+      <h1 style="font-size:clamp(30px,4.4vw,44px)">Bestellung ${esc(o.id)}</h1>
+      <p class="muted">vom ${date(o.createdAt, { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+      ${o.status === 'storniert' ? `<p class="note">Diese Bestellung ist storniert. ${o.paymentStatus === 'abgebrochen' ? 'Die Zahlung wurde abgebrochen.' : 'Die Artikel waren nicht mehr verfügbar. Es wurde nichts abgebucht.'}</p>` : ''}
+      ${o.status === 'retoure' ? `<p class="note info">Wir haben deinen Widerruf bearbeitet. Die Gutschrift findest du unten.</p>` : ''}
+      <div class="split" style="margin-top:24px">
+        <div>
+          <h2 style="font-size:22px">Stand</h2>
+          <ol class="timeline">${steps.map(([t, d], i) => `<li class="${cls(i)}"><span class="dot"></span><span><strong>${t}</strong><span class="muted small">${d}</span></span></li>`).join('')}</ol>
+          ${o.paymentStatus === 'warten_auf_zahlung' ? `<div class="panel"><h3>Bitte überweise</h3><p style="margin:0"><strong>${eur(o.gross)}</strong><br>an Bastian Karlshaus<br>IBAN ${esc(o.iban)}<br>Verwendungszweck: <strong>${esc(o.id)}</strong></p></div>` : ''}
+        </div>
+        <div>
+          <h2 style="font-size:22px">Deine Artikel</h2>
+          ${o.positions.map((x) => `<div class="item"><div><div class="t">${esc(x.title || x.platform)}</div><div class="m"><span class="tag ${POS[x.status][1]}">${POS[x.status][0]}</span></div></div><div class="p">${x.status === 'nicht_verfuegbar' ? '<s class="muted">' + eur(x.grossPriceEUR) + '</s>' : eur(x.grossPriceEUR)}</div></div>`).join('')}
+          <div class="block total" style="margin-top:14px"><span class="k">${o.capturedGross ? 'Abgebucht' : 'Vorgemerkt'}<span class="sub">inkl. MwSt. und Versand</span></span><span class="v">${eur(o.capturedGross || o.gross)}</span></div>
+          ${o.invoiceId ? `<button class="btn secondary block" style="margin-top:14px" id="inv">Rechnung ${esc(o.invoiceId)} öffnen</button>` : ''}
+          ${o.credits.map((c) => `<button class="btn secondary block" style="margin-top:10px" data-credit="${c}">Gutschrift ${esc(c)} öffnen</button>`).join('')}
+        </div>
+      </div>
+      ${api.isDemo() ? `<p class="note info" style="margin-top:28px">Vorschau: Die nächsten Schritte (kaufen, Kiste losschicken, ankommen, versenden) löst du in der <a href="admin/index.html">Verwaltung</a> aus. Danach siehst du sie hier.</p>` : ''}`;
+    const inv = document.getElementById('inv');
+    if (inv) inv.addEventListener('click', () => api.openInvoice(token, o.invoiceId));
+    document.querySelectorAll('[data-credit]').forEach((b) => b.addEventListener('click', () => api.openInvoice(token, b.dataset.credit)));
+  } catch (e) {
+    out.innerHTML = `<h1 style="font-size:36px">Bestellung nicht gefunden</h1><p>Prüfe den Link aus deiner Bestätigungsmail. Bei Fragen schreib uns.</p><a class="btn" href="bestellen.html">Neue Bestellung</a>`;
+  }
+</script>
+</body>
+</html>

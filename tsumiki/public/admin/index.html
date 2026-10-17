@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verwaltung – Tsumiki</title>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="../assets/mode.js"></script>
+<style>
+  body { background: #F7F6F3; }
+  .adm-head { background: var(--ink); color: #fff; }
+  .adm-head .wrap { display: flex; align-items: center; justify-content: space-between; min-height: 60px; gap: 12px; flex-wrap: wrap; }
+  .adm-head .brand { color: #fff; }
+  .adm-head .brand span { font-size: 19px; }
+  .adm-head a.site { color: #fff; font-size: 14px; }
+  .tabs { display: flex; gap: 4px; overflow-x: auto; padding: 10px 0; border-bottom: 1px solid var(--stone-2); background: #fff; position: sticky; top: 0; z-index: 10; }
+  .tabs .wrap { display: flex; gap: 4px; }
+  .tabs a { white-space: nowrap; text-decoration: none; color: var(--ink-2); padding: 9px 12px; border-radius: var(--radius-s); font-weight: 600; font-size: 15px; }
+  .tabs a.on { background: var(--ink); color: #fff; }
+  .tabs a .badge { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 6px; border-radius: 999px; background: var(--hanko); color: #fff; font-size: 12px; line-height: 20px; text-align: center; }
+  main { padding: 28px 0 60px; }
+  .card { background: #fff; border: 1px solid var(--stone-2); border-radius: var(--radius-l); padding: 20px; margin-bottom: 16px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+  @media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .kpi { background: #fff; border: 1px solid var(--stone-2); border-radius: var(--radius-m); padding: 14px 16px; text-decoration: none; color: var(--ink); }
+  .kpi b { display: block; font: 900 28px var(--display); }
+  .kpi span { font-size: 14px; color: var(--muted); }
+  .kpi.alert { border-color: var(--hanko); }
+  .kpi.alert b { color: var(--hanko); }
+  table.t { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.t th { text-align: left; font-weight: 600; color: var(--muted); border-bottom: 2px solid var(--stone-2); padding: 8px 6px; white-space: nowrap; }
+  table.t td { border-bottom: 1px solid var(--stone-2); padding: 9px 6px; vertical-align: top; }
+  table.t td.n, table.t th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .scroll { overflow-x: auto; }
+  .pos { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; padding: 14px 0; border-top: 1px solid var(--stone-2); }
+  .pos:first-of-type { border-top: 0; }
+  .pos .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; grid-column: 1 / -1; }
+  .pos .acts .field { margin: 0; min-width: 140px; flex: 1; }
+  .pos .acts input { min-height: 44px; }
+  .btn.s { min-height: 44px; padding: 0 16px; font-size: 15px; }
+  .formrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+  .formrow .field { flex: 1 1 150px; margin: 0; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 12px 18px; border-radius: var(--radius-m); z-index: 50; max-width: 92vw; }
+  .toast.err { background: var(--hanko-dark); }
+  .params { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+  @media (max-width: 760px) { .params { grid-template-columns: 1fr; } }
+  .params .field { margin: 0; }
+  .params label { font-size: 13px; font-weight: 600; }
+  .params .hint { font-size: 12px; margin-top: 3px; }
+</style>
+</head>
+<body>
+<header class="adm-head"><div class="wrap">
+  <a class="brand" href="#start"><svg viewBox="0 0 132 104" width="30" height="24" aria-hidden="true"><rect x="4" y="56" width="58" height="44" rx="6" fill="#fff"/><rect x="70" y="56" width="58" height="44" rx="6" fill="#fff"/><rect x="37" y="4" width="58" height="44" rx="6" fill="#B4341C"/></svg><span>Verwaltung</span></a>
+  <span class="small" id="modeinfo"></span>
+  <a class="site" href="../index.html">Zur Website</a>
+</div></header>
+<nav class="tabs" aria-label="Bereiche"><div class="wrap" id="tabs"></div></nav>
+<main><div class="wrap" id="view"></div></main>
+<script type="module" src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tsumiki – Japanische Sammelkarten ohne Zoll an der Haustür</title>
+<meta name="description" content="Link aus Mercari, Yahoo oder Suruga-ya einfügen, Endpreis sehen, reservieren. Wir kaufen in Japan ein und schicken alles gebündelt nach Europa.">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/mode.js"></script>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>Deine Karte aus Japan. Ein Preis, keine Überraschung.</h1>
+        <p class="lead">Link einfügen, Endpreis sehen, reservieren. Wir kaufen für dich in Japan, bündeln alles in einer Kiste und schicken dir dein Paket aus Wuppertal. Zoll und Einfuhrsteuer sind schon drin.</p>
+        <form class="paste" id="paste" action="bestellen.html">
+          <label for="link" class="hidden">Link zum Artikel</label>
+          <input id="link" name="link" type="url" inputmode="url" placeholder="Link von Mercari, Yahoo, Suruga-ya …" required>
+          <button class="btn" type="submit">Endpreis berechnen</button>
+        </form>
+        <p class="sources">Pokémon, One Piece, Yu-Gi-Oh! OCG, Dragon Ball, Digimon, Union Arena, Weiß Schwarz und weitere japanische Sammelkartenspiele.</p>
+      </div>
+      <div>
+        <p class="small muted" style="margin:0 0 10px">Beispiel: eine Karte für ¥9.250 auf Mercari</p>
+        <div id="example"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div id="box"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>So kommt deine Karte zu dir</h2>
+      <ol class="steps">
+        <li><h3>Link einfügen</h3><p>Aus Mercari, Yahoo Auctions (Sofortkauf), Rakuma oder Suruga-ya. Du siehst sofort den Endpreis.</p></li>
+        <li><h3>Reservieren</h3><p>Der Betrag wird nur vorgemerkt. Abgebucht wird erst, wenn unser Kauf in Japan geklappt hat.</p></li>
+        <li><h3>Wir kaufen</h3><p>Meist innerhalb weniger Stunden. Ist ein Artikel schon weg, zahlst du dafür nichts.</p></li>
+        <li><h3>Die Kiste kommt</h3><p>Einmal im Monat geht eine Sammelsendung nach Wuppertal. Von dort geht dein Paket direkt zu dir.</p></li>
+      </ol>
+      <p style="margin-top:28px"><a class="btn secondary" href="so-gehts.html">Den Ablauf genau ansehen</a></p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap split">
+      <div>
+        <h2>Warum zusammen günstiger ist</h2>
+        <p>Seit Juli 2026 kostet jedes private Päckchen aus Japan mindestens 3 € Pauschalzoll, dazu Einfuhrsteuer und eine Gebühr des Paketdienstes fürs Verzollen. Japan Post verschickt nach Deutschland gerade nur eingeschränkt, also bleiben oft nur teure Kuriere.</p>
+        <p>Wir teilen uns diese Kosten: eine Kiste, eine Verzollung, ein Kurier. Für dich bleibt ein fester Endpreis.</p>
+      </div>
+      <div>
+        <h2>Was wir besorgen</h2>
+        <p>Japanische Sammelkarten aller Spiele: Einzelkarten, gegradete Karten, Booster, Displays und Promo-Sets. Artikel von 5 € bis 300 € Warenwert.</p>
+        <p>Keine Figuren, kein Plüsch, keine Elektronik. So bleibt der Import einfach und jeder Artikel sicher verzollt.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
+      <div><h2 style="margin:0">Probier es mit einem echten Link.</h2><p class="muted" style="margin:6px 0 0">Der Preis ist unverbindlich, bis du reservierst.</p></div>
+      <a class="btn" href="bestellen.html">Zur Bestellung</a>
+    </div>
+  </section>
+</main>
+<script type="module">
+  import { renderChrome, priceStack, boxWidget } from './assets/site.js';
+  import { api } from './assets/api.js';
+  renderChrome();
+  document.getElementById('paste').addEventListener('submit', (e) => { e.preventDefault(); location.href = 'bestellen.html?link=' + encodeURIComponent(document.getElementById('link').value.trim()); });
+  const cfg = await api.config();
+  document.getElementById('box').innerHTML = boxWidget(cfg);
+  const q = await api.quote([{ url: 'https://jp.mercari.com/item/m00000000000', priceJPY: 9250, type: 'einzelkarte' }], 'DE');
+  document.getElementById('example').innerHTML = priceStack(q.summary, { details: false });
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+node_modules/
+.env
+# Echte Kundendaten nie ins Repo
+data/

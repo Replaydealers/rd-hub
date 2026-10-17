@@ -1,0 +1,9 @@
+Tsumiki V1.0.1 – Gesamtpaket (Stand 17.10.2026)
+
+1_System          Das lauffähige System (Website, Verwaltung, Rechenkern, Buchhaltung, Excel-Datenbank).
+                  Weiterarbeiten: Ordner in Claude Code öffnen – CLAUDE.md enthält den ganzen Projektkontext.
+                  Starten: START-WINDOWS.bat / START-MAC.command doppelklicken -> http://localhost:3000
+                  Verwaltung: http://localhost:3000/admin/  (Passwort: tsumiki, in .env änderbar)
+                  Ausführliche Anleitung: ANLEITUNG.md
+2_Dokumente       Systemkonzept als PDF (Preismodell, Ablauf, Steuern, Kosten, Risiken, Checkliste)
+3_Kalkulation     Excel-Datenbank mit 6 Beispielbestellungen, Python-Kalkulation aus dem Businessplan

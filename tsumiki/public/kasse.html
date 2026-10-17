@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kasse – Tsumiki</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/mode.js"></script>
+</head>
+<body>
+<main>
+  <section style="padding-top:40px">
+    <div class="wrap">
+      <p><a href="bestellen.html">Zurück zum Warenkorb</a></p>
+      <h1 style="font-size:clamp(30px,4.4vw,44px)">Fast geschafft</h1>
+      <div class="layout-order">
+        <form id="f" class="panel" novalidate>
+          <h2 style="font-size:22px">Lieferadresse</h2>
+          <div class="field"><label for="name">Vor- und Nachname</label><input id="name" type="text" autocomplete="name" required></div>
+          <div class="field"><label for="email">E-Mail</label><input id="email" type="email" autocomplete="email" required><div class="hint">Hierhin schicken wir Kaufbestätigung, Versandnummer und Rechnung.</div></div>
+          <div class="field"><label for="street">Straße und Hausnummer</label><input id="street" type="text" autocomplete="street-address" required></div>
+          <div class="row3">
+            <div class="field"><label for="zip">PLZ</label><input id="zip" type="text" autocomplete="postal-code" required></div>
+            <div class="field"><label for="city">Ort</label><input id="city" type="text" autocomplete="address-level2" required></div>
+          </div>
+          <div class="field"><label for="country">Land</label><select id="country"></select></div>
+
+          <h2 style="font-size:22px;margin-top:28px">Zahlung</h2>
+          <div class="stack" style="gap:8px" role="radiogroup" aria-label="Zahlungsart">
+            <label class="check panel" style="padding:14px"><input type="radio" name="pay" value="paypal" checked><span><strong>PayPal</strong><br>Betrag wird vorgemerkt und erst nach dem Kauf in Japan abgebucht.</span></label>
+            <label class="check panel" style="padding:14px"><input type="radio" name="pay" value="stripe"><span><strong>Karte, Apple Pay, Google Pay oder Klarna</strong><br>Ebenfalls nur vorgemerkt, abgebucht wird nach dem Kauf.</span></label>
+            <label class="check panel" style="padding:14px"><input type="radio" name="pay" value="ueberweisung"><span><strong>Überweisung</strong><br>Wir kaufen, sobald das Geld da ist. Ist ein Artikel bis dahin weg, bekommst du den Betrag zurück.</span></label>
+          </div>
+
+          <div class="field" style="margin-top:24px">
+            <label class="check"><input type="checkbox" id="agb" required><span>Ich habe die <a href="agb.html" target="_blank">AGB</a> und die <a href="widerruf.html" target="_blank">Widerrufsbelehrung</a> gelesen. Mir ist klar, dass ihr die Artikel in meinem Auftrag in Japan kauft und Zustand und Inhalt der japanische Verkäufer beschreibt.</span></label>
+          </div>
+          <div class="error hidden" id="err" role="alert"></div>
+          <button class="btn block" type="submit" id="submit">Zahlungspflichtig bestellen</button>
+          <p class="small muted" style="margin-top:10px">Mit PayPal oder Karte wird nichts abgebucht, solange unser Kauf in Japan nicht geklappt hat.</p>
+        </form>
+        <aside class="panel sticky" aria-label="Deine Bestellung">
+          <h2 style="font-size:22px">Deine Bestellung</h2>
+          <div id="lines"></div>
+          <div id="sum" style="margin-top:14px"></div>
+          <div id="box" style="margin-top:18px"></div>
+        </aside>
+      </div>
+    </div>
+  </section>
+</main>
+<script type="module">
+  import { renderChrome, getCart, setCart, priceStack, boxWidget, eur, esc, $ } from './assets/site.js';
+  import { api } from './assets/api.js';
+  renderChrome();
+  const cfg = await api.config();
+  const cart = getCart();
+  if (!cart.items.length) location.href = 'bestellen.html';
+  $('#country').innerHTML = Object.entries(cfg.countries).sort((a, b) => (a[0] === 'DE' ? -1 : b[0] === 'DE' ? 1 : a[1][0].localeCompare(b[1][0], 'de'))).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('');
+  $('#country').value = cart.country || 'DE';
+  $('#box').innerHTML = boxWidget(cfg, { mine: true });
+
+  let current = null;
+  async function render() {
+    current = await api.quote(cart.items, $('#country').value);
+    $('#lines').innerHTML = cart.items.map((it, i) => `<div class="item"><div><div class="t">${esc(it.title || current.lines[i].typeLabel)}</div><div class="m">${esc(current.lines[i].platformLabel)}</div></div><div class="p">${eur(current.lines[i].grossPriceEUR)}</div></div>`).join('');
+    $('#sum').innerHTML = priceStack(current.summary);
+    $('#submit').textContent = `Zahlungspflichtig bestellen: ${eur(current.summary.gross)}`;
+  }
+  $('#country').addEventListener('change', () => { cart.country = $('#country').value; setCart(cart); render(); });
+  await render();
+
+  $('#f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('#err');
+    const customer = Object.fromEntries(['name', 'email', 'street', 'zip', 'city'].map((k) => [k, $('#' + k).value.trim()]));
+    if (Object.values(customer).some((v) => !v)) { err.textContent = 'Bitte fülle alle Felder der Lieferadresse aus.'; err.classList.remove('hidden'); return; }
+    if (!/^\S+@\S+\.\S+$/.test(customer.email)) { err.textContent = 'Die E-Mail-Adresse sieht nicht vollständig aus.'; err.classList.remove('hidden'); return; }
+    if (!$('#agb').checked) { err.textContent = 'Bitte bestätige AGB und Widerrufsbelehrung.'; err.classList.remove('hidden'); return; }
+    err.classList.add('hidden');
+    $('#submit').disabled = true; $('#submit').textContent = 'Bestellung wird angelegt …';
+    try {
+      const r = await api.createOrder({ customer, items: cart.items, country: $('#country').value, paymentMethod: document.querySelector('input[name=pay]:checked').value });
+      setCart({ items: [], country: cart.country });
+      try { sessionStorage.setItem('tsumiki-last-token', r.token); } catch (x) { /* egal */ }
+      location.href = r.redirect.replace(/^\//, '');
+    } catch (ex) {
+      err.textContent = ex.message; err.classList.remove('hidden');
+      $('#submit').disabled = false; $('#submit').textContent = `Zahlungspflichtig bestellen: ${eur(current.summary.gross)}`;
+    }
+  });
+</script>
+</body>
+</html>

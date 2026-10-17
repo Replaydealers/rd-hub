@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>So geht's – Tsumiki</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/mode.js"></script>
+</head>
+<body>
+<main>
+  <section style="padding-top:48px">
+    <div class="wrap">
+      <h1>So geht's</h1>
+      <p class="lead">Du suchst aus, wir kaufen ein und bringen es zu dir. Dazwischen passiert genau das hier.</p>
+      <ol class="steps">
+        <li><h3>Artikel finden</h3><p>Stöbere auf Mercari, Yahoo Auctions, Rakuma oder Suruga-ya. Den Link und den Yen-Preis trägst du bei uns ein.</p></li>
+        <li><h3>Endpreis sehen</h3><p>Wir rechnen Tageskurs, Einkauf in Japan, Fracht, Zoll, Einfuhrsteuer und Versand zu dir in einen Preis.</p></li>
+        <li><h3>Reservieren</h3><p>PayPal oder Karte merken den Betrag nur vor. Bei Überweisung kaufen wir, sobald das Geld da ist.</p></li>
+        <li><h3>Paket bekommen</h3><p>Monatlich geht eine Kiste aus Japan los. In Wuppertal packen wir sofort für dich um.</p></li>
+      </ol>
+    </div>
+  </section>
+  <section>
+    <div class="wrap split">
+      <div>
+        <h2>Nach deiner Bestellung</h2>
+        <p><strong>Innerhalb weniger Stunden</strong> kaufen wir über unseren Einkaufsdienst in Japan. Klappt es, wird abgebucht. Ist ein Artikel schon weg, zahlst du dafür nichts, und bei mehreren Artikeln nur für die, die wir bekommen haben.</p>
+        <p><strong>Bis zum Bestellschluss</strong> sammeln wir alle Artikel im Lager in Japan. Jeden Monat am 20. ist Bestellschluss für die nächste Kiste.</p>
+        <p><strong>Eine Woche später</strong> ist die Kiste in Wuppertal. Wir verzollen sie, prüfen jeden Artikel und schicken dein Paket los, mit Sendungsnummer.</p>
+      </div>
+      <div>
+        <h2>Wann ist die Kiste voll?</h2>
+        <p>Wir sind ein kleiner Betrieb und ehrlich damit: Eine Kiste lohnt sich ab 10 Bestellungen. Ist sie am Bestellschluss noch nicht voll, wartet sie höchstens einen Monat länger. Den Füllstand siehst du immer auf der Startseite.</p>
+        <div id="box"></div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="wrap split">
+      <div>
+        <h2>Was du wissen solltest</h2>
+        <p>Viele Angebote auf Mercari stammen von Privatleuten. Lies die Beschreibung (zum Beispiel mit dem Browser-Übersetzer) genau: Zustand, Inhalt und Fotos beschreibt der Verkäufer in Japan. Wir öffnen versiegelte Ware nicht.</p>
+        <p>Auktionen kaufen wir nur mit einem Höchstgebot, das du vorher festlegst. Preisverhandlungen mit Verkäufern führen wir nicht.</p>
+      </div>
+      <div>
+        <h2>Was wir nicht besorgen</h2>
+        <p>Figuren, Plüsch, Spielzeug, Elektronik, Kleidung und Lebensmittel. Für diese Waren gelten eigene Einfuhrregeln, die wir als kleiner Importeur nicht sicher erfüllen können.</p>
+        <a class="btn" href="bestellen.html">Jetzt Link einfügen</a>
+      </div>
+    </div>
+  </section>
+</main>
+<script type="module">
+  import { renderChrome, boxWidget } from './assets/site.js';
+  import { api } from './assets/api.js';
+  renderChrome();
+  document.getElementById('box').innerHTML = boxWidget(await api.config());
+</script>
+</body>
+</html>

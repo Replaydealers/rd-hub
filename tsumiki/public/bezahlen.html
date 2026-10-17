@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zahlung – Tsumiki</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/mode.js"></script>
+</head>
+<body>
+<main>
+  <section style="padding-top:48px">
+    <div class="wrap" style="max-width:560px">
+      <div class="panel">
+        <span class="tag blue" id="provider">Zahlung</span>
+        <h1 style="font-size:32px;margin-top:14px">Betrag vormerken</h1>
+        <p class="note info">Testmodus: Hier würde sich jetzt PayPal oder das Kartenfenster von Stripe öffnen. Sobald die Zugangsdaten in der Datei <strong>.env</strong> hinterlegt sind, passiert genau das.</p>
+        <div id="sum"></div>
+        <div style="display:grid;gap:10px;margin-top:20px">
+          <button class="btn block" id="ok" type="button">Betrag vormerken</button>
+          <button class="btn secondary block" id="cancel" type="button">Abbrechen</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<script type="module">
+  import { renderChrome, eur, $ } from './assets/site.js';
+  import { api } from './assets/api.js';
+  renderChrome();
+  const p = new URLSearchParams(location.search);
+  let token = p.get('b');
+  if (!token) { try { token = sessionStorage.getItem('tsumiki-last-token'); } catch (x) { /* egal */ } }
+  const m = p.get('m');
+  $('#provider').textContent = m === 'stripe' ? 'Karte, Apple Pay, Google Pay, Klarna (Stripe)' : 'PayPal';
+  const o = await api.order(token);
+  $('#sum').innerHTML = `<div class="block total" style="margin-top:16px"><span class="k">Bestellung ${o.id}<span class="sub">wird nur vorgemerkt</span></span><span class="v">${eur(o.gross)}</span></div>`;
+  $('#ok').addEventListener('click', async () => { $('#ok').disabled = true; await api.payDemo(token, 'approve'); location.href = `status.html?b=${token}&neu=1`; });
+  $('#cancel').addEventListener('click', async () => { await api.payDemo(token, 'cancel'); location.href = `status.html?b=${token}`; });
+</script>
+</body>
+</html>

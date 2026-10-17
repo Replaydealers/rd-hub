@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bestellen – Tsumiki</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/mode.js"></script>
+</head>
+<body>
+<main>
+  <section style="padding-top:40px">
+    <div class="wrap">
+      <h1 style="font-size:clamp(30px,4.4vw,44px)">Was sollen wir für dich kaufen?</h1>
+      <p class="lead" style="margin-bottom:28px">Füge einen Artikel nach dem anderen hinzu. Mehrere Artikel in einer Bestellung sparen Grundgebühr und Versand.</p>
+      <div class="layout-order">
+        <div>
+          <form id="add" class="panel" novalidate>
+            <h2 style="font-size:22px">Artikel hinzufügen</h2>
+            <div class="field">
+              <label for="url">Link zum Angebot</label>
+              <input id="url" type="url" inputmode="url" placeholder="https://jp.mercari.com/item/…" required>
+              <div class="hint" id="platform">Mercari, Yahoo Auctions (Sofortkauf), Yahoo Flohmarkt, Rakuma, Suruga-ya, Amazon und Rakuten Japan</div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label for="price">Preis in Yen</label>
+                <input id="price" type="number" inputmode="numeric" min="1" step="1" placeholder="z. B. 9250" required>
+                <div class="hint">Steht auf der Angebotsseite, z. B. ¥9,250.</div>
+              </div>
+              <div class="field">
+                <label for="type">Was ist es?</label>
+                <select id="type"></select>
+              </div>
+            </div>
+            <div class="field">
+              <span id="domlabel" style="font-weight:600;font-size:15px;display:block;margin-bottom:6px">Versand innerhalb Japans</span>
+              <div class="seg" role="radiogroup" aria-labelledby="domlabel">
+                <label><input type="radio" name="dom" value="ja" checked><span>Im Preis enthalten</span></label>
+                <label><input type="radio" name="dom" value="nein"><span>Kommt noch dazu</span></label>
+              </div>
+              <div class="hint">Auf Mercari steht dann „送料込み“ (inklusive). Sonst rechnen wir ¥750 Inlandsversand.</div>
+            </div>
+            <div class="row3">
+              <div class="field"><label for="qty">Menge</label><input id="qty" type="number" min="1" max="20" value="1" inputmode="numeric"></div>
+              <div class="field"><label for="title">Bezeichnung (optional)</label><input id="title" type="text" maxlength="120" placeholder="z. B. Glurak SAR, PSA 10"></div>
+            </div>
+            <div class="error hidden" id="adderr" role="alert"></div>
+            <button class="btn block" type="submit">Zum Warenkorb hinzufügen</button>
+          </form>
+
+          <div class="panel" style="margin-top:20px">
+            <h2 style="font-size:22px;margin-bottom:4px">Dein Warenkorb</h2>
+            <div id="items"></div>
+          </div>
+        </div>
+
+        <aside class="panel sticky" aria-label="Preisübersicht">
+          <div class="field">
+            <label for="country">Lieferland</label>
+            <select id="country"></select>
+          </div>
+          <div id="price-out"><div class="empty">Noch kein Artikel im Warenkorb. Der Endpreis erscheint hier, sobald du den ersten Artikel hinzufügst.</div></div>
+          <div class="error hidden" id="problems" role="alert"></div>
+          <a class="btn block hidden" id="checkout" href="kasse.html" style="margin-top:16px">Weiter zur Kasse</a>
+          <p class="small muted" style="margin:12px 0 0">Wir kaufen zum angezeigten Preis. Ist der Artikel beim Kauf teurer geworden, fragen wir dich vorher.</p>
+        </aside>
+      </div>
+    </div>
+  </section>
+</main>
+<script type="module">
+  import { renderChrome, getCart, setCart, priceStack, eur, jpy, esc, $, ITEM_TYPE_OPTIONS } from './assets/site.js';
+  import { api } from './assets/api.js';
+  import { detectPlatform } from './core/pricing.js';
+  renderChrome();
+  const cfg = await api.config();
+
+  $('#type').innerHTML = ITEM_TYPE_OPTIONS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+  $('#country').innerHTML = Object.entries(cfg.countries).sort((a, b) => (a[0] === 'DE' ? -1 : b[0] === 'DE' ? 1 : a[1][0].localeCompare(b[1][0], 'de'))).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('');
+
+  const pre = new URLSearchParams(location.search).get('link');
+  if (pre) { $('#url').value = pre; showPlatform(); $('#price').focus(); }
+
+  function showPlatform() {
+    const p = detectPlatform($('#url').value);
+    $('#platform').innerHTML = $('#url').value ? (p ? `<span class="tag ok">${esc(p.label)} erkannt</span>` : '<span class="tag warn">Shop nicht erkannt</span> Bitte einen Link von Mercari, Yahoo, Rakuma, Suruga-ya, Amazon oder Rakuten Japan.') : 'Mercari, Yahoo Auctions (Sofortkauf), Yahoo Flohmarkt, Rakuma, Suruga-ya, Amazon und Rakuten Japan';
+  }
+  $('#url').addEventListener('input', showPlatform);
+
+  $('#add').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const err = $('#adderr');
+    const url = $('#url').value.trim();
+    const priceJPY = Math.round(Number($('#price').value));
+    if (!detectPlatform(url)) { err.textContent = 'Diesen Link können wir nicht zuordnen. Kopiere die Adresse direkt von der Angebotsseite.'; err.classList.remove('hidden'); return; }
+    if (!(priceJPY > 0)) { err.textContent = 'Bitte den Preis in Yen eintragen, nur die Zahl.'; err.classList.remove('hidden'); return; }
+    err.classList.add('hidden');
+    const cart = getCart();
+    cart.items.push({ url, priceJPY, type: $('#type').value, qty: Math.max(1, Number($('#qty').value) || 1), domesticIncluded: document.querySelector('input[name=dom]:checked').value === 'ja', title: $('#title').value.trim() });
+    setCart(cart);
+    $('#add').reset(); showPlatform();
+    render();
+    $('#items').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  $('#country').addEventListener('change', () => { const c = getCart(); c.country = $('#country').value; setCart(c); render(); });
+
+  async function render() {
+    const cart = getCart();
+    $('#country').value = cart.country || 'DE';
+    if (!cart.items.length) {
+      $('#items').innerHTML = `<div class="empty"><p style="margin:0 auto">Leer. Füge oben den ersten Link ein.</p></div>`;
+      $('#price-out').innerHTML = '<div class="empty">Noch kein Artikel im Warenkorb. Der Endpreis erscheint hier, sobald du den ersten Artikel hinzufügst.</div>';
+      $('#checkout').classList.add('hidden'); $('#problems').classList.add('hidden');
+      return;
+    }
+    const q = await api.quote(cart.items, cart.country || 'DE');
+    $('#items').innerHTML = cart.items.map((it, i) => {
+      const l = q.lines[i];
+      return `<div class="item">
+        <div><div class="t">${esc(it.title || l.typeLabel)}</div>
+          <div class="m">${esc(l.platformLabel)}, ${esc(l.typeLabel)}${it.qty > 1 ? `, ${it.qty} Stück` : ''}, ${jpy(it.priceJPY)}${it.domesticIncluded === false ? ' + Inlandsversand' : ''}</div>
+          <button class="btn ghost small" type="button" data-del="${i}" aria-label="Artikel ${i + 1} entfernen">Entfernen</button></div>
+        <div class="p">${eur(l.grossPriceEUR)}</div></div>`;
+    }).join('');
+    $('#price-out').innerHTML = priceStack(q.summary);
+    const probs = q.problems.map((p) => `Artikel ${p.index + 1}: ${esc(p.text)}`);
+    $('#problems').innerHTML = probs.join('<br>');
+    $('#problems').classList.toggle('hidden', !probs.length);
+    $('#checkout').classList.toggle('hidden', !!probs.length);
+    document.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => { const c = getCart(); c.items.splice(Number(b.dataset.del), 1); setCart(c); render(); }));
+  }
+  render();
+</script>
+</body>
+</html>
