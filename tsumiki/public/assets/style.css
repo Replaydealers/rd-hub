@@ -1,5 +1,5 @@
-/* Tsumiki V1.0 – Gestaltung
-   Papierweiß, Tusche, Stempelrot (hanko) und Indigo (ai-iro). Zen Kaku Gothic New + Albert Sans. */
+/* Tsumiki V1.2 – Gestaltung
+   Papierweiß, Tusche, Stempelrot (hanko), Indigo (ai-iro), dazu Bauklotzfarben: Senf (karashi), Matcha, Sakura. Zen Kaku Gothic New + Albert Sans. */
 @import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Albert+Sans:wght@400;500;600;700&display=swap');
 
 :root {
@@ -13,6 +13,12 @@
   --hanko-dark: #8E2612;
   --ai: #24406B;
   --ai-soft: #E7ECF4;
+  --karashi: #D99A1E;
+  --karashi-soft: #FBF0D6;
+  --matcha: #4E7A3A;
+  --matcha-soft: #E8F0E0;
+  --sakura: #F7E1DC;
+  --ai-deep: #1C3253;
   --ok: #1E6B3C;
   --ok-soft: #E5F2EA;
   --warn: #8A5A00;
@@ -116,30 +122,63 @@ input:focus, select:focus, textarea:focus { border-color: var(--ink); outline: n
 .compare { display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: var(--radius-m); background: var(--ok-soft); color: var(--ok); font-weight: 600; margin-top: 10px; }
 .compare s { color: var(--muted); font-weight: 400; }
 
-/* Kiste: Füllstand der nächsten Sammelsendung */
-.kiste { border: 1.5px solid var(--ink); border-radius: var(--radius-l); padding: 20px; display: grid; grid-template-columns: 1fr auto; gap: 8px 20px; align-items: center; }
-.kiste h3 { margin: 0; }
-.kiste .slots { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
-.kiste .slot { height: 22px; border-radius: 4px; background: var(--stone); }
-.kiste .slot.full { background: var(--ink); }
-.kiste .slot.mine { background: var(--hanko); }
-.kiste .days { font-family: var(--display); font-weight: 900; font-size: 34px; text-align: right; line-height: 1; }
-.kiste .days small { display: block; font: 500 13px var(--body); color: var(--muted); }
+/* Kiste: Zeitplan der nächsten Sammelsendung */
+.kiste { border-radius: var(--radius-l); padding: 24px; background: var(--ai-soft); }
+.kiste-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px 24px; flex-wrap: wrap; }
+.kiste h3 { margin: 0; color: var(--ai-deep); }
+.kiste .days { font-family: var(--display); font-weight: 900; font-size: 40px; text-align: right; line-height: 1; color: var(--hanko); }
+.kiste .days small { display: block; font: 500 13px var(--body); color: var(--muted); margin-top: 4px; }
+.zeitplan { list-style: none; padding: 0; margin: 22px 0 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.zeitplan li { background: var(--paper); border-radius: var(--radius-m); padding: 14px 14px 16px; position: relative; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.zeitplan li::before { content: ''; display: block; width: 26px; height: 20px; border-radius: 4px; margin-bottom: 8px; background: var(--ai); }
+.zeitplan .ph-bestellschluss::before { background: var(--hanko); }
+.zeitplan .ph-lager::before { background: var(--karashi); }
+.zeitplan .ph-abflug::before { background: var(--ai); }
+.zeitplan .ph-wuppertal::before { background: var(--matcha); }
+.zeitplan .ph-kunde::before { background: var(--ink); }
+.zeitplan .when { font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--ink); }
+.zeitplan strong { font-size: 15px; }
+.zeitplan .what { font-size: 13px; color: var(--muted); line-height: 1.4; }
+@media (max-width: 860px) { .zeitplan { grid-template-columns: 1fr; } .zeitplan li { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; } .zeitplan li::before { margin: 0; } .zeitplan .what { flex-basis: 100%; } }
 
 /* Hero */
-.hero { padding: 56px 0 64px; }
-.hero-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: start; }
+.hero { padding: 56px 0 64px; background: linear-gradient(180deg, var(--sakura) 0%, var(--paper) 100%); position: relative; overflow: hidden; }
+.hero-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: start; position: relative; }
 @media (max-width: 880px) { .hero-grid { grid-template-columns: 1fr; gap: 32px; } }
-.hero h1 { max-width: 14ch; }
+.hero h1 { max-width: 15ch; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; color: var(--hanko-dark); margin: 0 0 16px; letter-spacing: .02em; }
+.eyebrow .jp { font-family: var(--display); font-weight: 900; font-size: 18px; color: var(--ink); }
 .paste { display: flex; gap: 8px; margin-top: 24px; flex-wrap: wrap; }
 .paste input { flex: 1 1 260px; }
 .sources { margin-top: 10px; font-size: 14px; color: var(--muted); }
+.example-card { background: var(--paper); border-radius: var(--radius-l); padding: 20px; box-shadow: 0 18px 40px -24px rgba(27, 26, 31, .45); }
+.blocks-deco { display: flex; gap: 6px; align-items: flex-end; margin-bottom: 18px; }
+.blocks-deco span { display: block; border-radius: 5px; }
+@media (prefers-reduced-motion: no-preference) {
+  .blocks-deco span { animation: stack .6s cubic-bezier(.2, .8, .3, 1.25) both; }
+  .blocks-deco span:nth-child(2) { animation-delay: .1s; } .blocks-deco span:nth-child(3) { animation-delay: .2s; } .blocks-deco span:nth-child(4) { animation-delay: .3s; }
+  @keyframes stack { from { transform: translateY(-24px); opacity: 0; } to { transform: none; opacity: 1; } }
+}
+
+/* Farbband: Was Tsumiki bedeutet */
+.band { background: var(--ai-deep); color: #fff; }
+section.band + section, section + section.band { border-top: 0; }
+.band-grid { display: grid; grid-template-columns: auto 1fr; gap: 24px 48px; align-items: center; }
+@media (max-width: 720px) { .band-grid { grid-template-columns: 1fr; } }
+.band .kanji { font-family: var(--display); font-weight: 900; font-size: clamp(64px, 12vw, 120px); line-height: 1; letter-spacing: .05em; }
+.band .kanji small { display: block; font: 600 15px var(--body); letter-spacing: .1em; color: #C9D3E6; margin-top: 10px; }
+.band h2 { color: #fff; }
+.band p { color: #DCE2EE; }
+.band .slogan { font-family: var(--display); font-weight: 900; font-size: 22px; color: var(--karashi); margin: 0; }
 
 /* Ablauf (echte Reihenfolge → nummeriert) */
 .steps { list-style: none; padding: 0; margin: 24px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; counter-reset: s; }
 .steps li { counter-increment: s; position: relative; padding-top: 52px; }
 .steps li::before { content: counter(s); position: absolute; top: 0; left: 0; width: 38px; height: 38px; border-radius: 6px; background: var(--ink); color: #fff; font: 900 18px var(--display); display: flex; align-items: center; justify-content: center; }
-.steps li:last-child::before { background: var(--hanko); }
+.steps li:nth-child(4n+1)::before { background: var(--ai); }
+.steps li:nth-child(4n+2)::before { background: var(--karashi); color: var(--ink); }
+.steps li:nth-child(4n+3)::before { background: var(--matcha); }
+.steps li:nth-child(4n)::before { background: var(--hanko); }
 .steps h3 { font-size: 18px; margin-bottom: 6px; }
 .steps p { font-size: 15px; color: var(--ink-2); }
 @media (max-width: 860px) { .steps { grid-template-columns: 1fr 1fr; } }
@@ -194,15 +233,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--ink); outline: n
 @media (max-width: 720px) { .foot-grid { grid-template-columns: 1fr; } }
 .site-foot ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .site-foot .brand span { color: #fff; }
+.foot-slogan { font-family: var(--display); font-weight: 700; color: var(--karashi); margin: 14px 0 0; }
 
 .legal h2 { font-size: 22px; margin-top: 28px; }
 .draft { border: 2px dashed var(--warn); color: var(--warn); border-radius: var(--radius-m); padding: 12px 16px; margin-bottom: 24px; font-weight: 600; }
 
-@media (prefers-reduced-motion: no-preference) {
-  .kiste .slot.full { animation: drop .45s cubic-bezier(.2,.8,.3,1.2) both; }
-  .kiste .slot.full:nth-child(2) { animation-delay: .06s; } .kiste .slot.full:nth-child(3) { animation-delay: .12s; }
-  .kiste .slot.full:nth-child(4) { animation-delay: .18s; } .kiste .slot.full:nth-child(5) { animation-delay: .24s; }
-  .kiste .slot.full:nth-child(6) { animation-delay: .30s; } .kiste .slot.full:nth-child(7) { animation-delay: .36s; }
-  .kiste .slot.full:nth-child(8) { animation-delay: .42s; } .kiste .slot.full:nth-child(9) { animation-delay: .48s; }
-  @keyframes drop { from { transform: translateY(-18px); opacity: 0; } to { transform: none; opacity: 1; } }
-}

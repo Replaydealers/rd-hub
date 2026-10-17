@@ -63,7 +63,7 @@
   let current = null;
   async function render() {
     current = await api.quote(cart.items, $('#country').value);
-    $('#lines').innerHTML = cart.items.map((it, i) => `<div class="item"><div><div class="t">${esc(it.title || current.lines[i].typeLabel)}</div><div class="m">${esc(current.lines[i].platformLabel)}</div></div><div class="p">${eur(current.lines[i].grossPriceEUR)}</div></div>`).join('');
+    $('#lines').innerHTML = cart.items.map((it, i) => `<div class="item"><div><div class="t">${esc(it.title || 'Artikel von ' + current.lines[i].platformLabel)}</div><div class="m">${esc(current.lines[i].platformLabel)}</div></div><div class="p">${eur(current.lines[i].grossPriceEUR)}</div></div>`).join('');
     $('#sum').innerHTML = priceStack(current.summary);
     $('#submit').textContent = `Zahlungspflichtig bestellen: ${eur(current.summary.gross)}`;
   }

@@ -1,4 +1,4 @@
-// Tsumiki V1.0 – Rechenkern
+// Tsumiki V1.2 – Rechenkern
 // Läuft identisch im Browser (Live-Preis auf der Website) und auf dem Server (verbindlicher Preis).
 import { EU_COUNTRIES, ITEM_TYPES, PLATFORMS } from './params.js';
 
@@ -50,9 +50,10 @@ export function priceItem(item, params, fxRate) {
   const platform = item.platform ? PLATFORMS.find((p) => p.id === item.platform) : detectPlatform(item.url);
   const qty = Math.max(1, Math.round(num(item.qty, 1)));
   const priceJPY = num(item.priceJPY);
-  const domesticJPY = item.domesticIncluded === false || item.domesticIncluded === 'nein'
-    ? num(item.domesticJPY, num(params.inlandsversand_japan_schaetzung_jpy, 750))
-    : 0;
+  // Inlandsversand: ausdrücklich angegeben (alte Bestellungen, Neuberechnung) oder nach Shop geschätzt
+  const explicit = item.domesticIncluded === true || item.domesticIncluded === false || item.domesticIncluded === 'ja' || item.domesticIncluded === 'nein';
+  const extra = explicit ? (item.domesticIncluded === false || item.domesticIncluded === 'nein') : !!(platform && platform.domesticExtra);
+  const domesticJPY = extra ? num(item.domesticJPY, num(params.inlandsversand_japan_schaetzung_jpy, 750)) : 0;
   const sendicoJPY = num(params.sendico_gebuehr_jpy, 500) + (platform && platform.surcharge ? num(params.sendico_aufschlag_marktplatz_jpy, 300) : 0);
   const type = ITEM_TYPES[item.type] ? item.type : 'einzelkarte';
   const weightKg = num(params[ITEM_TYPES[type].weightKey], 0.05) * qty;
@@ -144,15 +145,28 @@ export function quote(items, country, params, fxRate) {
   };
 }
 
-// Nächster Stichtag und Lieferfenster
+// Nächste Kiste: Bestellschluss, Stichtag im Lager und Zeitplan bis zum Kunden
 export function nextCutoff(params, now = new Date()) {
   const day = num(params.stichtag_tag, 20);
-  let d = new Date(now.getFullYear(), now.getMonth(), day, 23, 59);
-  if (d < now) d = new Date(now.getFullYear(), now.getMonth() + 1, day, 23, 59);
-  const from = new Date(d); from.setDate(from.getDate() + num(params.laufzeit_tage_min, 10));
-  const to = new Date(d); to.setDate(to.getDate() + num(params.laufzeit_tage_max, 16));
-  const daysLeft = Math.ceil((d - now) / 86400000);
-  return { cutoff: d.toISOString(), deliveryFrom: from.toISOString(), deliveryTo: to.toISOString(), daysLeft };
+  const lead = num(params.tage_japan_inland, 5);
+  const plus = (base, days) => { const x = new Date(base); x.setDate(x.getDate() + days); return x; };
+  let stock = new Date(now.getFullYear(), now.getMonth(), day, 23, 59);
+  if (plus(stock, -lead) < now) stock = new Date(now.getFullYear(), now.getMonth() + 1, day, 23, 59);
+  const order = plus(stock, -lead);
+  const packMin = num(params.tage_packen_min, 2), packMax = num(params.tage_packen_max, 3);
+  const flyMin = num(params.tage_fracht_min, 5), flyMax = num(params.tage_fracht_max, 7);
+  const repack = num(params.tage_umpacken, 2);
+  const delMin = num(params.tage_zustellung_min, 3), delMax = num(params.tage_zustellung_max, 5);
+  const iso = (x) => x.toISOString();
+  const phases = [
+    { key: 'bestellschluss', label: 'Bestellschluss', text: 'Letzter Tag zum Bestellen', from: iso(order), to: iso(order) },
+    { key: 'lager', label: 'Im Lager in Japan', text: 'Alle Artikel sind bei unserem Einkaufsdienst', from: iso(stock), to: iso(stock) },
+    { key: 'abflug', label: 'Die Kiste fliegt los', text: 'Gepackt und auf dem Weg nach Deutschland', from: iso(plus(stock, packMin)), to: iso(plus(stock, packMax)) },
+    { key: 'wuppertal', label: 'Ankunft in Wuppertal', text: 'Verzollt, geprüft, für dich gepackt', from: iso(plus(stock, packMin + flyMin)), to: iso(plus(stock, packMax + flyMax)) },
+    { key: 'kunde', label: 'Bei dir', text: 'Paket mit Sendungsnummer', from: iso(plus(stock, packMin + flyMin + repack + delMin)), to: iso(plus(stock, packMax + flyMax + repack + delMax)) },
+  ];
+  const daysLeft = Math.max(0, Math.ceil((order - now) / 86400000));
+  return { cutoff: iso(order), stockCutoff: iso(stock), deliveryFrom: phases[4].from, deliveryTo: phases[4].to, daysLeft, phases };
 }
 
 export const fmtEUR = (x) => (Number(x) || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });

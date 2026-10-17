@@ -88,7 +88,7 @@ export function buildWorkbook(db) {
   const input = (cell) => { k.getCell(cell).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3C4' } }; };
   const rows = [
     ['A4', 'Preis in Japan (¥)', 'B4', 9250],
-    ['A5', 'Artikelart', 'B5', 'Einzelkarte'],
+    ['A5', 'Größe', 'B5', 'Sehr klein'],
     ['A6', 'Inlandsversand im Preis enthalten? (ja/nein)', 'B6', 'ja'],
     ['A7', 'Mercari oder Yahoo? (ja/nein)', 'B7', 'ja'],
     ['A8', 'Anzahl Artikel in der Bestellung (für Rabatt)', 'B8', 1],
@@ -98,9 +98,9 @@ export function buildWorkbook(db) {
   k.getCell('B5').dataValidation = { type: 'list', allowBlank: false, formulae: ['$E$4:$E$8'] };
   k.getCell('B6').dataValidation = { type: 'list', formulae: ['"ja,nein"'] };
   k.getCell('B7').dataValidation = { type: 'list', formulae: ['"ja,nein"'] };
-  [['Einzelkarte', 'gewicht_einzelkarte_kg'], ['Gegradete Karte', 'gewicht_slab_kg'], ['Booster / Packs', 'gewicht_booster_kg'], ['Display / Box', 'gewicht_display_kg'], ['Deck, Promo-Set, Zubehör', 'gewicht_sonstiges_kg']]
+  [['Sehr klein', 'gewicht_einzelkarte_kg'], ['Karte im Case', 'gewicht_slab_kg'], ['Klein', 'gewicht_booster_kg'], ['Mittel', 'gewicht_display_kg'], ['Weiß nicht', 'gewicht_sonstiges_kg']]
     .forEach(([label, key], i) => { k.getCell(`E${4 + i}`).value = label; k.getCell(`F${4 + i}`).value = { formula: P(key) }; });
-  k.getCell('E3').value = 'Artikelart → Gewicht (kg)'; k.getCell('E3').font = { bold: true };
+  k.getCell('E3').value = 'Größe → Gewicht (kg)'; k.getCell('E3').font = { bold: true };
   const calc = [
     ['A11', 'Effektiver Kurs (mit Puffer)', `B9*(1-${P('kurs_puffer')})`, '0.00'],
     ['A12', 'Warenwert (€)', 'ROUND(B4/B11,2)'],

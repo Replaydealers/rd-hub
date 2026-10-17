@@ -34,7 +34,7 @@ export function boxStats(db) {
 export const demo = {
   async config() {
     const db = await ready();
-    return { mode: 'demo', fx: { rate: Number(db.params.kurs_jpy_je_eur_fallback), source: 'Demo-Kurs' }, cutoff: nextCutoff(db.params), box: boxStats(db), payments: { paypal: 'demo', stripe: 'demo', ueberweisung: 'manuell' }, countries: EU_COUNTRIES, itemTypes: ITEM_TYPES, platforms: PLATFORMS, params: db.params };
+    return { mode: 'demo', fx: { rate: Number(db.params.kurs_jpy_je_eur_fallback), source: 'Demo-Kurs' }, cutoff: nextCutoff(db.params), payments: { paypal: 'demo', stripe: 'demo', ueberweisung: 'manuell' }, countries: EU_COUNTRIES, itemTypes: ITEM_TYPES, platforms: PLATFORMS, params: db.params };
   },
   async quote(items, country) { const db = await ready(); return quote(items, country, db.params, Number(db.params.kurs_jpy_je_eur_fallback)); },
   async createOrder(body) {

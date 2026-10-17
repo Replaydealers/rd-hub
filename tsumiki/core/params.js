@@ -1,4 +1,4 @@
-// Tsumiki V1.0 – zentrale Parameter (werden in Excel im Blatt "Parameter" gepflegt)
+// Tsumiki V1.2 – zentrale Parameter (werden in Excel im Blatt "Parameter" gepflegt)
 // Jede Zahl, die eine Geschäftsentscheidung ist, steht hier – nicht im Code.
 
 export const DEFAULT_PARAMS = [
@@ -7,7 +7,7 @@ export const DEFAULT_PARAMS = [
   ['firma_inhaber', 'Bastian Karlshaus', '', 'Unternehmer (Einzelunternehmen)'],
   ['firma_strasse', '[Straße Hausnummer]', '', 'Anschrift für Impressum und Rechnung'],
   ['firma_plz_ort', '[PLZ] Wuppertal', '', ''],
-  ['firma_email', 'hallo@[domain].de', '', 'Kontakt-E-Mail'],
+  ['firma_email', 'info@tsumiki.de', '', 'Kontakt-E-Mail'],
   ['firma_ustid', '[USt-IdNr. folgt]', '', 'USt-IdNr. oder Steuernummer für Rechnungen'],
   ['firma_iban', 'DE00 0000 0000 0000 0000 00', '', 'Bankverbindung für Überweisung (Platzhalter)'],
 
@@ -16,24 +16,30 @@ export const DEFAULT_PARAMS = [
   ['kurs_puffer', 0.02, '%', 'Sicherheitsabschlag auf den Tageskurs (Wise-Gebühr + Schwankung bis zum Kauf)'],
   ['sendico_gebuehr_jpy', 500, 'JPY', 'Sendico-Servicegebühr je Kauf'],
   ['sendico_aufschlag_marktplatz_jpy', 300, 'JPY', 'Zusatz bei Mercari und Yahoo Auctions (seit 01.08.2026)'],
-  ['inlandsversand_japan_schaetzung_jpy', 750, 'JPY', 'Schätzung, wenn der Inlandsversand nicht im Preis enthalten ist'],
+  ['inlandsversand_japan_schaetzung_jpy', 750, 'JPY', 'Schätzung Inlandsversand bei Shops, die ihn meist extra berechnen (Yahoo, Suruga-ya, Amazon, Rakuten)'],
 
   // Sammelsendung (Kalkulation; Ist-Werte kommen pro Sendung)
   ['fracht_eur_je_kg', 10, 'EUR/kg', 'Kurier-Economy Japan → DE (Schätzung aus Tarifen)'],
   ['sendung_fixkosten_eur', 45, 'EUR', 'Grundpreis Fracht + Verzollungsgebühr je Sammelsendung (RD-Ist: 15–89 € Gebühren)'],
   ['sendung_erwartete_positionen', 30, 'Stück', 'Auf so viele Positionen werden die Fixkosten verteilt'],
-  ['zoll_satz_karten', 0.027, '%', 'Zollsatz 9504 40 00 (Spielkarten), ohne Ursprungsnachweis'],
-  ['mindestmenge_sendung', 10, 'Aufträge', 'Sammelsendung geht ab dieser Anzahl Aufträge raus'],
-  ['stichtag_tag', 20, 'Tag', 'Monatlicher Stichtag für die Sammelsendung'],
-  ['laufzeit_tage_min', 10, 'Tage', 'Lieferzeit ab Stichtag bis zum Kunden (min)'],
-  ['laufzeit_tage_max', 16, 'Tage', 'Lieferzeit ab Stichtag bis zum Kunden (max)'],
+  ['zoll_satz_karten', 0.027, '%', 'Zollsatz für die Kalkulation (Spielkarten 9504 40 00); andere Waren laut Zollbescheid prüfen'],
+  ['mindestmenge_sendung', 10, 'Aufträge', 'Interne Richtgröße: ab hier lohnt sich eine Kiste (wird Kunden nicht angezeigt)'],
+  ['stichtag_tag', 20, 'Tag', 'Bis zu diesem Tag muss die Ware im Lager bei Sendico sein, dann wird gepackt'],
+  ['tage_japan_inland', 5, 'Tage', 'Versand vom Verkäufer zu Sendico; Bestellschluss = Stichtag minus diese Tage'],
+  ['tage_packen_min', 2, 'Tage', 'Sendico packt die Kiste (min)'],
+  ['tage_packen_max', 3, 'Tage', 'Sendico packt die Kiste (max)'],
+  ['tage_fracht_min', 5, 'Tage', 'Kiste Japan → Wuppertal inkl. Zoll (min)'],
+  ['tage_fracht_max', 7, 'Tage', 'Kiste Japan → Wuppertal inkl. Zoll (max)'],
+  ['tage_umpacken', 2, 'Tage', 'Auspacken, prüfen, Pakete an Kunden aufgeben'],
+  ['tage_zustellung_min', 3, 'Tage', 'Zustellung zum Kunden (min)'],
+  ['tage_zustellung_max', 5, 'Tage', 'Zustellung zum Kunden (max)'],
 
   // Gewichte je Artikelart (inkl. Schutzverpackung)
-  ['gewicht_einzelkarte_kg', 0.04, 'kg', ''],
-  ['gewicht_slab_kg', 0.13, 'kg', 'Gegradete Karte (PSA/BGS/CGC)'],
-  ['gewicht_booster_kg', 0.05, 'kg', 'Booster / einzelne Packs'],
-  ['gewicht_display_kg', 0.45, 'kg', 'Display / Box (versiegelt)'],
-  ['gewicht_sonstiges_kg', 0.25, 'kg', 'Deck, Promo-Set, Zubehör'],
+  ['gewicht_einzelkarte_kg', 0.04, 'kg', 'Sehr klein und flach (Karte, Sticker, Anstecker)'],
+  ['gewicht_slab_kg', 0.13, 'kg', 'Karte im Case (gegradet, PSA/BGS/CGC)'],
+  ['gewicht_booster_kg', 0.1, 'kg', 'Klein (Booster, Spielmodul, Schlüsselanhänger)'],
+  ['gewicht_display_kg', 0.45, 'kg', 'Mittel (Display, Spiel mit Box, Artbook)'],
+  ['gewicht_sonstiges_kg', 0.25, 'kg', 'Unbekannt / sonstiges'],
 
   // Preise für den Kunden
   ['gebuehr_grund_eur', 5, 'EUR', 'Servicegebühr fix je Bestellung'],
@@ -75,23 +81,25 @@ export const EU_COUNTRIES = {
   SE: ['Schweden', 0.25], SI: ['Slowenien', 0.22], SK: ['Slowakei', 0.23],
 };
 
+// Größenklassen (bestimmen das Gewicht und damit den Frachtanteil). Schlüssel bleiben für alte Daten gleich.
 export const ITEM_TYPES = {
-  einzelkarte: { label: 'Einzelkarte', weightKey: 'gewicht_einzelkarte_kg' },
-  slab: { label: 'Gegradete Karte (PSA, BGS, CGC)', weightKey: 'gewicht_slab_kg' },
-  booster: { label: 'Booster / Packs', weightKey: 'gewicht_booster_kg' },
-  display: { label: 'Display / Box (versiegelt)', weightKey: 'gewicht_display_kg' },
-  sonstiges: { label: 'Deck, Promo-Set, Zubehör', weightKey: 'gewicht_sonstiges_kg' },
+  einzelkarte: { label: 'Sehr klein (Karte)', weightKey: 'gewicht_einzelkarte_kg' },
+  slab: { label: 'Karte im Case', weightKey: 'gewicht_slab_kg' },
+  booster: { label: 'Klein (Booster, Modul)', weightKey: 'gewicht_booster_kg' },
+  display: { label: 'Mittel (Display, Spiel)', weightKey: 'gewicht_display_kg' },
+  sonstiges: { label: 'Weiß nicht', weightKey: 'gewicht_sonstiges_kg' },
 };
 
+// domesticExtra: Shop berechnet den Versand innerhalb Japans meist extra → Schätzung wird eingerechnet
 export const PLATFORMS = [
-  { id: 'mercari', label: 'Mercari', hosts: ['jp.mercari.com', 'mercari.com', 'mercari-shops.com'], surcharge: true },
-  { id: 'yahoo', label: 'Yahoo! Auctions', hosts: ['auctions.yahoo.co.jp', 'page.auctions.yahoo.co.jp'], surcharge: true },
-  { id: 'paypayfleamarket', label: 'Yahoo! Flohmarkt', hosts: ['paypayfleamarket.yahoo.co.jp'], surcharge: true },
-  { id: 'rakuma', label: 'Rakuma', hosts: ['fril.jp', 'item.fril.jp'], surcharge: false },
-  { id: 'surugaya', label: 'Suruga-ya', hosts: ['suruga-ya.jp', 'www.suruga-ya.jp'], surcharge: false },
-  { id: 'amazon', label: 'Amazon Japan', hosts: ['amazon.co.jp', 'www.amazon.co.jp'], surcharge: false },
-  { id: 'rakuten', label: 'Rakuten', hosts: ['rakuten.co.jp', 'item.rakuten.co.jp'], surcharge: false },
-  { id: 'sendico', label: 'Sendico', hosts: ['sendico.com', 'www.sendico.com'], surcharge: false },
+  { id: 'mercari', label: 'Mercari', hosts: ['jp.mercari.com', 'mercari.com', 'mercari-shops.com'], surcharge: true, domesticExtra: false },
+  { id: 'yahoo', label: 'Yahoo! Auctions', hosts: ['auctions.yahoo.co.jp', 'page.auctions.yahoo.co.jp'], surcharge: true, domesticExtra: true },
+  { id: 'paypayfleamarket', label: 'Yahoo! Flohmarkt', hosts: ['paypayfleamarket.yahoo.co.jp'], surcharge: true, domesticExtra: false },
+  { id: 'rakuma', label: 'Rakuma', hosts: ['fril.jp', 'item.fril.jp'], surcharge: false, domesticExtra: false },
+  { id: 'surugaya', label: 'Suruga-ya', hosts: ['suruga-ya.jp', 'www.suruga-ya.jp'], surcharge: false, domesticExtra: true },
+  { id: 'amazon', label: 'Amazon Japan', hosts: ['amazon.co.jp', 'www.amazon.co.jp'], surcharge: false, domesticExtra: true },
+  { id: 'rakuten', label: 'Rakuten', hosts: ['rakuten.co.jp', 'item.rakuten.co.jp'], surcharge: false, domesticExtra: true },
+  { id: 'sendico', label: 'Sendico', hosts: ['sendico.com', 'www.sendico.com'], surcharge: false, domesticExtra: true },
 ];
 
 export function paramsToObject(rows) {

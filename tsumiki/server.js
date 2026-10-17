@@ -90,7 +90,6 @@ app.get('/api/config', async (req, res) => {
   const p = store.db.params;
   res.json({
     mode: 'server', shopOpen: SHOP_OPEN, fx: await getFx(), cutoff: nextCutoff(p), payments: paymentModes(),
-    box: { orders: store.db.orders.filter((o) => ['neu', 'gekauft'].includes(o.status)).length, min: Number(p.mindestmenge_sendung) || 10 },
     countries: EU_COUNTRIES, itemTypes: ITEM_TYPES, platforms: PLATFORMS.map(({ id, label }) => ({ id, label })),
     params: Object.fromEntries(Object.entries(p).filter(([k]) => !k.startsWith('zahlung_'))),
   });

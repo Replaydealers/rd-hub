@@ -29,22 +29,12 @@
                 <div class="hint">Steht auf der Angebotsseite, z. B. ¥9,250.</div>
               </div>
               <div class="field">
-                <label for="type">Was ist es?</label>
+                <label for="type">Wie groß ist es?</label>
                 <select id="type"></select>
+                <div class="hint">Nur fürs Gewicht in der Kiste.</div>
               </div>
             </div>
-            <div class="field">
-              <span id="domlabel" style="font-weight:600;font-size:15px;display:block;margin-bottom:6px">Versand innerhalb Japans</span>
-              <div class="seg" role="radiogroup" aria-labelledby="domlabel">
-                <label><input type="radio" name="dom" value="ja" checked><span>Im Preis enthalten</span></label>
-                <label><input type="radio" name="dom" value="nein"><span>Kommt noch dazu</span></label>
-              </div>
-              <div class="hint">Auf Mercari steht dann „送料込み“ (inklusive). Sonst rechnen wir ¥750 Inlandsversand.</div>
-            </div>
-            <div class="row3">
-              <div class="field"><label for="qty">Menge</label><input id="qty" type="number" min="1" max="20" value="1" inputmode="numeric"></div>
-              <div class="field"><label for="title">Bezeichnung (optional)</label><input id="title" type="text" maxlength="120" placeholder="z. B. Glurak SAR, PSA 10"></div>
-            </div>
+            <div class="field"><label for="title">Bezeichnung (optional)</label><input id="title" type="text" maxlength="120" placeholder="z. B. Glurak SAR, PSA 10"><div class="hint">Damit du den Artikel im Warenkorb wiedererkennst.</div></div>
             <div class="error hidden" id="adderr" role="alert"></div>
             <button class="btn block" type="submit">Zum Warenkorb hinzufügen</button>
           </form>
@@ -116,7 +106,7 @@
     if (!(priceJPY > 0)) { err.textContent = 'Bitte den Preis in Yen eintragen, nur die Zahl.'; err.classList.remove('hidden'); return; }
     err.classList.add('hidden');
     const cart = getCart();
-    cart.items.push({ url, priceJPY, type: $('#type').value, qty: Math.max(1, Number($('#qty').value) || 1), domesticIncluded: document.querySelector('input[name=dom]:checked').value === 'ja', title: $('#title').value.trim() });
+    cart.items.push({ url, priceJPY, type: $('#type').value, qty: 1, title: $('#title').value.trim() });
     setCart(cart);
     $('#add').reset(); showPlatform();
     render();
@@ -138,8 +128,8 @@
     $('#items').innerHTML = cart.items.map((it, i) => {
       const l = q.lines[i];
       return `<div class="item">
-        <div><div class="t">${esc(it.title || l.typeLabel)}</div>
-          <div class="m">${esc(l.platformLabel)}, ${esc(l.typeLabel)}${it.qty > 1 ? `, ${it.qty} Stück` : ''}, ${jpy(it.priceJPY)}${it.domesticIncluded === false ? ' + Inlandsversand' : ''}</div>
+        <div><div class="t">${esc(it.title || 'Artikel von ' + l.platformLabel)}</div>
+          <div class="m">${esc(l.platformLabel)}, ${jpy(it.priceJPY)}${l.domesticJPY ? ` + ca. ${jpy(l.domesticJPY)} Versand in Japan` : ''}${it.qty > 1 ? `, ${it.qty} Stück` : ''}</div>
           <button class="btn ghost small" type="button" data-del="${i}" aria-label="Artikel ${i + 1} entfernen">Entfernen</button></div>
         <div class="p">${eur(l.grossPriceEUR)}</div></div>`;
     }).join('');

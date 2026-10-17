@@ -181,7 +181,7 @@ export async function purchasePosition(db, { positionId, sendicoNo, actualPriceJ
   }
   o.status = 'gekauft';
   const c = nextCutoff(db.params, ctx.now ? new Date(ctx.now) : new Date());
-  sendMail(db, partial ? 'teilweise' : 'gekauft', o, ctx, { cutoff: fmtDate(c.cutoff) });
+  sendMail(db, partial ? 'teilweise' : 'gekauft', o, ctx, { delivery: `zwischen ${fmtDate(c.deliveryFrom)} und ${fmtDate(c.deliveryTo)}` });
   return { order: o, done: true };
 }
 

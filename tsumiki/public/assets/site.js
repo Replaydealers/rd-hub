@@ -1,4 +1,4 @@
-// Tsumiki V1.0 – gemeinsamer Kopf, Fuß und Hilfsfunktionen aller Seiten
+// Tsumiki V1.2 – gemeinsamer Kopf, Fuß und Hilfsfunktionen aller Seiten
 export const LOGO = `<svg viewBox="0 0 132 104" aria-hidden="true"><rect x="4" y="56" width="58" height="44" rx="6" fill="currentColor"/><rect x="70" y="56" width="58" height="44" rx="6" fill="currentColor"/><rect x="37" y="4" width="58" height="44" rx="6" fill="#B4341C"/></svg>`;
 
 export const eur = (x) => (Number(x) || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
@@ -8,9 +8,11 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&a
 export const $ = (sel, el = document) => el.querySelector(sel);
 export const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 
+export const SLOGAN = 'Stein für Stein aus Japan.';
+
 const NAV = [
-  ['so-gehts.html', "So geht's"],
-  ['preise.html', 'Preise'],
+  ['index.html#ablauf', 'Ablauf'],
+  ['preise.html', 'Preisrechner'],
   ['ueber-uns.html', 'Über uns'],
   ['faq.html', 'Fragen'],
   ['bestellen.html', 'Bestellen', 'cta'],
@@ -39,8 +41,9 @@ export function renderChrome() {
   foot.className = 'site-foot';
   foot.innerHTML = `<div class="wrap"><div class="foot-grid">
     <div><a class="brand" href="index.html">${LOGO.replace('currentColor', '#fff').replace('currentColor', '#fff')}<span>${brandName().toLowerCase()}</span></a>
-      <p style="margin-top:14px;max-width:42ch">Sammelimport japanischer Sammelkarten. Wir kaufen für dich in Japan ein und schicken alles gebündelt nach Europa.</p></div>
-    <ul><li><a href="bestellen.html">Bestellen</a></li><li><a href="so-gehts.html">So geht's</a></li><li><a href="preise.html">Preise</a></li><li><a href="faq.html">Fragen</a></li><li><a href="ueber-uns.html">Über uns</a></li></ul>
+      <p class="foot-slogan">${SLOGAN}</p>
+      <p style="margin-top:8px;max-width:42ch">Dein Einkaufsdienst für Japan. Wir kaufen für dich ein, bündeln alles in einer Kiste und schicken es dir nach Hause.</p></div>
+    <ul><li><a href="bestellen.html">Bestellen</a></li><li><a href="index.html#ablauf">Ablauf</a></li><li><a href="preise.html">Preisrechner</a></li><li><a href="faq.html">Fragen</a></li><li><a href="ueber-uns.html">Über uns</a></li></ul>
     <ul><li><a href="impressum.html">Impressum</a></li><li><a href="datenschutz.html">Datenschutz</a></li><li><a href="agb.html">AGB</a></li><li><a href="widerruf.html">Widerruf</a></li></ul>
   </div><p class="small" style="margin-top:32px;color:#A9A7A2">Ein Angebot von Bastian Karlshaus, Wuppertal.</p></div>`;
   document.body.append(foot);
@@ -80,22 +83,28 @@ export function priceStack(summary, { details = true } = {}) {
   </dl><p class="small muted">Einfuhrumsatzsteuer und Zoll zahlen wir bei der Einfuhr. Für dich gibt es keine Nachzahlung an der Haustür.</p></details>` : ''}`;
 }
 
-// ---------- Kiste: Füllstand der nächsten Sammelsendung ----------
-export function boxWidget(cfg, { mine = false } = {}) {
-  const min = (cfg.box && cfg.box.min) || 10;
-  const n = Math.min((cfg.box && cfg.box.orders) || 0, min);
-  const slots = Array.from({ length: min }, (_, i) => `<span class="slot ${i < n ? 'full' : ''} ${mine && i === n ? 'mine' : ''}"></span>`).join('');
-  const days = cfg.cutoff ? cfg.cutoff.daysLeft : '';
+// ---------- Kiste: Zeitplan der nächsten Sammelsendung ----------
+const fmtRange = (a, b) => {
+  const da = new Date(a), db = new Date(b);
+  if (da.toDateString() === db.toDateString()) return date(a);
+  if (da.getMonth() === db.getMonth()) return `${da.getDate()}.–${date(b)}`;
+  return `${date(a)} – ${date(b)}`;
+};
+export function boxWidget(cfg) {
+  const c = cfg.cutoff;
+  if (!c || !c.phases) return '';
+  const days = c.daysLeft;
   return `<div class="kiste">
-    <div><h3>Nächste Kiste aus Japan</h3><div class="muted small">Bestellschluss ${date(cfg.cutoff.cutoff)}, bei dir voraussichtlich ${date(cfg.cutoff.deliveryFrom)} bis ${date(cfg.cutoff.deliveryTo)}</div></div>
-    <div class="days">${days}<small>${days === 1 ? 'Tag' : 'Tage'}</small></div>
-    <div class="slots" role="img" aria-label="${n} von ${min} Bestellungen in der Kiste">${slots}</div>
-    <div class="small muted" style="grid-column:1/-1">${n} von ${min} Bestellungen drin. Die Kiste geht los, sobald sie voll ist, spätestens einen Monat nach dem Bestellschluss.</div>
+    <div class="kiste-head">
+      <div><h3>Nächste Kiste aus Japan</h3><p class="muted small" style="margin:4px 0 0">Bestell bis zum ${date(c.cutoff)}, dann ist dein Artikel voraussichtlich ${fmtRange(c.deliveryFrom, c.deliveryTo)} bei dir.</p></div>
+      <div class="days">${days}<small>${days === 1 ? 'Tag bis Bestellschluss' : 'Tage bis Bestellschluss'}</small></div>
+    </div>
+    <ol class="zeitplan">${c.phases.map((ph) => `<li class="ph-${ph.key}"><span class="when">${fmtRange(ph.from, ph.to)}</span><strong>${esc(ph.label)}</strong><span class="what">${esc(ph.text)}</span></li>`).join('')}</ol>
   </div>`;
 }
 
 export const ITEM_TYPE_OPTIONS = [
-  ['einzelkarte', 'Einzelkarte'], ['slab', 'Gegradete Karte (PSA, BGS, CGC)'], ['booster', 'Booster oder Packs'], ['display', 'Display oder Box (versiegelt)'], ['sonstiges', 'Deck, Promo-Set, Zubehör'],
+  ['einzelkarte', 'Sehr klein (Karte)'], ['booster', 'Klein (Booster, Modul)'], ['display', 'Mittel (Display, Spiel)'], ['slab', 'Karte im Case'], ['sonstiges', 'Weiß nicht'],
 ];
 
 // Zeigt eine Rechnung, Mail oder ein Etikett in einem Fenster über der Seite (funktioniert auch dort, wo Pop-ups gesperrt sind)

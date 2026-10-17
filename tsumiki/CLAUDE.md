@@ -1,6 +1,6 @@
-# Tsumiki – Projektkontext für Claude Code (Stand V1.1, 17.10.2026)
+# Tsumiki – Projektkontext für Claude Code (Stand V1.2, 17.10.2026)
 
-Japan-Sammelimport für japanische Sammelkarten. Inhaber: Bastian Karlshaus (Einzelunternehmen, getrennt von der
+Japan-Einkaufsdienst mit Sammelimport, zum Start mit Schwerpunkt Sammelkarten, Videospiele und Zubehör (bewusst nicht nur Karten). Inhaber: Bastian Karlshaus (Einzelunternehmen, getrennt von der
 Replay Dealers GbR). Kunden fügen einen Link (Mercari, Yahoo, Suruga-ya …) ein, sehen einen Endpreis inkl. Versand,
 reservieren; Bastian kauft über Sendico, bündelt monatlich in einer Sammelsendung („Kiste“), importiert gewerblich
 und verschickt von Wuppertal aus in DE/EU. Bastian ist Business Analyst, kein Entwickler: Erklärungen auf Deutsch,
@@ -28,7 +28,7 @@ einfach, ohne Fachjargon.
 | `server/payments.js` | PayPal Orders v2 (intent AUTHORIZE → capture/void), Stripe Checkout (capture_method manual), sonst Demo |
 | `server/mailer.js` | E-Mail-Versand per SMTP (IONOS, noreply@tsumiki.de), aktiv sobald `SMTP_PASS` gesetzt ist |
 | `server.js` | Express: Seiten, `/api/*` für Kunden, `/admin/*` + `/admin/api/*` mit Basic-Auth (ADMIN_PASSWORD) |
-| `public/` | Website (index, so-gehts, preise, ueber-uns, faq, bestellen, kasse, bezahlen, status, Rechtstexte) und `public/admin/` |
+| `public/` | Website (index inkl. Ablauf, so-gehts leitet auf index#ablauf um, preise = Preisrechner, ueber-uns, faq, bestellen, kasse, bezahlen, status, Rechtstexte) und `public/admin/` |
 | `public/assets/demo-backend.js` | Browser-Variante des Servers (localStorage) für die Online-Demo; `mode.js` schaltet `server`/`demo` |
 
 ## Geschäftslogik (Kurzfassung)
@@ -36,7 +36,10 @@ einfach, ohne Fachjargon.
   + Fracht 10 €/kg + Fixkosten 45 €/30 Positionen + Zoll 2,7 % + Servicegebühr + Versand, darauf 19 % USt.
 - Servicegebühr: 5 € fix + 5 % (ab 3 Artikeln 4,5 %, ab 6 Artikeln 4 %), max. 40 €. Ziel ≈ 5 € Gewinn je Bestellung.
 - Versand DE: 1,80 € bis 50 € Warenwert, sonst 6,19 €. EU: 6,50 € (zu prüfen) / 14,90 €.
-- Kiste: Stichtag 20. des Monats, Mindestmenge 10 Aufträge, Lieferzeit 10–16 Tage ab Stichtag.
+- Kiste: Ware muss bis zum 20. bei Sendico sein (`stichtag_tag`), Bestellschluss 5 Tage vorher (`tage_japan_inland`).
+  Zeitplan bis zum Kunden aus den `tage_*`-Parametern (`nextCutoff().phases`). Mindestmenge nur intern, nicht öffentlich.
+- Inlandsversand Japan fragt der Kunde nicht mehr ab: je Shop `domesticExtra` in `PLATFORMS` (Yahoo, Suruga-ya, Amazon,
+  Rakuten → Schätzung ¥750; Mercari, Rakuma, PayPay-Flohmarkt → inklusive). Artikelart = Größenklasse fürs Gewicht.
 - Zahlung wird nur vorgemerkt; abgebucht wird nach dem Kauf, und zwar nur für tatsächlich gekaufte Artikel.
 - Steuer (Entwurf, mit Steuerberaterin Patty klären): Einkaufskommission, 19 % USt auf den vollen Preis,
   EUSt als Vorsteuer (1588), Anzahlungen über 1718, Sendico-Gebühr §13b, OSS per Parameter `oss_aktiv`.

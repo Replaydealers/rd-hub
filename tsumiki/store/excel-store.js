@@ -82,11 +82,14 @@ export class ExcelStore {
     await wb.xlsx.readFile(this.file);
     // Parameter-Werte zurückschreiben (Beschreibung/Formatierung bleibt)
     const ps = wb.getWorksheet('Parameter');
+    const seen = new Set();
     ps.eachRow((row, i) => {
       if (i === 1) return;
       const k = cellVal(row.getCell(1).value);
-      if (k && k in this.db.params) row.getCell(2).value = this.db.params[k];
+      if (k && k in this.db.params) { row.getCell(2).value = this.db.params[k]; seen.add(k); }
     });
+    // Neue Parameter aus einer neueren Version unten anhängen
+    for (const [k, , unit, desc] of DEFAULT_PARAMS) if (!seen.has(k)) ps.addRow([k, this.db.params[k], unit, desc]);
     for (const [sheet, def] of Object.entries(TABLES)) writeDataSheet(wb, sheet, def, this.db[def.key]);
     wb.calcProperties.fullCalcOnLoad = true;
     const tmp = this.file + '.tmp';

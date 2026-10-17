@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tsumiki – Japanische Sammelkarten ohne Zoll an der Haustür</title>
-<meta name="description" content="Link aus Mercari, Yahoo oder Suruga-ya einfügen, Endpreis sehen, reservieren. Wir kaufen in Japan ein und schicken alles gebündelt nach Europa.">
+<title>Tsumiki – Stein für Stein aus Japan</title>
+<meta name="description" content="Dein Einkaufsdienst für Japan: Link von Mercari, Yahoo oder Suruga-ya einfügen, Endpreis sehen, reservieren. Wir kaufen für dich ein und schicken alles gebündelt nach Europa.">
 <link rel="stylesheet" href="assets/style.css">
 <script src="assets/mode.js"></script>
 </head>
@@ -13,18 +13,27 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <h1>Deine Karte aus Japan. Ein Preis, keine Überraschung.</h1>
-        <p class="lead">Link einfügen, Endpreis sehen, reservieren. Wir kaufen für dich in Japan, bündeln alles in einer Kiste und schicken dir dein Paket aus Wuppertal. Zoll und Einfuhrsteuer sind schon drin.</p>
+        <p class="eyebrow"><span class="jp">積み木</span> Stein für Stein aus Japan.</p>
+        <h1>Dein Wunschartikel aus Japan. Ein Preis, keine Überraschung.</h1>
+        <p class="lead">Link einfügen, Endpreis sehen, reservieren. Wir kaufen für dich in Japan, bündeln alles in einer Kiste und schicken dir dein Paket. Zoll und Einfuhrsteuer sind schon drin.</p>
         <form class="paste" id="paste" action="bestellen.html">
           <label for="link" class="hidden">Link zum Artikel</label>
           <input id="link" name="link" type="url" inputmode="url" placeholder="Link von Mercari, Yahoo, Suruga-ya …" required>
           <button class="btn" type="submit">Endpreis berechnen</button>
         </form>
-        <p class="sources">Pokémon, One Piece, Yu-Gi-Oh! OCG, Dragon Ball, Digimon, Union Arena, Weiß Schwarz und weitere japanische Sammelkartenspiele.</p>
+        <p class="sources">Zum Start mit Schwerpunkt auf Sammelkarten, Videospielen und Zubehör. Du suchst etwas anderes? <a href="mailto:info@tsumiki.de">Frag uns</a>.</p>
       </div>
       <div>
-        <p class="small muted" style="margin:0 0 10px">Beispiel: eine Karte für ¥9.250 auf Mercari</p>
-        <div id="example"></div>
+        <div class="blocks-deco" aria-hidden="true">
+          <span style="width:46px;height:34px;background:var(--ai)"></span>
+          <span style="width:46px;height:52px;background:var(--karashi)"></span>
+          <span style="width:46px;height:40px;background:var(--matcha)"></span>
+          <span style="width:46px;height:62px;background:var(--hanko)"></span>
+        </div>
+        <div class="example-card">
+          <p class="small muted" style="margin:0 0 10px">Beispiel: ein Artikel für ¥9.250 auf Mercari</p>
+          <div id="example"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -35,16 +44,26 @@
     </div>
   </section>
 
-  <section>
+  <section id="ablauf">
     <div class="wrap">
-      <h2>So kommt deine Karte zu dir</h2>
+      <h2>So kommt dein Artikel zu dir</h2>
       <ol class="steps">
-        <li><h3>Link einfügen</h3><p>Aus Mercari, Yahoo Auctions (Sofortkauf), Rakuma oder Suruga-ya. Du siehst sofort den Endpreis.</p></li>
-        <li><h3>Reservieren</h3><p>Der Betrag wird nur vorgemerkt. Abgebucht wird erst, wenn unser Kauf in Japan geklappt hat.</p></li>
-        <li><h3>Wir kaufen</h3><p>Meist innerhalb weniger Stunden. Ist ein Artikel schon weg, zahlst du dafür nichts.</p></li>
-        <li><h3>Die Kiste kommt</h3><p>Einmal im Monat geht eine Sammelsendung nach Wuppertal. Von dort geht dein Paket direkt zu dir.</p></li>
+        <li><h3>Link einfügen</h3><p>Such dir etwas auf Mercari, Yahoo Auctions, Rakuma, Suruga-ya, Amazon oder Rakuten Japan aus. Link und Yen-Preis eintragen, schon siehst du den Endpreis.</p></li>
+        <li><h3>Reservieren</h3><p>PayPal oder Karte merken den Betrag nur vor. Abgebucht wird erst, wenn unser Kauf in Japan geklappt hat.</p></li>
+        <li><h3>Wir kaufen</h3><p>Meist innerhalb weniger Stunden. Ist ein Artikel schon weg, zahlst du dafür nichts. Bei mehreren Artikeln zahlst du nur für die, die wir bekommen.</p></li>
+        <li><h3>Die Kiste kommt</h3><p>Einmal im Monat geht eine Kiste aus Japan los. In Wuppertal verzollen und prüfen wir alles und schicken dein Paket mit Sendungsnummer.</p></li>
       </ol>
-      <p style="margin-top:28px"><a class="btn secondary" href="so-gehts.html">Den Ablauf genau ansehen</a></p>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap band-grid">
+      <div class="kanji" lang="ja">積み木<small>TSUMIKI · BAUKLÖTZE</small></div>
+      <div>
+        <h2>Viele kleine Bestellungen, eine große Kiste</h2>
+        <p>Tsumiki sind japanische Holzbausteine. Jeder für sich ist klein, gestapelt ergeben sie etwas Stabiles. Genau so funktioniert unser Einkaufsdienst: Jede Bestellung ist ein Baustein. Zusammen füllen sie eine Kiste, und Fracht, Zoll und Gebühren teilen sich auf alle auf.</p>
+        <p class="slogan">Stein für Stein aus Japan.</p>
+      </div>
     </div>
   </section>
 
@@ -53,20 +72,28 @@
       <div>
         <h2>Warum zusammen günstiger ist</h2>
         <p>Seit Juli 2026 kostet jedes private Päckchen aus Japan mindestens 3 € Pauschalzoll, dazu Einfuhrsteuer und eine Gebühr des Paketdienstes fürs Verzollen. Japan Post verschickt nach Deutschland gerade nur eingeschränkt, also bleiben oft nur teure Kuriere.</p>
-        <p>Wir teilen uns diese Kosten: eine Kiste, eine Verzollung, ein Kurier. Für dich bleibt ein fester Endpreis.</p>
+        <p>Wir teilen uns diese Kosten: eine Kiste, eine Verzollung, ein Kurier. Für dich bleibt ein fester Endpreis, ohne Nachzahlung an der Haustür.</p>
       </div>
       <div>
         <h2>Was wir besorgen</h2>
-        <p>Japanische Sammelkarten aller Spiele: Einzelkarten, gegradete Karten, Booster, Displays und Promo-Sets. Artikel von 5 € bis 300 € Warenwert.</p>
-        <p>Keine Figuren, kein Plüsch, keine Elektronik. So bleibt der Import einfach und jeder Artikel sicher verzollt.</p>
+        <p>Zum Start konzentrieren wir uns auf Sammelkarten aller Spiele, Videospiele und Zubehör: Einzelkarten, gegradete Karten, Booster, Displays, Spielmodule, Artbooks. Artikel von 5 € bis 300 € Warenwert.</p>
+        <p>Nicht dabei sind Elektrogeräte, Spielzeug für Kinder, Lebensmittel und Kosmetik. Für diese Waren gelten eigene Einfuhr- und Sicherheitsregeln.</p>
       </div>
     </div>
   </section>
 
   <section>
-    <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
-      <div><h2 style="margin:0">Probier es mit einem echten Link.</h2><p class="muted" style="margin:6px 0 0">Der Preis ist unverbindlich, bis du reservierst.</p></div>
-      <a class="btn" href="bestellen.html">Zur Bestellung</a>
+    <div class="wrap split">
+      <div>
+        <h2>Was du wissen solltest</h2>
+        <p>Viele Angebote auf Mercari stammen von Privatleuten. Lies die Beschreibung genau, zum Beispiel mit dem Übersetzer deines Browsers: Zustand, Inhalt und Fotos beschreibt der Verkäufer in Japan. Versiegelte Ware öffnen wir nicht.</p>
+        <p>Auktionen kaufen wir nur mit einem Höchstgebot, das du vorher festlegst. Preisverhandlungen mit Verkäufern führen wir nicht.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;justify-content:center;align-items:flex-start">
+        <h2>Probier es mit einem echten Link.</h2>
+        <p class="muted">Der Preis ist unverbindlich, bis du reservierst.</p>
+        <a class="btn" href="bestellen.html">Zur Bestellung</a>
+      </div>
     </div>
   </section>
 </main>
