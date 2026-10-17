@@ -249,8 +249,11 @@ function einstellungen() {
       <button class="btn" type="submit" style="margin-top:16px">Speichern</button></form></div>
     <div class="card"><h3>Testdaten</h3><p>${api.isDemo() ? 'Spielt sechs Beispielbestellungen durch alle Schritte, damit jede Ansicht etwas zeigt.' : 'Achtung: überschreibt alle Bestellungen, Rechnungen und Buchungen in der Excel-Datenbank. Nur vor dem echten Start benutzen.'}</p>
       <div class="formrow"><button class="btn secondary s" id="seed" type="button">Beispieldaten laden</button><button class="btn secondary s" id="reset" type="button">Alles leeren</button></div></div>
-    <div class="card"><h3>Anbindungen</h3><p class="small" style="margin:0">PayPal: <strong>${esc(S.payments.paypal)}</strong> · Stripe: <strong>${esc(S.payments.stripe)}</strong><br>Zugangsdaten, Push-Benachrichtigung (ntfy) und Passwort stehen in der Datei <code>.env</code>. Anleitung: <code>ANLEITUNG.md</code>.</p></div>`;
+    ${api.isDemo() ? '' : `<div class="card"><h3>Excel-Datenbank</h3><p class="small">Lädt die aktuelle Datei mit allen Bestellungen, Rechnungen und Buchungen herunter.</p><button class="btn secondary s" id="xlsx" type="button">Excel herunterladen</button></div>`}
+    ${(S.waitlist || []).length ? `<div class="card"><h3>Warteliste (${S.waitlist.length})</h3><div class="scroll"><table class="t"><tbody>${S.waitlist.slice().reverse().map((w) => `<tr><td>${dt(w.date)}</td><td>${esc(w.email)}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+    <div class="card"><h3>Anbindungen</h3><p class="small" style="margin:0">PayPal: <strong>${esc(S.payments.paypal)}</strong> · Stripe: <strong>${esc(S.payments.stripe)}</strong>${S.mail ? ` · E-Mail-Versand: <strong>${esc(S.mail)}</strong> · Shop: <strong>${S.shopOpen ? 'offen' : 'Warteliste'}</strong>` : ''}<br>Zugangsdaten, Push-Benachrichtigung (ntfy) und Passwort stehen in der Datei <code>.env</code>. Anleitung: <code>ANLEITUNG.md</code>.</p></div>`;
   $('#pf').addEventListener('submit', (e) => { e.preventDefault(); const changes = Object.fromEntries(new FormData(e.target).entries()); act('updateParams', { changes }, 'Gespeichert'); });
+  if ($('#xlsx')) $('#xlsx').addEventListener('click', () => api.downloadExcel());
   confirmClick($('#seed'), 'Ersetzt alle Daten. Nochmal tippen', () => act('seedDemo', {}, 'Beispieldaten geladen'));
   confirmClick($('#reset'), 'Löscht alles. Nochmal tippen', () => act('resetDemo', {}, 'Geleert'));
 }

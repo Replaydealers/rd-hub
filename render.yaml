@@ -1,0 +1,46 @@
+# Tsumiki online bei Render (render.com). Anleitung: tsumiki/ONLINE_STELLEN.md
+# Betrifft nur den Ordner tsumiki/; der RD Hub bleibt davon unberührt.
+services:
+  - type: web
+    name: tsumiki
+    runtime: node
+    region: frankfurt
+    plan: starter
+    rootDir: tsumiki
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/config
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - tsumiki/**
+    disk:
+      name: tsumiki-daten
+      mountPath: /var/data
+      sizeGB: 1
+    domains:
+      - tsumiki.de
+      - www.tsumiki.de
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: BASE_URL
+        value: https://tsumiki.de
+      - key: EXCEL_FILE
+        value: /var/data/Tsumiki_Datenbank.xlsx
+      - key: SHOP_OFFEN
+        value: "0"
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: SMTP_PASS
+        sync: false
+      - key: NTFY_TOPIC
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_SECRET
+        sync: false
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: STRIPE_SECRET_KEY
+        sync: false

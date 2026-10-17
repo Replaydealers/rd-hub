@@ -1,4 +1,4 @@
-# Tsumiki – Projektkontext für Claude Code (Stand V1.0.1, 17.10.2026)
+# Tsumiki – Projektkontext für Claude Code (Stand V1.1, 17.10.2026)
 
 Japan-Sammelimport für japanische Sammelkarten. Inhaber: Bastian Karlshaus (Einzelunternehmen, getrennt von der
 Replay Dealers GbR). Kunden fügen einen Link (Mercari, Yahoo, Suruga-ya …) ein, sehen einen Endpreis inkl. Versand,
@@ -26,6 +26,7 @@ einfach, ohne Fachjargon.
 | `store/excel-store.js` | Excel als Datenbank (ExcelJS), Änderungen nacheinander, bei gesperrter Datei Kopie `_GESPERRT_*.xlsx` |
 | `store/workbook-template.js` | Aufbau der Arbeitsmappe inkl. Blatt „Kalkulator“ mit Formeln (spiegelt pricing.js!) |
 | `server/payments.js` | PayPal Orders v2 (intent AUTHORIZE → capture/void), Stripe Checkout (capture_method manual), sonst Demo |
+| `server/mailer.js` | E-Mail-Versand per SMTP (IONOS, noreply@tsumiki.de), aktiv sobald `SMTP_PASS` gesetzt ist |
 | `server.js` | Express: Seiten, `/api/*` für Kunden, `/admin/*` + `/admin/api/*` mit Basic-Auth (ADMIN_PASSWORD) |
 | `public/` | Website (index, so-gehts, preise, ueber-uns, faq, bestellen, kasse, bezahlen, status, Rechtstexte) und `public/admin/` |
 | `public/assets/demo-backend.js` | Browser-Variante des Servers (localStorage) für die Online-Demo; `mode.js` schaltet `server`/`demo` |
@@ -41,8 +42,10 @@ einfach, ohne Fachjargon.
   EUSt als Vorsteuer (1588), Anzahlungen über 1718, Sendico-Gebühr §13b, OSS per Parameter `oss_aktiv`.
 
 ## Offene Punkte / nächste Versionen
-- V1.1: E-Mail-Versand (SMTP, sobald Postfach existiert), echte Erstattungen PayPal/Stripe (`payments.refund` ist TODO),
-  DHL-Geschäftskunden-API für Labels.
-- Hosting im eigenen Google-Cloud-Projekt; später Airtable statt Excel (Tabellen sind 1:1 übertragbar).
+- V1.1 (erledigt): E-Mail-Versand per SMTP, Warteliste (`SHOP_OFFEN=0`), Excel-Download in der Verwaltung,
+  Hosting bei Render (`render.yaml` im Repo-Wurzelverzeichnis, Excel auf dauerhafter Festplatte `/var/data`).
+  Online (`BASE_URL` mit https) sind Standardpasswort und Demo-Zahlung gesperrt.
+- Offen: echte Erstattungen PayPal/Stripe (`payments.refund` ist TODO), DHL-Geschäftskunden-API für Labels.
+- Später Airtable statt Excel in einer eigenen Base (siehe `AIRTABLE_PLAN.md`).
 - Rechtstexte (Impressum, AGB, Widerruf, Datenschutz) sind Entwürfe; Platzhalter im Blatt Parameter ersetzen.
 - Noch nie in einem echten Browser durchgeklickt (nur Code-Review + HTTP-Ende-zu-Ende-Test): als Erstes prüfen.

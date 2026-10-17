@@ -1,6 +1,6 @@
 {
   "name": "tsumiki-system",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Tsumiki – Japan-Sammelimport: Website, Bestellstrecke, Verwaltung, Buchhaltung (Excel-Datenbank)",
   "type": "module",
   "main": "server.js",
@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "exceljs": "^4.4.0",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "nodemailer": "^6.9.16"
   }
 }

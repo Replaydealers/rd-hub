@@ -26,6 +26,7 @@ export const api = {
   quote: async (items, country) => (isDemo() ? (await demo()).quote(items, country) : http('POST', 'api/quote', { items, country })),
   createOrder: async (body) => (isDemo() ? (await demo()).createOrder(body) : http('POST', 'api/orders', body)),
   payDemo: async (token, action) => (isDemo() ? (await demo()).payDemo(token, action) : http('POST', `api/pay/demo/${token}`, { action })),
+  waitlist: async (email) => (isDemo() ? { ok: true } : http('POST', 'api/warteliste', { email })),
   order: async (token) => (isDemo() ? (await demo()).order(token) : http('GET', `api/orders/${token}`)),
   async openInvoice(token, id) {
     if (isDemo()) return openHtml(await (await demo()).invoiceHtml(token, id), id);
@@ -42,6 +43,7 @@ export const api = {
     if (isDemo()) return openHtml(await (await demo()).adminInvoiceHtml(id), id);
     window.open(`${root}admin/api/rechnung/${id}`, '_blank');
   },
+  downloadExcel() { if (!isDemo()) window.location.href = `${root}admin/api/export/excel`; },
   async downloadDatev() {
     if (!isDemo()) { window.location.href = `${root}admin/api/export/datev.csv`; return; }
     const csv = await (await demo()).datev();

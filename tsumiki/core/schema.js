@@ -41,6 +41,9 @@ export const TABLES = {
   Postausgang: { key: 'outbox', cols: [
     ['PA_Nr', 'id'], ['PA_Datum', 'date'], ['PA_An', 'to'], ['PA_Betreff', 'subject'], ['PA_Bestellung', 'orderId'], ['PA_Text', 'html'],
   ] },
+  Warteliste: { key: 'waitlist', cols: [
+    ['WL_Datum', 'date'], ['WL_Email', 'email'], ['WL_Notiz', 'note'],
+  ] },
   Protokoll: { key: 'log', cols: [
     ['LOG_Datum', 'date'], ['LOG_Aktion', 'action'], ['LOG_Bezug', 'ref'], ['LOG_Details', 'details'],
   ] },

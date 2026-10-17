@@ -63,6 +63,13 @@
           <div id="price-out"><div class="empty">Noch kein Artikel im Warenkorb. Der Endpreis erscheint hier, sobald du den ersten Artikel hinzufügst.</div></div>
           <div class="error hidden" id="problems" role="alert"></div>
           <a class="btn block hidden" id="checkout" href="kasse.html" style="margin-top:16px">Weiter zur Kasse</a>
+          <form id="wl" class="hidden" novalidate style="margin-top:16px">
+            <p style="margin:0 0 8px"><strong>Wir starten in Kürze.</strong> Den Preis siehst du schon jetzt. Trag dich ein, dann schreiben wir dir einmal, sobald du bestellen kannst.</p>
+            <div class="field"><label for="wl-email">E-Mail-Adresse</label><input id="wl-email" type="email" autocomplete="email" required></div>
+            <div class="error hidden" id="wl-err" role="alert"></div>
+            <button class="btn block" type="submit">Auf die Warteliste</button>
+            <p class="small muted" style="margin:8px 0 0">Wir nutzen die Adresse nur für diese eine Nachricht. Austragen jederzeit per Antwort an info@tsumiki.de.</p>
+          </form>
           <p class="small muted" style="margin:12px 0 0">Wir kaufen zum angezeigten Preis. Ist der Artikel beim Kauf teurer geworden, fragen wir dich vorher.</p>
         </aside>
       </div>
@@ -78,6 +85,18 @@
 
   $('#type').innerHTML = ITEM_TYPE_OPTIONS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
   $('#country').innerHTML = Object.entries(cfg.countries).sort((a, b) => (a[0] === 'DE' ? -1 : b[0] === 'DE' ? 1 : a[1][0].localeCompare(b[1][0], 'de'))).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('');
+
+  const shopOpen = cfg.shopOpen !== false;
+  if (!shopOpen) {
+    $('#wl').classList.remove('hidden');
+    $('#wl').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await api.waitlist($('#wl-email').value.trim());
+        $('#wl').innerHTML = '<p class="tag ok" style="margin:0">Danke! Du hörst von uns, sobald es losgeht.</p>';
+      } catch (err) { $('#wl-err').textContent = err.message; $('#wl-err').classList.remove('hidden'); }
+    });
+  }
 
   const pre = new URLSearchParams(location.search).get('link');
   if (pre) { $('#url').value = pre; showPlatform(); $('#price').focus(); }
@@ -128,7 +147,7 @@
     const probs = q.problems.map((p) => `Artikel ${p.index + 1}: ${esc(p.text)}`);
     $('#problems').innerHTML = probs.join('<br>');
     $('#problems').classList.toggle('hidden', !probs.length);
-    $('#checkout').classList.toggle('hidden', !!probs.length);
+    $('#checkout').classList.toggle('hidden', !!probs.length || !shopOpen);
     document.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => { const c = getCart(); c.items.splice(Number(b.dataset.del), 1); setCart(c); render(); }));
   }
   render();
