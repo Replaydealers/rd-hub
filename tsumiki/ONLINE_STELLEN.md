@@ -12,7 +12,9 @@ Stand V1.1, 17.10.2026. Dauer für dich: etwa 20 Minuten, danach 1–24 Stunden 
   `info@tsumiki.de`. `rechnung@tsumiki.de` bleibt frei für eingehende Rechnungen (Sendico, DHL, Zoll).
 - **Start im Warteliste-Modus:** Preisrechner und alle Seiten laufen, Bestellen ist noch zu. Besucher können sich
   stattdessen mit ihrer E-Mail eintragen. Die Liste siehst du in der Verwaltung unter *Einstellungen*.
-- **Sicherheit:** Die Verwaltung bekommt automatisch ein langes Zufallspasswort. Die Demo-Zahlung ist online abgeschaltet.
+- **Passwortschutz:** Die ganze Seite fragt zuerst nach einem Passwort (`SEITEN_PASSWORT`). Nur wer es kennt,
+  sieht etwas; Suchmaschinen nehmen die Seite nicht auf. Das Verwaltungspasswort öffnet die Seite ebenfalls.
+- **Sicherheit:** Die Verwaltung bekommt automatisch ein eigenes langes Zufallspasswort. Die Demo-Zahlung ist online abgeschaltet.
 
 ## Schritt 1: Render-Konto und Server (10 Minuten)
 
@@ -27,8 +29,10 @@ Stand V1.1, 17.10.2026. Dauer für dich: etwa 20 Minuten, danach 1–24 Stunden 
    - `NTFY_TOPIC`: optional, für Push aufs Handy (siehe `ANLEITUNG.md`). Kann leer bleiben.
    - PayPal und Stripe: **leer lassen**, kommt erst beim echten Start.
 5. *Apply* klicken. Nach 2–3 Minuten läuft die Seite unter einer Adresse wie `https://tsumiki-xxxx.onrender.com`.
-6. Passwort der Verwaltung: in Render beim Dienst *tsumiki* → *Environment* → `ADMIN_PASSWORD` → Auge-Symbol.
-   Benutzername ist egal (z. B. `admin`).
+6. Die beiden Passwörter stehen in Render beim Dienst *tsumiki* → *Environment* (Auge-Symbol):
+   - `SEITEN_PASSWORT`: für die Seite, zum Weitergeben an Tester. Du kannst es dort durch ein eigenes ersetzen.
+   - `ADMIN_PASSWORD`: für die Verwaltung, nur für dich.
+   Der Benutzername ist bei beiden egal (z. B. `tsumiki`).
 
 ## Schritt 2: Domain bei IONOS umstellen (5 Minuten)
 
@@ -44,7 +48,7 @@ Stand V1.1, 17.10.2026. Dauer für dich: etwa 20 Minuten, danach 1–24 Stunden 
 
 ## Schritt 3: Testen (5 Minuten)
 
-- `https://tsumiki.de` öffnen, auf *Bestellen* einen Link einfügen → Preis erscheint, darunter die Warteliste.
+- `https://tsumiki.de` öffnen → Passwortabfrage erscheint → `SEITEN_PASSWORT` eingeben, auf *Bestellen* einen Link einfügen → Preis erscheint, darunter die Warteliste.
 - Dich selbst mit einer privaten Adresse eintragen.
 - `https://tsumiki.de/admin/` öffnen → *Einstellungen*: Die Adresse steht in der Warteliste,
   bei *Anbindungen* steht „E-Mail-Versand: aktiv“.
@@ -54,7 +58,7 @@ Stand V1.1, 17.10.2026. Dauer für dich: etwa 20 Minuten, danach 1–24 Stunden 
 Wenn Gewerbe, Steuerberatung, Rechtstexte und PayPal/Stripe fertig sind:
 
 1. Render → *Environment*: `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`, `PAYPAL_ENV=live` und/oder `STRIPE_SECRET_KEY` eintragen.
-2. `SHOP_OFFEN` auf `1` setzen → *Save*. Render startet neu, Bestellen ist offen.
+2. `SHOP_OFFEN` auf `1` setzen und `SEITEN_PASSWORT` löschen → *Save*. Render startet neu, Bestellen ist offen.
 3. In der Verwaltung unter *Einstellungen* mit *Alles leeren* eventuelle Testbestellungen entfernen
    (die Warteliste bleibt erhalten) und der Warteliste Bescheid geben.
 

@@ -29,6 +29,8 @@ const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'tsumiki';
 // SHOP_OFFEN=0: Preisrechner läuft, Bestellen ist zu, stattdessen Warteliste (für die Zeit vor dem Start)
 const SHOP_OPEN = process.env.SHOP_OFFEN !== '0';
+// SEITEN_PASSWORT gesetzt: die ganze Seite ist nur mit Passwort erreichbar (Vorschau für ausgewählte Personen)
+const SITE_PASSWORD = process.env.SEITEN_PASSWORT || '';
 // Online (https): Standardpasswort und Demo-Zahlung sind gesperrt
 const ONLINE = BASE_URL.startsWith('https://');
 if (ONLINE && ADMIN_PASSWORD === 'tsumiki') {
@@ -66,6 +68,22 @@ const ctx = () => ({ payments, notify, mailer: mailer.send, baseUrl: BASE_URL, f
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
+
+// Lebenszeichen für den Hoster (ohne Passwort, verrät nichts)
+app.get('/healthz', (req, res) => res.send('ok'));
+
+function basicPassword(req) {
+  const raw = Buffer.from((req.headers.authorization || '').replace('Basic ', ''), 'base64').toString();
+  return raw.slice(raw.indexOf(':') + 1);
+}
+if (SITE_PASSWORD) {
+  app.use((req, res, next) => {
+    res.set('X-Robots-Tag', 'noindex, nofollow');
+    const pass = basicPassword(req);
+    if (pass === SITE_PASSWORD || pass === ADMIN_PASSWORD) return next();
+    res.set('WWW-Authenticate', 'Basic realm="Tsumiki"').status(401).send('Diese Seite ist noch nicht öffentlich.');
+  });
+}
 
 // ---------- Öffentliche API ----------
 app.get('/api/config', async (req, res) => {
@@ -147,9 +165,7 @@ app.get('/rechnung/:token/:invoiceId', (req, res) => {
 
 // ---------- Verwaltung (Passwortschutz) ----------
 function auth(req, res, next) {
-  const h = req.headers.authorization || '';
-  const [user, pass] = Buffer.from(h.replace('Basic ', ''), 'base64').toString().split(':');
-  if (pass === ADMIN_PASSWORD) return next();
+  if (basicPassword(req) === ADMIN_PASSWORD) return next();
   res.set('WWW-Authenticate', 'Basic realm="Tsumiki Verwaltung"').status(401).send('Anmeldung erforderlich');
 }
 app.use('/admin', auth);
@@ -204,5 +220,5 @@ app.listen(PORT, () => {
   console.log(`  Verwaltung:     ${BASE_URL}/admin/   (Passwort: ${ADMIN_PASSWORD === 'tsumiki' ? 'tsumiki – bitte in .env ändern' : 'aus .env'})`);
   console.log(`  Datenbank:      ${store.file}`);
   console.log(`  Zahlung:        PayPal ${paymentModes().paypal}, Stripe ${paymentModes().stripe}`);
-  console.log(`  E-Mail-Versand: ${mailer.mode} · Shop: ${SHOP_OPEN ? 'offen' : 'Warteliste'}\n`);
+  console.log(`  E-Mail-Versand: ${mailer.mode} · Shop: ${SHOP_OPEN ? 'offen' : 'Warteliste'} · Seite: ${SITE_PASSWORD ? 'mit Passwort' : 'öffentlich'}\n`);
 });

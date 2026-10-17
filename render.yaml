@@ -9,7 +9,7 @@ services:
     rootDir: tsumiki
     buildCommand: npm ci
     startCommand: npm start
-    healthCheckPath: /api/config
+    healthCheckPath: /healthz
     autoDeploy: true
     buildFilter:
       paths:
@@ -31,6 +31,8 @@ services:
       - key: SHOP_OFFEN
         value: "0"
       - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: SEITEN_PASSWORT
         generateValue: true
       - key: SMTP_PASS
         sync: false

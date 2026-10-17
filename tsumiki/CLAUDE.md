@@ -44,7 +44,8 @@ einfach, ohne Fachjargon.
 ## Offene Punkte / nächste Versionen
 - V1.1 (erledigt): E-Mail-Versand per SMTP, Warteliste (`SHOP_OFFEN=0`), Excel-Download in der Verwaltung,
   Hosting bei Render (`render.yaml` im Repo-Wurzelverzeichnis, Excel auf dauerhafter Festplatte `/var/data`).
-  Online (`BASE_URL` mit https) sind Standardpasswort und Demo-Zahlung gesperrt.
+  Online (`BASE_URL` mit https) sind Standardpasswort und Demo-Zahlung gesperrt. `SEITEN_PASSWORT` schützt die ganze
+  Seite (Basic-Auth, `/healthz` bleibt frei für Render).
 - Offen: echte Erstattungen PayPal/Stripe (`payments.refund` ist TODO), DHL-Geschäftskunden-API für Labels.
 - Später Airtable statt Excel in einer eigenen Base (siehe `AIRTABLE_PLAN.md`).
 - Rechtstexte (Impressum, AGB, Widerruf, Datenschutz) sind Entwürfe; Platzhalter im Blatt Parameter ersetzen.
