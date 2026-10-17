@@ -49,7 +49,7 @@
   const pct = (x) => `${Math.round(Number(x) * 100)} %`;
   $('#buy').textContent = `die Gebühr unseres Einkaufsdienstes (${jpyF(P.sendico_gebuehr_jpy)} je Artikel, bei Mercari und Yahoo ${jpyF(Number(P.sendico_gebuehr_jpy) + Number(P.sendico_aufschlag_marktplatz_jpy))}) und, wenn der Shop ihn berechnet, der Versand innerhalb Japans (geschätzt ${jpyF(P.inlandsversand_japan_schaetzung_jpy)}). Beides zahlst du mit dem Endpreis, nichts kommt später dazu.`;
   $('#fee').textContent = `${eur(P.gebuehr_grund_eur)} pro Bestellung plus ${pct(P.gebuehr_prozent)} vom Warenwert (ab 3 Artikeln ${pct(P.gebuehr_prozent_ab3)}, ab 6 Artikeln ${pct(P.gebuehr_prozent_ab6)}), höchstens ${eur(P.gebuehr_max_eur)}.`;
-  $('#ship').textContent = `Deutschland bis ${eur(P.versand_de_grenze_eur)} Warenwert ${eur(P.versand_de_klein_eur)} als Brief mit Sendungsverfolgung, darüber ${eur(P.versand_de_paket_eur)} als versichertes DHL-Paket. EU-Ausland ${eur(P.versand_eu_klein_eur)} bzw. ${eur(P.versand_eu_paket_eur)}.`;
+  $('#ship').textContent = `Deutschland bis ${eur(P.versand_de_grenze_eur)} Warenwert ${eur(P.versand_de_klein_eur)} als Brief mit Sendungsverfolgung, darüber ${eur(P.versand_de_paket_eur)} als versichertes DHL-Paket. EU-Ausland ${eur(P.versand_eu_klein_eur)} bzw. ${eur(P.versand_eu_paket_eur)}. Dazu kommen ${eur(P.verpackung_eur_je_bestellung)} für Verpackung und Etikett.`;
   async function calc() {
     const n = Number($('#n').value);
     $('#nlabel').textContent = n === 1 ? '1 Artikel' : `${n} Artikel`;

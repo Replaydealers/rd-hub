@@ -54,6 +54,7 @@ export const DEFAULT_PARAMS = [
   ['versand_de_paket_eur', 6.19, 'EUR', 'Versand DE über Grenze (DHL Paket, versichert)'],
   ['versand_eu_klein_eur', 6.5, 'EUR', 'Versand EU bis Grenze – ZU PRÜFEN (Warenpost International)'],
   ['versand_eu_paket_eur', 14.9, 'EUR', 'Versand EU über Grenze (Paket mit Tracking)'],
+  ['verpackung_eur_je_bestellung', 0.8, 'EUR', 'Karton/Versandtasche, Polster, Klebeband, Etikett, Drucker und Toner anteilig'],
 
   // Steuern
   ['ust_satz_de', 0.19, '%', 'Umsatzsteuer Deutschland'],

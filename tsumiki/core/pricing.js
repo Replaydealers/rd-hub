@@ -36,12 +36,14 @@ export function serviceFee(goodsTotal, itemCount, params) {
   return { fee: r2(Math.min(fee, num(params.gebuehr_max_eur, 40))), pct };
 }
 
+// Versand zu Kunden inkl. Verpackungsmaterial
 export function customerShipping(goodsTotal, country, params) {
   const small = goodsTotal <= num(params.versand_de_grenze_eur, 50);
+  const pack = num(params.verpackung_eur_je_bestellung, 0.8);
   if (!country || country === 'DE') {
-    return { cost: small ? num(params.versand_de_klein_eur, 1.8) : num(params.versand_de_paket_eur, 6.19), method: small ? 'Brief mit Sendungsverfolgung' : 'DHL Paket, versichert' };
+    return { cost: r2((small ? num(params.versand_de_klein_eur, 1.8) : num(params.versand_de_paket_eur, 6.19)) + pack), method: small ? 'Brief mit Sendungsverfolgung' : 'DHL Paket, versichert' };
   }
-  return { cost: small ? num(params.versand_eu_klein_eur, 6.5) : num(params.versand_eu_paket_eur, 14.9), method: small ? 'Warenpost International' : 'Paket International mit Tracking' };
+  return { cost: r2((small ? num(params.versand_eu_klein_eur, 6.5) : num(params.versand_eu_paket_eur, 14.9)) + pack), method: small ? 'Warenpost International' : 'Paket International mit Tracking' };
 }
 
 // Ein Artikel: alles in EUR netto (ohne USt)

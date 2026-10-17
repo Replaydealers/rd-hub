@@ -35,13 +35,14 @@ einfach, ohne Fachjargon.
 - Endpreis = Ware (Yen zum EZB-Kurs −2 % Puffer) + Sendico ¥500 (+¥300 Mercari/Yahoo) + ggf. ¥750 Inlandsversand
   + Fracht 10 €/kg + Fixkosten 45 €/30 Positionen + Zoll 2,7 % + Servicegebühr + Versand, darauf 19 % USt.
 - Servicegebühr: 5 € fix + 5 % (ab 3 Artikeln 4,5 %, ab 6 Artikeln 4 %), max. 40 €. Ziel ≈ 5 € Gewinn je Bestellung.
-- Versand DE: 1,80 € bis 50 € Warenwert, sonst 6,19 €. EU: 6,50 € (zu prüfen) / 14,90 €.
+- Versand DE: 1,80 € bis 50 € Warenwert, sonst 6,19 €. EU: 6,50 € (zu prüfen) / 14,90 €. Plus Verpackung 0,80 € je Bestellung
+  (`verpackung_eur_je_bestellung`, steckt im Versand).
 - Kiste: Ware muss bis zum 20. bei Sendico sein (`stichtag_tag`), Bestellschluss 5 Tage vorher (`tage_japan_inland`).
   Zeitplan bis zum Kunden aus den `tage_*`-Parametern (`nextCutoff().phases`). Mindestmenge nur intern, nicht öffentlich.
 - Inlandsversand Japan fragt der Kunde nicht mehr ab: je Shop `domesticExtra` in `PLATFORMS` (Yahoo, Suruga-ya, Amazon,
   Rakuten → Schätzung ¥750; Mercari, Rakuma, PayPay-Flohmarkt → inklusive). Artikelart = Größenklasse fürs Gewicht.
 - Zahlung wird nur vorgemerkt; abgebucht wird nach dem Kauf, und zwar nur für tatsächlich gekaufte Artikel.
-- Steuer (Entwurf, mit Steuerberaterin Patty klären): Einkaufskommission, 19 % USt auf den vollen Preis,
+- Steuer (Entwurf, mit dem Steuerberater klären; Kanzlei steht noch nicht fest, keinen Namen nennen): Einkaufskommission, 19 % USt auf den vollen Preis,
   EUSt als Vorsteuer (1588), Anzahlungen über 1718, Sendico-Gebühr §13b, OSS per Parameter `oss_aktiv`.
 
 ## Offene Punkte / nächste Versionen

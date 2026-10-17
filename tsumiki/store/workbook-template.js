@@ -110,7 +110,7 @@ export function buildWorkbook(db) {
     ['A16', 'Fracht + Anteil Fixkosten (€)', `ROUND(B15*${P('fracht_eur_je_kg')},2)+ROUND(${P('sendung_fixkosten_eur')}/${P('sendung_erwartete_positionen')},2)`],
     ['A17', 'Zoll (€)', `ROUND((B12+B13+ROUND(B15*${P('fracht_eur_je_kg')},2))*${P('zoll_satz_karten')},2)`],
     ['A18', 'Servicegebühr (€)', `ROUND(MIN(${P('gebuehr_grund_eur')}+B12*IF(B8>=6,${P('gebuehr_prozent_ab6')},IF(B8>=3,${P('gebuehr_prozent_ab3')},${P('gebuehr_prozent')})),${P('gebuehr_max_eur')}),2)`],
-    ['A19', 'Versand zum Kunden (€)', `IF(B12<=${P('versand_de_grenze_eur')},${P('versand_de_klein_eur')},${P('versand_de_paket_eur')})`],
+    ['A19', 'Versand zum Kunden inkl. Verpackung (€)', `IF(B12<=${P('versand_de_grenze_eur')},${P('versand_de_klein_eur')},${P('versand_de_paket_eur')})+${P('verpackung_eur_je_bestellung')}`],
     ['A20', 'Summe netto (€)', 'SUM(B12:B14)+SUM(B16:B19)'],
     ['A21', 'Umsatzsteuer (€)', `ROUND(B20*${P('ust_satz_de')},2)`],
     ['A22', 'ENDPREIS für den Kunden (€)', 'B20+B21'],
