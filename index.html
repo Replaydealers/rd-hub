@@ -1,13 +1,14 @@
 <!--
 ================================================================================
   RD Hub – Replay Dealers GbR
-  Version:  2.18.1
-  SW Cache: rd-hub-v97
+  Version:  2.18.2
+  SW Cache: rd-hub-v98
   Build:    dynamisch via GitHub API (letzter Commit auf main)
 ================================================================================
 
   CHANGELOG
   ─────────────────────────────────────────────────────────────────────────────
+  v2.18.2 (2026-10-18)  Eigenbeleg: Firmenadresse korrigiert auf Heinz-Fangmann-Str. 2-6, 42287 Wuppertal
   v2.18.1 (2026-10-11)  EK-Dialog: Status „abgeschlossen“ sobald ein Beleg dabei ist; kein Verkäufer-Prefill aus KIMP_Name (war PayPal/eBay); OCR des hochgeladenen Belegs schlägt Verkäufer, Datum und Kurzbeschreibung vor
   v2.18.0 (2026-10-11)  KIMP-Clearing: „Neuen Einkauf (EK) anlegen“ – EK-Dialog mit Lot-Vorschlag (nächste EK7xxxx-Nummer, Duplikat-Check), Verkäufer-Picker (EK-Lieferant/Mehrfach, Neuanlage mit Duplikat-Prüfung), Rechnung hochladen / Eigenbeleg Wareneinkauf / Beleg später → EK_Rechnungsdokument; verknüpft per KIMP_EK_Link. EK-Beleg wird in Verknüpfungen angezeigt und zählt beim Abschließen
   v2.17.0 (2026-10-11)  BA-Dialog: „Kein Beleg? → Eigenbeleg erzeugen“ – erzeugt im Browser (eigener PDF-Writer, keine Library) bei fehlendem Fremdbeleg (z. B. Kleinanzeigen-Privatkauf) ein Eigenbeleg-PDF (Belegnummer = KIMP-ID, Zahlungsempfänger, Grund, Aussteller) und legt damit die BA an; Vorsteuer = nein / USt 0 %
@@ -756,7 +757,7 @@ select.kimp-status-select:disabled{opacity:.6;cursor:default}
     <div class="rd">Replay Dealers</div>
     <div class="name">RD Hub</div>
     <div class="lock-versions">
-      <span>APP v2.18.1</span>
+      <span>APP v2.18.2</span>
       <span>SW rd-hub-v97</span>
     </div>
     <div class="lock-build-label" style="margin-top:14px">Letzter Build</div>
@@ -6562,7 +6563,7 @@ function kimpNewBaFillFromOcr(d){
 // ── v2.17.0: Eigenbeleg für BAs ohne Fremdbeleg ──
 var EB_COMPANY_TRADE = 'Replaydealers GbR';
 var EB_COMPANY_LEGAL = 'Bastian Karlshaus und Daniel Hecker GbR';
-var EB_COMPANY_ADDRESS = 'Heinz-Fangmann-Str. 2, 42287 Wuppertal (im W-tec)';
+var EB_COMPANY_ADDRESS = 'Heinz-Fangmann-Str. 2-6, 42287 Wuppertal (im W-tec)';
 var EB_COMPANY_VAT_ID = 'DE 370001609';
 var EB_DEFAULT_GRUND = 'Privatkauf von Privatperson ohne Rechnung (z. B. Kleinanzeigen)';
 var kimpEbLogoPromise = null;
