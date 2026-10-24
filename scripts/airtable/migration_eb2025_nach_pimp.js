@@ -2,18 +2,19 @@
  * Import eBay-Transaktionsbericht 2025 → PlattformImport_2026 (PIMP)
  * ─────────────────────────────────────────────────────────────
  * Ausführen in Airtable: Erweiterungen → „Scripting“ → Skript einfügen → Run.
- * (NICHT als Automation – dort fehlen createFieldAsync, Datei-Upload und Buttons.)
+ * (NICHT als Automation – dort fehlen Datei-Upload und Buttons.)
  *
  * Quelle der Daten: ebay_2025_fuer_pimp.json – aus dem eBay-Transaktionsbericht
  *   01.01.–31.12.2025 aufbereitet (eine Zeile pro Berichtszeile, fertige PIMP-Felder).
- * eBay_Transaktionen_2025 wird nur noch gelesen, um die Verknüpfungen zu
- *   KontoImport_2026 (Auszahlungen) und Verkauf_2025 (Bestellungen) zu übernehmen.
+ * eBay_Transaktionen_2025 wird nur noch gelesen, um die Zuordnung Bestellung → Verkauf_2025
+ *   zu übernehmen. Sie landet wie bei 2026 als Text in PIMP_VK_Lot („VK25/188“).
+ * Keine neuen Felder: Die Verbindung zum Kontoimport läuft über die Auszahlungs-Nr.
+ *   (PIMP_PayoutNo ↔ KIMP-Verwendungszweck „P.<Nr>“), wie bei 2026.
  *
  * Ablauf:
  *   1. Analyse (schreibt nichts): Abgleich Bericht ↔ PIMP und Bericht ↔ EB, Summenprobe.
  *   2. Erst nach Klick auf „Import ausführen“:
- *        - fehlende Felder in PIMP anlegen: PIMP_KIMP_Link, PIMP_VK25_Link, PIMP_EB_ID
- *        - Berichtszeilen, die in PIMP schon stehen → nur Verknüpfungen + EB-ID ergänzen
+ *        - Berichtszeilen, die in PIMP schon stehen → nur leeres PIMP_VK_Lot mit VK25-Nr. füllen
  *        - alle übrigen Berichtszeilen → neu in PIMP anlegen (Processed = true!)
  *   Gelöscht wird NICHTS.
  *
@@ -26,15 +27,8 @@
 
 const T = {
     eb: 'eBay_Transaktionen_2025',
-    pimp: 'PlattformImport_2026',
-    kimp: 'KontoImport_2026',
-    vk25: 'Verkauf_2025'
+    pimp: 'PlattformImport_2026'
 };
-const NEUE_FELDER = [
-    { name: 'PIMP_KIMP_Link', type: 'multipleRecordLinks', linkTo: T.kimp },
-    { name: 'PIMP_VK25_Link', type: 'multipleRecordLinks', linkTo: T.vk25 },
-    { name: 'PIMP_EB_ID', type: 'singleLineText' }
-];
 const NUMMER_FELDER = ['PIMP_AmountGross', 'PIMP_AmountNet', 'PIMP_Shipping', 'PIMP_FeeSum', 'PIMP_Quantity'];
 const BATCH = 50;
 
@@ -43,9 +37,8 @@ const s = (r, f) => (r.getCellValueAsString(f) || '').trim();
 const num = (r, f) => { const v = r.getCellValue(f); return typeof v === 'number' ? v : null; };
 const datum = (r, f) => r.getCellValue(f) || '';   // Datumsfeld roh = ISO "YYYY-MM-DD"
 const cent = v => (v === null || v === undefined) ? '' : (Math.round(v * 100) / 100).toFixed(2);
-const links = (r, f) => (r.getCellValue(f) || []).map(l => ({ id: l.id }));
-const hatFeld = (tbl, name) => tbl.fields.some(f => f.name === name);
-const sameLinks = (a, b) => a.map(l => l.id).sort().join() === b.map(l => l.id).sort().join();
+const links = (r, f) => (r.getCellValue(f) || []).map(l => ({ id: l.id, name: l.name }));
+const lotText = ls => ls.map(l => l.name).filter(Boolean).join(', ');
 
 /** Multiset-Abgleich in mehreren Stufen: jede Zielzeile wird höchstens einmal vergeben. */
 function abgleich(quellen, ziele, stufen) {
@@ -88,9 +81,8 @@ if (bericht.length < 1000 || bericht.some(z => !z.datum.startsWith('2025') || !z
     throw new Error('Falsche Datei');
 }
 
-let tblPimp = base.getTable(T.pimp);
+const tblPimp = base.getTable(T.pimp);
 const tblEb = base.getTable(T.eb);
-const pimpHatEbId = hatFeld(tblPimp, 'PIMP_EB_ID');
 const pimpFelder = ['PIMP_TransactionKey', 'PIMP_TransactionDate', 'PIMP_RowType', 'PIMP_OrderId',
     'PIMP_TransactionNo', 'PIMP_AmountGross', 'PIMP_PayoutNo', 'PIMP_Plattform', 'PIMP_VK_Lot'];
 const pimpQuery = await tblPimp.selectRecordsAsync({ fields: pimpFelder });
@@ -122,7 +114,6 @@ const ebAlle = ebQuery.records.map(r => ({
     order: s(r, 'EB_Bestellnummer'),
     betrag: num(r, 'EB_Betrag'),
     payout: s(r, 'EB_Auszahlung_Nr'),
-    kimp: links(r, 'EB_KIMP_Link'),
     vk25: links(r, 'EB_VK25_Link'),
     sonstige: ['EB_VK_Link', 'EB_BA_Link', 'EB_EK_Link', 'Kopie von Verkauf_2026'].reduce((n, f) => n + links(r, f).length, 0)
 }));
@@ -156,8 +147,8 @@ const E = abgleich(bericht, eb, [
                                z: e => [e.datum, e.typ, e.order, cent(e.betrag)].join('|') }
 ]);
 const ebOhneBericht = eb.filter(e => !E.vergeben.has(e));
-const ebLinksVerloren = ebOhneBericht.filter(e => e.kimp.length || e.vk25.length);
-// Mehrdeutige Gruppen (gleicher Schlüssel) mit unterschiedlichen Verknüpfungen → Zuordnung prüfen
+const ebLinksVerloren = ebOhneBericht.filter(e => e.vk25.length);
+// Mehrdeutige Gruppen (gleicher Schlüssel) mit unterschiedlichen VK25-Zuordnungen → prüfen
 const gruppen = new Map();
 for (const e of eb) {
     const k = [e.datum, e.typ, e.order, cent(e.betrag), e.payout].join('|');
@@ -165,7 +156,9 @@ for (const e of eb) {
     gruppen.get(k).push(e);
 }
 const mehrdeutig = [...gruppen.values()].filter(g => g.length > 1 &&
-    g.some(e => !sameLinks(e.kimp, g[0].kimp) || !sameLinks(e.vk25, g[0].vk25)));
+    g.some(e => lotText(e.vk25) !== lotText(g[0].vk25)));
+// Vorhandene PIMP-Zeilen mit VK26-Lot, die laut EB zusätzlich einem VK25 zugeordnet sind → Doppelbuchung?
+const konflikte = [...P.paare].filter(([z, p]) => p.vkLot && E.paare.get(z)?.vk25.length && p.vkLot !== lotText(E.paare.get(z).vk25));
 
 // ── 3. Bericht ───────────────────────────────────────────────
 const neu = P.rest;
@@ -178,13 +171,14 @@ for (const p of pimp2025) zeile(p.typ)['Summe PIMP 2025 nachher €'] += p.brutt
 for (const p of pimp.filter(p => p.key.startsWith('CSV25|'))) zeile(p.typ)['Summe PIMP 2025 nachher €'] += p.brutto || 0;
 output.markdown(`## Analyse
 - Berichtszeilen: **${bericht.length}** (bereits mit diesem Skript importiert: ${bereitsImportiert})
-- davon schon in PIMP vorhanden: **${P.paare.size}** – ${JSON.stringify(P.proStufe)} → bekommen nur Verknüpfungen
+- davon schon in PIMP vorhanden: **${P.paare.size}** – ${JSON.stringify(P.proStufe)} → werden nicht neu angelegt
 - **neu anzulegen: ${neu.length}**
 - PIMP-2025-Zeilen ohne Gegenstück im Bericht: **${pimpOhneBericht.length}** (Dubletten-Kandidaten, bleiben unverändert)
 - EB: ${eb.length} Zeilen + ${ebLeer.length} leere; dem Bericht zugeordnet: **${E.paare.size}** – ${JSON.stringify(E.proStufe)}
 - EB-Zeilen ohne Gegenstück im Bericht: **${ebOhneBericht.length}**, davon mit Verknüpfung (würde fehlen): **${ebLinksVerloren.length}**
-- Verknüpfungen, die übernommen werden: KontoImport ${[...E.paare.values()].filter(e => e.kimp.length).length} / ${eb.filter(e => e.kimp.length).length}, Verkauf_2025 ${[...E.paare.values()].filter(e => e.vk25.length).length} / ${eb.filter(e => e.vk25.length).length}
-- mehrdeutige EB-Gruppen mit unterschiedlichen Verknüpfungen: **${mehrdeutig.length}**`);
+- VK25-Zuordnungen, die als PIMP_VK_Lot übernommen werden: ${[...E.paare.values()].filter(e => e.vk25.length).length} / ${eb.filter(e => e.vk25.length).length}
+- mehrdeutige EB-Gruppen mit unterschiedlichen VK25-Zuordnungen: **${mehrdeutig.length}**
+- ⚠️ vorhandene PIMP-Zeilen mit VK26-Lot UND VK25-Zuordnung (mögliche Doppelbuchung): **${konflikte.length}**`);
 output.table(Object.values(proTyp).map(z => ({ ...z,
     'Summe Bericht €': cent(z['Summe Bericht €']), 'Summe PIMP 2025 nachher €': cent(z['Summe PIMP 2025 nachher €']),
     'Probe': cent(z['Summe Bericht €']) === cent(z['Summe PIMP 2025 nachher €']) ? '✅' : '⚠️' })));
@@ -192,8 +186,12 @@ if (pimpOhneBericht.length) {
     output.markdown('### PIMP-2025-Zeilen ohne Gegenstück im Bericht (max. 50)');
     output.table(pimpOhneBericht.slice(0, 50).map(p => ({ id: p.rec.id, Datum: p.datum, Typ: p.typ, Order: p.order, Betrag: cent(p.brutto), Auszahlung: p.payout, VK_Lot: p.vkLot })));
 }
+if (konflikte.length) {
+    output.markdown('### Mögliche Doppelbuchungen VK26 ↔ VK25 (werden NICHT verändert)');
+    output.table(konflikte.map(([z, p]) => ({ id: p.rec.id, Datum: p.datum, Order: p.order, PIMP_VK_Lot: p.vkLot, 'laut EB': lotText(E.paare.get(z).vk25) })));
+}
 if (ebLinksVerloren.length) {
-    output.markdown('### EB-Zeilen mit Verknüpfung ohne Gegenstück im Bericht (max. 50)');
+    output.markdown('### EB-Zeilen mit VK25-Zuordnung ohne Gegenstück im Bericht (max. 50)');
     output.table(ebLinksVerloren.slice(0, 50).map(e => ({ EB: e.ebId, Datum: e.datum, Typ: e.typ, Order: e.order, Betrag: cent(e.betrag) })));
 }
 if (mehrdeutig.length) {
@@ -209,31 +207,15 @@ if (wahl === 'ja') await ausfuehren();
 else output.markdown('Abgebrochen – es wurde nichts geändert.');
 
 async function ausfuehren() {
-    // ── 4. Felder anlegen ────────────────────────────────────
-    for (const f of NEUE_FELDER) {
-        if (hatFeld(tblPimp, f.name)) continue;
-        const opts = f.type === 'multipleRecordLinks' ? { linkedTableId: base.getTable(f.linkTo).id } : null;
-        await tblPimp.createFieldAsync(f.name, f.type, opts);
-        output.markdown(`➕ Feld **${f.name}** angelegt`);
-    }
-    tblPimp = base.getTable(T.pimp);
+    const vkLot = z => lotText(E.paare.get(z)?.vk25 || []);
 
-    const linkFelder = z => {
-        const e = E.paare.get(z);
-        if (!e) return {};
-        const f = { 'PIMP_EB_ID': e.ebId };
-        if (e.kimp.length) f['PIMP_KIMP_Link'] = e.kimp;
-        if (e.vk25.length) f['PIMP_VK25_Link'] = e.vk25;
-        return f;
-    };
-
-    // ── 5. Vorhandene PIMP-Zeilen: nur Verknüpfungen ergänzen ─
-    const updates = [...P.paare].map(([z, p]) => ({ id: p.rec.id, fields: linkFelder(z) }))
-        .filter(u => Object.keys(u.fields).length);
+    // ── 4. Vorhandene PIMP-Zeilen: nur leeres PIMP_VK_Lot füllen ─
+    const updates = [...P.paare].filter(([z, p]) => !p.vkLot && vkLot(z))
+        .map(([z, p]) => ({ id: p.rec.id, fields: { 'PIMP_VK_Lot': vkLot(z) } }));
     for (let i = 0; i < updates.length; i += BATCH) await tblPimp.updateRecordsAsync(updates.slice(i, i + BATCH));
     output.markdown(`✏️ ${updates.length} vorhandene PIMP-Zeilen ergänzt`);
 
-    // ── 6. Neue Zeilen anlegen ───────────────────────────────
+    // ── 5. Neue Zeilen anlegen ───────────────────────────────
     const jetzt = new Date().toISOString();
     const creates = neu.map(z => {
         const fields = {};
@@ -241,7 +223,8 @@ async function ausfuehren() {
         fields['PIMP_Plattform'] = { name: 'ebay' };
         fields['PIMP_Processed'] = { name: 'true' };
         fields['PIMP_ProcessedAt'] = jetzt;
-        return { fields: { ...fields, ...linkFelder(z) } };
+        if (vkLot(z)) fields['PIMP_VK_Lot'] = vkLot(z);
+        return { fields };
     });
     for (let i = 0; i < creates.length; i += BATCH) {
         await tblPimp.createRecordsAsync(creates.slice(i, i + BATCH));
