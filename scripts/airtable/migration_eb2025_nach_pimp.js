@@ -17,7 +17,8 @@
  * Ablauf:
  *   1. Analyse (schreibt nichts): Abgleich Bericht ↔ PIMP und Bericht ↔ EB, Summenprobe.
  *   2. Erst nach Klick auf „Import ausführen“:
- *        - Berichtszeilen, die in PIMP schon stehen → nur leeres PIMP_VK_2025 füllen
+ *        - Berichtszeilen, die in PIMP schon stehen → nur leeres PIMP_VK_2025 füllen und
+ *          ein abweichendes PIMP_TransactionDate auf das Datum laut eBay korrigieren
  *        - alle übrigen Berichtszeilen → neu in PIMP anlegen (Processed = true!)
  *        - leeres PIMP_VK_2026 aus dem Text-Lot „VK26/…“ füllen
  *   Gelöscht wird NICHTS.
@@ -81,7 +82,7 @@ const bericht = (datei.parsedContents || []).map((z, i) => {
     return {
         i, f, ebBetrag: z.eb,
         datum: f.PIMP_TransactionDate, typ: f.PIMP_RowType, order: f.PIMP_OrderId || '',
-        txn: f.PIMP_TransactionNo || '', payout: f.PIMP_PayoutNo || '',
+        txn: f.PIMP_TransactionNo || '', payout: f.PIMP_PayoutNo || '', ref: f.PIMP_Reference || '',
         brutto: f.PIMP_AmountGross ?? null, netto: f.PIMP_AmountNet ?? null
     };
 });
@@ -99,7 +100,7 @@ for (const f of [F_VK_2025, F_VK_2026]) {
     }
 }
 const pimpFelder = ['PIMP_TransactionKey', 'PIMP_TransactionDate', 'PIMP_RowType', 'PIMP_OrderId',
-    'PIMP_TransactionNo', 'PIMP_AmountGross', 'PIMP_PayoutNo', 'PIMP_Plattform', F_VK_LOT,
+    'PIMP_TransactionNo', 'PIMP_AmountGross', 'PIMP_PayoutNo', 'PIMP_Reference', 'PIMP_Plattform', F_VK_LOT,
     F_VK_2025, F_VK_2026];
 const vk26Query = await base.getTable(T.vk26).selectRecordsAsync({ fields: ['VK_Lot'] });
 const pimpQuery = await tblPimp.selectRecordsAsync({ fields: pimpFelder });
@@ -117,6 +118,7 @@ const pimp = pimpQuery.records.map(r => ({
     txn: s(r, 'PIMP_TransactionNo'),
     brutto: num(r, 'PIMP_AmountGross'),
     payout: s(r, 'PIMP_PayoutNo'),
+    ref: s(r, 'PIMP_Reference'),
     plattform: r.getCellValue('PIMP_Plattform')?.name || '',
     vkLot: s(r, F_VK_LOT),
     hatVk25: links(r, F_VK_2025).length > 0,
@@ -147,6 +149,8 @@ if (eb.some(e => e.sonstige > 0)) {
 const offen = bericht.filter(z => !pimpKeys.has(z.f.PIMP_TransactionKey));
 const bereitsImportiert = bericht.length - offen.length;
 const P = abgleich(offen, pimp2025, [
+    { name: 'Referenz', q: z => z.ref ? [z.typ, z.ref].join('|') : null,
+                        z: p => p.ref ? [p.typ, p.ref].join('|') : null },
     { name: 'mit Transaktions-Nr.', q: z => z.txn ? [z.datum, z.typ, z.order, z.txn, z.payout].join('|') : null,
                                     z: p => p.txn ? [p.datum, p.typ, p.order, p.txn, p.payout].join('|') : null },
     { name: 'Betrag + Auszahlung', q: z => [z.datum, z.typ, z.order, cent(z.brutto), z.payout].join('|'),
@@ -154,8 +158,12 @@ const P = abgleich(offen, pimp2025, [
     { name: 'Nettobetrag', q: z => [z.datum, z.typ, z.order, cent(z.netto), z.payout].join('|'),
                            z: p => [p.datum, p.typ, p.order, cent(p.brutto), p.payout].join('|') },
     { name: 'ohne Auszahlungs-Nr.', q: z => [z.datum, z.typ, z.order, cent(z.brutto)].join('|'),
-                                    z: p => [p.datum, p.typ, p.order, cent(p.brutto)].join('|') }
+                                    z: p => [p.datum, p.typ, p.order, cent(p.brutto)].join('|') },
+    { name: 'ohne Datum', q: z => z.order ? [z.typ, z.order, cent(z.brutto), z.payout].join('|') : null,
+                          z: p => p.order ? [p.typ, p.order, cent(p.brutto), p.payout].join('|') : null }
 ]);
+// Zugeordnete PIMP-Zeilen mit abweichendem Datum → Datum laut eBay-Bericht
+const datumFalsch = [...P.paare].filter(([z, p]) => p.datum !== z.datum);
 const pimpOhneBericht = pimp2025.filter(p => !P.vergeben.has(p));
 
 // ── 2b. Bericht ↔ EB (nur für die Verknüpfungen) ─────────────
@@ -204,6 +212,7 @@ output.markdown(`## Analyse
 - Berichtszeilen: **${bericht.length}** (bereits mit diesem Skript importiert: ${bereitsImportiert})
 - davon schon in PIMP vorhanden: **${P.paare.size}** – ${JSON.stringify(P.proStufe)} → werden nicht neu angelegt
 - **neu anzulegen: ${neu.length}**
+- davon mit falschem Datum in PIMP (wird korrigiert): **${datumFalsch.length}**
 - PIMP-2025-Zeilen ohne Gegenstück im Bericht: **${pimpOhneBericht.length}** (Dubletten-Kandidaten, bleiben unverändert)
 - EB: ${eb.length} Zeilen + ${ebLeer.length} leere; dem Bericht zugeordnet: **${E.paare.size}** – ${JSON.stringify(E.proStufe)}
 - EB-Zeilen ohne Gegenstück im Bericht: **${ebOhneBericht.length}**, davon mit Verknüpfung (würde fehlen): **${ebLinksVerloren.length}**
@@ -217,6 +226,10 @@ output.table(Object.values(proTyp).map(z => ({ ...z,
 if (pimpOhneBericht.length) {
     output.markdown('### PIMP-2025-Zeilen ohne Gegenstück im Bericht (max. 50)');
     output.table(pimpOhneBericht.slice(0, 50).map(p => ({ id: p.rec.id, Datum: p.datum, Typ: p.typ, Order: p.order, Betrag: cent(p.brutto), Auszahlung: p.payout, VK_Lot: p.vkLot })));
+}
+if (datumFalsch.length) {
+    output.markdown('### Datum wird korrigiert (max. 50)');
+    output.table(datumFalsch.slice(0, 50).map(([z, p]) => ({ id: p.rec.id, Typ: p.typ, Order: p.order, Betrag: cent(p.brutto), 'Datum PIMP': p.datum, 'Datum eBay': z.datum })));
 }
 if (konflikte.length) {
     output.markdown('### Mögliche Doppelbuchungen VK26 ↔ VK25 (werden NICHT verändert)');
@@ -255,9 +268,10 @@ async function ausfuehren() {
     // 2025: VK25 nur, wenn die Zeile nicht schon einem VK26 zugeordnet ist (sonst Doppelbuchung)
     for (const [z, p] of P.paare) if (!p.hatVk25 && !p.vkLot && vk25(z).length) setze(p.rec.id, F_VK_2025, vk25(z));
     for (const p of vk26Treffer) setze(p.rec.id, F_VK_2026, [{ id: vk26ByLot.get(p.vkLot) }]);
+    for (const [z, p] of datumFalsch) setze(p.rec.id, 'PIMP_TransactionDate', z.datum);
     const updates = [...upd].map(([id, fields]) => ({ id, fields }));
     for (let i = 0; i < updates.length; i += BATCH) await tblPimp.updateRecordsAsync(updates.slice(i, i + BATCH));
-    output.markdown(`✏️ ${updates.length} vorhandene PIMP-Zeilen verknüpft (VK_2025: ${updates.filter(u => u.fields[F_VK_2025]).length}, VK_2026: ${updates.filter(u => u.fields[F_VK_2026]).length})`);
+    output.markdown(`✏️ ${updates.length} vorhandene PIMP-Zeilen aktualisiert (VK_2025: ${updates.filter(u => u.fields[F_VK_2025]).length}, VK_2026: ${updates.filter(u => u.fields[F_VK_2026]).length}, Datum: ${updates.filter(u => u.fields.PIMP_TransactionDate).length})`);
 
     // ── 5. Neue Zeilen anlegen ───────────────────────────────
     const jetzt = new Date().toISOString();
