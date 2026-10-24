@@ -5,6 +5,7 @@
  *
  * ─────────────────────────────────────────────────────────────
  * ÄNDERUNG V2.1: Echte Verknüpfung PIMP → Verkauf_2026
+ *   Zuordnungsfelder werden über Feld-IDs angesprochen (Umbenennen bricht nichts).
  *   Überall, wo PIMP_VK_Lot (Text) gesetzt wird, wird zusätzlich das
  *   Verknüpfungsfeld PIMP_VK_2026 gesetzt. Ein Link-Repair-Pass trägt die
  *   Verknüpfung für Zeilen nach, die nur den Text-Lot haben (max. 500 je Lauf).
@@ -53,6 +54,10 @@ const CONFIG = {
         'Shopify': { vkPlattform: 'Shop', vkZahlweg: null }
     }
 };
+
+// PIMP-Zuordnungsfelder über Feld-ID → unempfindlich gegen Umbenennen in Airtable
+const F_VK_LOT  = 'fldDLyYgaHskBU6tY'; // Text-Lot „VK26/…“ (aktuell „PIMP_VK“, früher „PIMP_VK_Lot“)
+const F_VK_2026 = 'fldQCizhd9RvD54bq'; // Verknüpfung → Verkauf_2026 („PIMP_VK_2026“)
 
 // ============================================================
 // HILFSFUNKTIONEN
@@ -110,8 +115,8 @@ async function setProcessed(table, records, status) {
 
 /** Felder für die Zuordnung PIMP → VK: Text-Lot + echte Verknüpfung (falls VK-Record bekannt). */
 function vkFelder(vkLot, vkId) {
-    const f = { 'PIMP_VK_Lot': vkLot };
-    if (vkId) f['PIMP_VK_2026'] = [{ id: vkId }];
+    const f = { [F_VK_LOT]: vkLot };
+    if (vkId) f[F_VK_2026] = [{ id: vkId }];
     return f;
 }
 
@@ -185,13 +190,13 @@ async function repariereLeereLots(tblVerkauf, verkaufRecords) {
 
 async function repariereVkLinks(tblImport, importRecords, vkIdByLot) {
     const offen = importRecords.records.filter(r =>
-        r.getCellValueAsString('PIMP_VK_Lot').startsWith('VK26/')
-        && !(r.getCellValue('PIMP_VK_2026') || []).length
-        && vkIdByLot.has(r.getCellValueAsString('PIMP_VK_Lot'))
+        r.getCellValueAsString(F_VK_LOT).startsWith('VK26/')
+        && !(r.getCellValue(F_VK_2026) || []).length
+        && vkIdByLot.has(r.getCellValueAsString(F_VK_LOT))
     ).slice(0, CONFIG.linkRepairMax);
     if (!offen.length) return 0;
 
-    const updates = offen.map(r => ({ id: r.id, fields: { 'PIMP_VK_2026': [{ id: vkIdByLot.get(r.getCellValueAsString('PIMP_VK_Lot')) }] } }));
+    const updates = offen.map(r => ({ id: r.id, fields: { [F_VK_2026]: [{ id: vkIdByLot.get(r.getCellValueAsString(F_VK_LOT)) }] } }));
     for (let i = 0; i < updates.length; i += CONFIG.batchSize)
         await tblImport.updateRecordsAsync(updates.slice(i, i + CONFIG.batchSize));
 
@@ -212,7 +217,7 @@ async function main() {
     const tblPartner = base.getTable(CONFIG.tables.partner);
 
     const importFields = [
-        'PIMP_TransactionKey','PIMP_Plattform','PIMP_Processed','PIMP_VK_Lot','PIMP_VK_2026',
+        'PIMP_TransactionKey','PIMP_Plattform','PIMP_Processed',F_VK_LOT,F_VK_2026,
         'PIMP_RowType','PIMP_TransactionDate','PIMP_OrderId','PIMP_TransactionNo',
         'PIMP_Description','PIMP_BuyerUser','PIMP_BuyerName',
         'PIMP_ItemNo','PIMP_SKU','PIMP_Title','PIMP_Quantity',
@@ -244,9 +249,9 @@ async function main() {
     for (const r of importRecords.records) {
         if (r.getCellValueAsString('PIMP_Processed') === 'true'
             && r.getCellValueAsString('PIMP_RowType') === 'Bestellung'
-            && r.getCellValueAsString('PIMP_VK_Lot')
+            && r.getCellValueAsString(F_VK_LOT)
             && r.getCellValueAsString('PIMP_OrderId'))
-            orderIdToVkLot.set(r.getCellValueAsString('PIMP_OrderId'), r.getCellValueAsString('PIMP_VK_Lot'));
+            orderIdToVkLot.set(r.getCellValueAsString('PIMP_OrderId'), r.getCellValueAsString(F_VK_LOT));
     }
 
     // OrderId → bestehender VK (Idempotenz-Schlüssel)
@@ -580,9 +585,9 @@ async function verarbeiteNachtraeglicheVersandetiketten(ctx, importRecords) {
     for (const r of importRecords.records) {
         if (r.getCellValueAsString('PIMP_Processed') === 'true'
             && r.getCellValueAsString('PIMP_RowType') === 'Bestellung'
-            && r.getCellValueAsString('PIMP_VK_Lot')
+            && r.getCellValueAsString(F_VK_LOT)
             && r.getCellValueAsString('PIMP_OrderId'))
-            orderMap.set(r.getCellValueAsString('PIMP_OrderId'), r.getCellValueAsString('PIMP_VK_Lot'));
+            orderMap.set(r.getCellValueAsString('PIMP_OrderId'), r.getCellValueAsString(F_VK_LOT));
     }
 
     const verkaufRecords = await tblVerkauf.selectRecordsAsync({ fields: ['VK_Lot', 'VK_Versandkosten'] });
@@ -643,9 +648,9 @@ async function runVerkaufsbezogeneGebuehren(tblImport, tblVerkauf, importRecords
     for (const r of importRecords.records) {
         if (r.getCellValueAsString('PIMP_Processed') === 'true'
             && r.getCellValueAsString('PIMP_RowType') === 'Bestellung'
-            && r.getCellValueAsString('PIMP_VK_Lot')
+            && r.getCellValueAsString(F_VK_LOT)
             && r.getCellValueAsString('PIMP_OrderId'))
-            orderIdToVkLot.set(r.getCellValueAsString('PIMP_OrderId'), r.getCellValueAsString('PIMP_VK_Lot'));
+            orderIdToVkLot.set(r.getCellValueAsString('PIMP_OrderId'), r.getCellValueAsString(F_VK_LOT));
     }
 
     const verkaufRecords = await tblVerkauf.selectRecordsAsync({ fields: ['VK_Lot', 'VK_Plattform_Kosten'] });
@@ -657,7 +662,7 @@ async function runVerkaufsbezogeneGebuehren(tblImport, tblVerkauf, importRecords
 
     let zugeordnet = 0, offen = 0;
     for (const zeile of vkGebuehren) {
-        if (zeile.getCellValueAsString('PIMP_VK_Lot')) continue; // bereits zugeordnet (idempotent)
+        if (zeile.getCellValueAsString(F_VK_LOT)) continue; // bereits zugeordnet (idempotent)
         const orderId = zeile.getCellValueAsString('PIMP_OrderId');
         const betrag = Math.abs(parseNum(zeile.getCellValue('PIMP_AmountGross')) || 0);
         if (!orderId || !betrag) { offen++; continue; }
