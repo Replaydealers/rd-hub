@@ -1,8 +1,14 @@
 /**
- * PIMP-Automation V2.0 - Replay Dealers
+ * PIMP-Automation V2.1 - Replay Dealers
  * Läuft als Airtable-Automation (z.B. alle 15 Minuten)
  * Verarbeitet automatisch: eBay + Shopify Bestellungen → VK
  *
+ * ─────────────────────────────────────────────────────────────
+ * ÄNDERUNG V2.1: Echte Verknüpfung PIMP → Verkauf_2026
+ *   Überall, wo PIMP_VK_Lot (Text) gesetzt wird, wird zusätzlich das
+ *   Verknüpfungsfeld PIMP_VK_2026 gesetzt. Ein Link-Repair-Pass trägt die
+ *   Verknüpfung für Zeilen nach, die nur den Text-Lot haben (max. 500 je Lauf).
+ *   PIMP_VK_Lot bleibt vorerst als Arbeitsfeld bestehen.
  * ─────────────────────────────────────────────────────────────
  * ÄNDERUNGEN GEGENÜBER V1.1 (Fehlerbehebung "verkauft-Geister" / leere Lots):
  *
@@ -40,6 +46,7 @@ const CONFIG = {
         partner: 'Partnerdaten_2026'
     },
     batchSize: 50,
+    linkRepairMax: 500,
     titelMatchSchwelle: 0.30,
     plattformMapping: {
         'ebay': { vkPlattform: 'ebay', vkZahlweg: 'ebay' },
@@ -101,9 +108,16 @@ async function setProcessed(table, records, status) {
         await table.updateRecordsAsync(updates.slice(i, i + CONFIG.batchSize));
 }
 
-async function setProcessedMitVkLot(table, records, status, vkLot) {
+/** Felder für die Zuordnung PIMP → VK: Text-Lot + echte Verknüpfung (falls VK-Record bekannt). */
+function vkFelder(vkLot, vkId) {
+    const f = { 'PIMP_VK_Lot': vkLot };
+    if (vkId) f['PIMP_VK_2026'] = [{ id: vkId }];
+    return f;
+}
+
+async function setProcessedMitVkLot(table, records, status, vkLot, vkId) {
     const now = new Date().toISOString();
-    const updates = records.map(r => ({ id: r.id, fields: { 'PIMP_Processed': { name: status }, 'PIMP_ProcessedAt': now, 'PIMP_VK_Lot': vkLot } }));
+    const updates = records.map(r => ({ id: r.id, fields: { 'PIMP_Processed': { name: status }, 'PIMP_ProcessedAt': now, ...vkFelder(vkLot, vkId) } }));
     for (let i = 0; i < updates.length; i += CONFIG.batchSize)
         await table.updateRecordsAsync(updates.slice(i, i + CONFIG.batchSize));
 }
@@ -166,11 +180,31 @@ async function repariereLeereLots(tblVerkauf, verkaufRecords) {
 }
 
 // ============================================================
+// LINK-REPAIR-PASS: Text-Lot vorhanden, Verknüpfung PIMP_VK_2026 fehlt
+// ============================================================
+
+async function repariereVkLinks(tblImport, importRecords, vkIdByLot) {
+    const offen = importRecords.records.filter(r =>
+        r.getCellValueAsString('PIMP_VK_Lot').startsWith('VK26/')
+        && !(r.getCellValue('PIMP_VK_2026') || []).length
+        && vkIdByLot.has(r.getCellValueAsString('PIMP_VK_Lot'))
+    ).slice(0, CONFIG.linkRepairMax);
+    if (!offen.length) return 0;
+
+    const updates = offen.map(r => ({ id: r.id, fields: { 'PIMP_VK_2026': [{ id: vkIdByLot.get(r.getCellValueAsString('PIMP_VK_Lot')) }] } }));
+    for (let i = 0; i < updates.length; i += CONFIG.batchSize)
+        await tblImport.updateRecordsAsync(updates.slice(i, i + CONFIG.batchSize));
+
+    console.log(`🔗 Link-Repair: ${updates.length} PIMP-Zeilen mit Verkauf_2026 verknüpft`);
+    return updates.length;
+}
+
+// ============================================================
 // HAUPTVERARBEITUNG
 // ============================================================
 
 async function main() {
-    console.log('# ⚙️ PIMP-Automation V2.0');
+    console.log('# ⚙️ PIMP-Automation V2.1');
 
     const tblImport  = base.getTable(CONFIG.tables.import);
     const tblVerkauf = base.getTable(CONFIG.tables.verkauf);
@@ -178,7 +212,7 @@ async function main() {
     const tblPartner = base.getTable(CONFIG.tables.partner);
 
     const importFields = [
-        'PIMP_TransactionKey','PIMP_Plattform','PIMP_Processed','PIMP_VK_Lot',
+        'PIMP_TransactionKey','PIMP_Plattform','PIMP_Processed','PIMP_VK_Lot','PIMP_VK_2026',
         'PIMP_RowType','PIMP_TransactionDate','PIMP_OrderId','PIMP_TransactionNo',
         'PIMP_Description','PIMP_BuyerUser','PIMP_BuyerName',
         'PIMP_ItemNo','PIMP_SKU','PIMP_Title','PIMP_Quantity',
@@ -196,6 +230,14 @@ async function main() {
     // (0) Repair-Pass – leere Lots heilen, danach frisch laden
     const repariert = await repariereLeereLots(tblVerkauf, verkaufRecords);
     if (repariert) verkaufRecords = await tblVerkauf.selectRecordsAsync({ fields: verkaufFields });
+
+    // VK_Lot → Record-ID (für die echte Verknüpfung PIMP_VK_2026)
+    const vkIdByLot = new Map();
+    for (const vk of verkaufRecords.records) {
+        const lot = vk.getCellValueAsString('VK_Lot');
+        if (lot) vkIdByLot.set(lot, vk.id);
+    }
+    await repariereVkLinks(tblImport, importRecords, vkIdByLot);
 
     // OrderId → VK_Lot (aus bereits verarbeiteten Bestellungen; für Versand/Gebühren)
     const orderIdToVkLot = new Map();
@@ -219,7 +261,7 @@ async function main() {
         artikelRecords, partnerRecords, verkaufRecords,
         globalZugeordnet: new Set(),
         verarbeiteteEtiketten: new Set(),
-        orderIdToVkLot, vkByOrderId
+        orderIdToVkLot, vkByOrderId, vkIdByLot
     };
 
     // Nur unverarbeitete eBay + Shopify Zeilen ('false')
@@ -289,7 +331,7 @@ async function verarbeiteOrderGroup(ctx, orderId, zeilen) {
         const andereZeilen = zeilen.filter(z => z.getCellValueAsString('PIMP_RowType') !== 'Rückerstattung');
         const vkLot = ctx.orderIdToVkLot.get(orderId);
         if (andereZeilen.length) await setProcessed(tblImport, andereZeilen, 'true');
-        if (vkLot) await setProcessedMitVkLot(tblImport, rueckZeilen, 'clearing', vkLot);
+        if (vkLot) await setProcessedMitVkLot(tblImport, rueckZeilen, 'clearing', vkLot, ctx.vkIdByLot.get(vkLot));
         else await setProcessed(tblImport, rueckZeilen, 'clearing');
         console.log(`⚠️ ${orderId}: Rückerstattung → Clearing${vkLot ? ` (${vkLot})` : ''}`);
         return { type: 'clearing' };
@@ -330,7 +372,7 @@ function sammleSkuListe(bestellZeilen) {
 // ============================================================
 
 async function verarbeiteBestellung(ctx, orderId, zeilen) {
-    const { tblImport, tblVerkauf, tblArtikel, tblPartner, artikelRecords, partnerRecords, globalZugeordnet, verarbeiteteEtiketten, vkByOrderId } = ctx;
+    const { tblImport, tblVerkauf, tblArtikel, tblPartner, artikelRecords, partnerRecords, globalZugeordnet, verarbeiteteEtiketten, vkByOrderId, vkIdByLot } = ctx;
 
     const ersteZeile = zeilen.find(z => z.getCellValueAsString('PIMP_RowType') === 'Bestellung') || zeilen[0];
     const plattformName = ersteZeile.getCellValue('PIMP_Plattform')?.name || 'ebay';
@@ -442,6 +484,7 @@ async function verarbeiteBestellung(ctx, orderId, zeilen) {
 
     // Idempotenz-Map sofort aktualisieren (falls dieselbe OrderId nochmal käme)
     vkByOrderId.set(orderId, neuerRecord);
+    vkIdByLot.set(vkLot, vkRecordId);
 
     // ── Schritt 3: Artikel auf verkauft setzen + verknüpfen ──
     for (const z of artikelZuordnung) {
@@ -454,15 +497,15 @@ async function verarbeiteBestellung(ctx, orderId, zeilen) {
     }
 
     // ── Schritt 4: Import-Zeilen als erledigt markieren ──
-    await setProcessedMitVkLot(tblImport, bestellZeilen, 'true', vkLot);
+    await setProcessedMitVkLot(tblImport, bestellZeilen, 'true', vkLot, vkRecordId);
     if (versandZeilen.length) {
-        await setProcessedMitVkLot(tblImport, versandZeilen, 'true', vkLot);
+        await setProcessedMitVkLot(tblImport, versandZeilen, 'true', vkLot, vkRecordId);
         for (const vz of versandZeilen) verarbeiteteEtiketten.add(vz.id);
     }
 
     const rueck = zeilen.filter(z => z.getCellValueAsString('PIMP_RowType') === 'Rückerstattung');
     if (rueck.length) {
-        await setProcessedMitVkLot(tblImport, rueck, 'clearing', vkLot);
+        await setProcessedMitVkLot(tblImport, rueck, 'clearing', vkLot, vkRecordId);
         console.log(`⚠️ ${rueck.length} Rückerstattung(en) → Clearing`);
     }
 
@@ -505,9 +548,9 @@ async function vervollstaendigeBestellung(ctx, orderId, bestellZeilen, versandZe
         }
     }
 
-    await setProcessedMitVkLot(tblImport, bestellZeilen, 'true', vkLot);
+    await setProcessedMitVkLot(tblImport, bestellZeilen, 'true', vkLot, vkRecord.id);
     if (versandZeilen.length) {
-        await setProcessedMitVkLot(tblImport, versandZeilen, 'true', vkLot);
+        await setProcessedMitVkLot(tblImport, versandZeilen, 'true', vkLot, vkRecord.id);
         for (const vz of versandZeilen) verarbeiteteEtiketten.add(vz.id);
     }
 
@@ -562,7 +605,7 @@ async function verarbeiteNachtraeglicheVersandetiketten(ctx, importRecords) {
         const now = new Date().toISOString();
 
         if (!betrag || betrag === 0) {
-            await tblImport.updateRecordAsync(etikett.id, { 'PIMP_Processed': { name: 'true' }, 'PIMP_ProcessedAt': now, 'PIMP_VK_Lot': vkLot });
+            await tblImport.updateRecordAsync(etikett.id, { 'PIMP_Processed': { name: 'true' }, 'PIMP_ProcessedAt': now, ...vkFelder(vkLot, vkRecord.id) });
             zugeordnet++; continue;
         }
 
@@ -574,7 +617,7 @@ async function verarbeiteNachtraeglicheVersandetiketten(ctx, importRecords) {
             console.log(`📦 ${vkLot}: Versand ${aktuell.toFixed(2)} → ${neu.toFixed(2)} €`);
         }
         vkVersand.set(vkLot, neu);
-        await tblImport.updateRecordAsync(etikett.id, { 'PIMP_Processed': { name: 'true' }, 'PIMP_ProcessedAt': now, 'PIMP_VK_Lot': vkLot });
+        await tblImport.updateRecordAsync(etikett.id, { 'PIMP_Processed': { name: 'true' }, 'PIMP_ProcessedAt': now, ...vkFelder(vkLot, vkRecord.id) });
         zugeordnet++;
     }
 
@@ -626,7 +669,7 @@ async function runVerkaufsbezogeneGebuehren(tblImport, tblVerkauf, importRecords
         const aktuell = vkRecord.getCellValue('VK_Plattform_Kosten') || 0;
         await tblVerkauf.updateRecordAsync(vkRecord.id, { 'VK_Plattform_Kosten': aktuell + betrag });
         const now = new Date().toISOString();
-        await tblImport.updateRecordAsync(zeile.id, { 'PIMP_Processed': { name: 'true' }, 'PIMP_ProcessedAt': now, 'PIMP_VK_Lot': vkLot });
+        await tblImport.updateRecordAsync(zeile.id, { 'PIMP_Processed': { name: 'true' }, 'PIMP_ProcessedAt': now, ...vkFelder(vkLot, vkRecord.id) });
         console.log(`✅ ${vkLot}: +${betrag.toFixed(2)} € Gebühr`);
         zugeordnet++;
     }
