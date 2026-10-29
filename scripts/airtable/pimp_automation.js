@@ -1,8 +1,15 @@
 /**
- * PIMP-Automation V2.1 - Replay Dealers
+ * PIMP-Automation V2.2 - Replay Dealers
  * Läuft als Airtable-Automation (z.B. alle 15 Minuten)
  * Verarbeitet automatisch: eBay + Shopify Bestellungen → VK
  *
+ * ─────────────────────────────────────────────────────────────
+ * ÄNDERUNG V2.2: Keine Doppel-VKs zusammen mit dem Clearing
+ *   - Idempotenz findet einen VK auch ohne VK_OrderId (ältere Clearing-Anlagen):
+ *     über PIMP_VK_2026 / Text-Lot anderer PIMP-Zeilen derselben OrderId.
+ *     Beim Vervollständigen wird VK_OrderId am VK nachgetragen.
+ *   - Liegen Bestellzeilen derselben OrderId schon im Clearing, wird nicht parallel
+ *     ein VK angelegt – die neuen Zeilen gehen ebenfalls ins Clearing.
  * ─────────────────────────────────────────────────────────────
  * ÄNDERUNG V2.1: Echte Verknüpfung PIMP → Verkauf_2026
  *   Zuordnungsfelder werden über Feld-IDs angesprochen (Umbenennen bricht nichts).
@@ -209,7 +216,7 @@ async function repariereVkLinks(tblImport, importRecords, vkIdByLot) {
 // ============================================================
 
 async function main() {
-    console.log('# ⚙️ PIMP-Automation V2.1');
+    console.log('# ⚙️ PIMP-Automation V2.2');
 
     const tblImport  = base.getTable(CONFIG.tables.import);
     const tblVerkauf = base.getTable(CONFIG.tables.verkauf);
@@ -260,13 +267,30 @@ async function main() {
         const o = vk.getCellValueAsString('VK_OrderId');
         if (o) vkByOrderId.set(o, vk);
     }
+    // V2.2: VKs ohne VK_OrderId (ältere Clearing-Anlagen) über die PIMP-Zuordnung derselben Bestellung finden
+    const vkById = new Map(verkaufRecords.records.map(vk => [vk.id, vk]));
+    for (const r of importRecords.records) {
+        const o = r.getCellValueAsString('PIMP_OrderId');
+        if (!o || vkByOrderId.has(o)) continue;
+        const vkId = (r.getCellValue(F_VK_2026) || [])[0]?.id || vkIdByLot.get(r.getCellValueAsString(F_VK_LOT));
+        if (vkId && vkById.has(vkId)) vkByOrderId.set(o, vkById.get(vkId));
+    }
+
+    // V2.2: Bestellungen, die schon (teilweise) im Clearing liegen – dort gemeinsam klären
+    const clearingOrderIds = new Set();
+    for (const r of importRecords.records) {
+        if (r.getCellValueAsString('PIMP_Processed') === 'clearing'
+            && r.getCellValueAsString('PIMP_RowType') === 'Bestellung'
+            && r.getCellValueAsString('PIMP_OrderId'))
+            clearingOrderIds.add(r.getCellValueAsString('PIMP_OrderId'));
+    }
 
     const ctx = {
         tblImport, tblVerkauf, tblArtikel, tblPartner,
         artikelRecords, partnerRecords, verkaufRecords,
         globalZugeordnet: new Set(),
         verarbeiteteEtiketten: new Set(),
-        orderIdToVkLot, vkByOrderId, vkIdByLot
+        orderIdToVkLot, vkByOrderId, vkIdByLot, clearingOrderIds
     };
 
     // Nur unverarbeitete eBay + Shopify Zeilen ('false')
@@ -402,6 +426,13 @@ async function verarbeiteBestellung(ctx, orderId, zeilen) {
         return await vervollstaendigeBestellung(ctx, orderId, bestellZeilen, versandZeilen, skuListe, vkByOrderId.get(orderId));
     }
 
+    // V2.2: Andere Bestellzeilen dieser OrderId liegen im Clearing → nicht parallel einen zweiten VK anlegen
+    if (orderId && !orderId.startsWith('SINGLE_') && ctx.clearingOrderIds.has(orderId)) {
+        console.log(`⚠️ ${orderId}: Bestellung liegt bereits im Clearing → Clearing`);
+        await setProcessed(tblImport, bestellZeilen, 'clearing');
+        return { type: 'clearing' };
+    }
+
     // Kein SKU oder (Shopify) mehrere → Clearing
     if (hatKeineSku || (istShopify && hatMehrereSku)) {
         const grund = hatKeineSku ? 'keine SKU' : 'mehrere SKUs';
@@ -525,6 +556,10 @@ async function verarbeiteBestellung(ctx, orderId, zeilen) {
 
 async function vervollstaendigeBestellung(ctx, orderId, bestellZeilen, versandZeilen, skuListe, vkRecord) {
     const { tblImport, tblVerkauf, tblArtikel, artikelRecords, globalZugeordnet, verarbeiteteEtiketten } = ctx;
+
+    // V2.2: VK_OrderId nachtragen (VK wurde evtl. über die PIMP-Zuordnung gefunden)
+    if (!vkRecord.getCellValueAsString('VK_OrderId'))
+        await tblVerkauf.updateRecordAsync(vkRecord.id, { 'VK_OrderId': orderId });
 
     // Lot sicherstellen
     let vkLot = vkRecord.getCellValueAsString('VK_Lot');

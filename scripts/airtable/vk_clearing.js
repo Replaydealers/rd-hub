@@ -1,5 +1,10 @@
 /**
- * Clearing V2.10.21 - Replay Dealers
+ * Clearing V2.11.0 - Replay Dealers
+ * V2.11.0  - Doppel-VK verhindert: Vor jeder VK-Anlage wird geprüft, ob die Bestellung schon einen VK hat
+ *            (Verknüpfung/Lot an PIMP-Zeilen derselben OrderId, VK_OrderId – frisch aus Airtable geladen,
+ *            damit auch VKs gefunden werden, die die Automation während des Clearings angelegt hat).
+ *            Gefunden → verknüpfen statt neu anlegen. PIMP-Felder über Feld-IDs (PIMP_VK_Lot → PIMP_VK),
+ *            zusätzlich echte Verknüpfung PIMP_VK_2026. Lot wird direkt nach VK-Anlage gesetzt.
  * V2.10.21 - Partner-Duplikat-Bug behoben: Cache wird live aktualisiert
  * V2.10.20 - Erklärungstext gekürzt
  * V2.10.19 - Storno-Option: Artikel verloren → Abschreibung
@@ -22,12 +27,25 @@ const CONFIG = {
     }
 };
 
+// PIMP-Zuordnungsfelder über Feld-ID → unempfindlich gegen Umbenennen in Airtable
+const F_VK_LOT  = 'fldDLyYgaHskBU6tY'; // Text-Lot „VK26/…“ (aktuell „PIMP_VK“, früher „PIMP_VK_Lot“)
+const F_VK_2026 = 'fldQCizhd9RvD54bq'; // Verknüpfung → Verkauf_2026 („PIMP_VK_2026“)
+
+const VK_FELDER = ['VK_Lot','VK_ID','VK_OrderId','VK_Datum','VK_Plattform','VK_Status','VK_Preis','VK_Plattform_Kosten','VK_Versandkosten'];
+
+// V2.11.0: VK-Index für den ganzen Lauf – neu angelegte VKs werden sofort eingetragen
+const vkIndex = { byId: new Map(), byLot: new Map(), byOrderId: new Map() };
+// Alle PIMP-Zeilen je OrderId (nicht nur Clearing-Zeilen) – für die Suche nach einem vorhandenen VK
+const pimpByOrderId = new Map();
+// OrderIds, für die der Nutzer einen zweiten VK ausdrücklich bestätigt hat (nicht doppelt nachfragen)
+const zweiterVkBestaetigt = new Set();
+
 // ============================================================
 // HAUPTLOGIK
 // ============================================================
 
 async function main() {
-    output.markdown('# 🔍 Clearing V2.10.21');
+    output.markdown('# 🔍 Clearing V2.11.0');
 
     const tblImport = base.getTable(CONFIG.tables.import);
     const tblArtikel = base.getTable(CONFIG.tables.artikel);
@@ -37,7 +55,7 @@ async function main() {
     output.text('Lade Daten...');
 
     const importRecords = await tblImport.selectRecordsAsync({ fields: [
-        'PIMP_TransactionKey','PIMP_Plattform','PIMP_Processed','PIMP_VK_Lot',
+        'PIMP_TransactionKey','PIMP_Plattform','PIMP_Processed',F_VK_LOT,F_VK_2026,
         'PIMP_RowType','PIMP_TransactionDate','PIMP_OrderId',
         'PIMP_BuyerUser','PIMP_BuyerName',
         'PIMP_ItemNo','PIMP_SKU','PIMP_Title','PIMP_Quantity',
@@ -50,9 +68,15 @@ async function main() {
         'ITEM_VK_Lot','ITEM_VK_Preis'
     ]});
 
-    const verkaufRecords = await tblVerkauf.selectRecordsAsync({ fields: [
-        'VK_Lot','VK_Plattform','VK_Status','VK_Preis','VK_Plattform_Kosten','VK_Versandkosten'
-    ]});
+    const verkaufRecords = await tblVerkauf.selectRecordsAsync({ fields: VK_FELDER });
+    for (const vk of verkaufRecords.records) merkeVk(vk);
+
+    for (const r of importRecords.records) {
+        const oid = r.getCellValueAsString('PIMP_OrderId');
+        if (!oid) continue;
+        if (!pimpByOrderId.has(oid)) pimpByOrderId.set(oid, []);
+        pimpByOrderId.get(oid).push(r);
+    }
 
     const partnerRecords = await tblPartner.selectRecordsAsync({ fields: [
         'PD_KA_Name','PD_Name','PD_Vorname','PD_Firmenname'
@@ -225,15 +249,7 @@ async function handleFall(orderId, zeilen, tblImport, tblArtikel, tblVerkauf, ar
     output.markdown('## ⚠️ Käuferschutz-Fall / Retoure');
     zeigeZeilenTabelle(zeilen);
 
-    let vkLot = null;
-    for (const z of zeilen) { const l = z.getCellValueAsString('PIMP_VK_Lot'); if (l) { vkLot = l; break; } }
-    if (!vkLot) {
-        const alle = importRecords.records.filter(r => r.getCellValueAsString('PIMP_OrderId') === orderId);
-        for (const z of alle) { const l = z.getCellValueAsString('PIMP_VK_Lot'); if (l) { vkLot = l; break; } }
-    }
-
-    let vkRecord = null;
-    if (vkLot) vkRecord = verkaufRecords.records.find(r => r.getCellValueAsString('VK_Lot') === vkLot);
+    const { vkLot, vkRecord } = findeVkZuOrder(orderId, zeilen);
 
     const fallZeile = zeilen.find(z => z.getCellValueAsString('PIMP_RowType') === 'Fall');
     const rueckBetrag = fallZeile ? Math.abs(fallZeile.getCellValue('PIMP_AmountGross') || 0) : 0;
@@ -296,16 +312,7 @@ async function handleRueckerstattung(orderId, zeilen, tblImport, tblArtikel, tbl
     const warenWertDelta = amountGrossSum - feeSumSum;
     const gebuehrenDelta = feeSumSum;
 
-    let vkLot = null;
-    for (const z of zeilen) { const l = z.getCellValueAsString('PIMP_VK_Lot'); if (l) { vkLot = l; break; } }
-    if (!vkLot) {
-        const alle = importRecords.records.filter(r => r.getCellValueAsString('PIMP_OrderId') === orderId);
-        for (const z of alle) { const l = z.getCellValueAsString('PIMP_VK_Lot'); if (l) { vkLot = l; break; } }
-    }
-
-    const vkRecord = vkLot
-        ? verkaufRecords.records.find(r => r.getCellValueAsString('VK_Lot') === vkLot)
-        : null;
+    const { vkLot, vkRecord } = findeVkZuOrder(orderId, zeilen);
 
     if (hatBestellung && !vkRecord) {
         output.markdown('### ℹ️ Stornierter Kauf (Bestellung + Rückerstattung)');
@@ -420,7 +427,7 @@ async function handleRueckerstattung(orderId, zeilen, tblImport, tblArtikel, tbl
     if (grundAuswahl === 'vk_suchen') {
         const lotEingabe = await input.textAsync('VK-Lot eingeben (z.B. VK26/042):');
         if (lotEingabe?.trim()) {
-            const gefunden = verkaufRecords.records.find(r => r.getCellValueAsString('VK_Lot') === lotEingabe.trim());
+            const gefunden = vkIndex.byLot.get(lotEingabe.trim());
             if (!gefunden) {
                 output.text(`❌ ${lotEingabe.trim()} nicht gefunden`);
             } else {
@@ -758,16 +765,7 @@ async function handleVersandetikett(orderId, zeilen, tblImport, tblVerkauf, verk
     output.markdown('## 📦 Versandetikett ohne Bestellung');
     zeigeZeilenTabelle(zeilen);
 
-    let vkLot = null;
-    for (const z of zeilen) { const l = z.getCellValueAsString('PIMP_VK_Lot'); if (l) { vkLot = l; break; } }
-    if (!vkLot) {
-        const alle = importRecords.records.filter(r => r.getCellValueAsString('PIMP_OrderId') === orderId);
-        for (const z of alle) { const l = z.getCellValueAsString('PIMP_VK_Lot'); if (l) { vkLot = l; break; } }
-    }
-
-    const vkRecord = vkLot
-        ? verkaufRecords.records.find(r => r.getCellValueAsString('VK_Lot') === vkLot)
-        : null;
+    const { vkLot, vkRecord } = findeVkZuOrder(orderId, zeilen);
 
     let etikettSumme = 0;
     for (const z of zeilen) {
@@ -823,7 +821,7 @@ async function handleVersandetikett(orderId, zeilen, tblImport, tblVerkauf, verk
     if (grundAuswahl === 'vk_suchen') {
         const lotEingabe = await input.textAsync('VK-Lot eingeben (z.B. VK26/042):');
         if (lotEingabe?.trim()) {
-            const gefunden = verkaufRecords.records.find(r => r.getCellValueAsString('VK_Lot') === lotEingabe.trim());
+            const gefunden = vkIndex.byLot.get(lotEingabe.trim());
             if (!gefunden) {
                 output.text(`❌ ${lotEingabe.trim()} nicht gefunden`);
                 return await standardAktionen(zeilen, tblImport);
@@ -859,6 +857,13 @@ async function handleAndereGebuehr(zeilen, tblImport) {
 // ============================================================
 
 async function handleBestellung(orderId, zeilen, tblImport, tblArtikel, tblVerkauf, tblPartner, artikelRecords, partnerRecords, partnerCache, verkaufRecords) {
+    // V2.11.0: Hat diese Bestellung schon einen VK (z.B. von der Automation)? → verknüpfen statt doppelt anlegen
+    const vorhanden = await findeVorhandenenVk(orderId, zeilen, tblVerkauf);
+    if (vorhanden) {
+        const r = await handleVorhandenerVk(orderId, zeilen, vorhanden, tblImport, tblVerkauf);
+        if (r !== 'neu') return r;
+    }
+
     const bestellZeilen = zeilen.filter(z =>
         z.getCellValueAsString('PIMP_RowType') === 'Bestellung' && z.getCellValueAsString('PIMP_ItemNo')
     );
@@ -1510,7 +1515,105 @@ async function setzeProcessed(table, zeilen, status) {
 }
 
 async function setzeProcessedMitVkLot(table, zeilen, status, vkLot) {
-    for (const z of zeilen) await table.updateRecordAsync(z.id, { 'PIMP_Processed': { name: status }, 'PIMP_VK_Lot': vkLot });
+    const fields = { 'PIMP_Processed': { name: status }, [F_VK_LOT]: vkLot };
+    const vk = vkIndex.byLot.get(vkLot);
+    if (vk && vkLot.startsWith('VK26/')) fields[F_VK_2026] = [{ id: vk.id }];
+    for (const z of zeilen) await table.updateRecordAsync(z.id, fields);
+}
+
+// ============================================================
+// V2.11.0: VORHANDENEN VK ZU EINER BESTELLUNG FINDEN
+// ============================================================
+
+function merkeVk(vk) {
+    vkIndex.byId.set(vk.id, vk);
+    const lot = vk.getCellValueAsString('VK_Lot');
+    if (lot) vkIndex.byLot.set(lot, vk);
+    const oid = vk.getCellValueAsString('VK_OrderId');
+    if (oid) vkIndex.byOrderId.set(oid, vk);
+}
+
+function echteOrderId(orderId) {
+    return orderId && !orderId.startsWith('SINGLE_') ? orderId : null;
+}
+
+/**
+ * Sucht den VK einer Bestellung im Cache: zuerst Verknüpfung PIMP_VK_2026, dann Text-Lot
+ * an den Zeilen bzw. an allen PIMP-Zeilen derselben OrderId, zuletzt VK_OrderId.
+ * vkLot kann ohne vkRecord zurückkommen, wenn der Text-Lot in Verkauf_2026 nicht existiert.
+ */
+function findeVkZuOrder(orderId, zeilen) {
+    const oid = echteOrderId(orderId);
+    const kandidaten = [...zeilen, ...(oid ? (pimpByOrderId.get(oid) || []) : [])];
+
+    for (const z of kandidaten) {
+        for (const link of (z.getCellValue(F_VK_2026) || [])) {
+            const vk = vkIndex.byId.get(link.id);
+            if (vk) return { vkLot: vk.getCellValueAsString('VK_Lot'), vkRecord: vk };
+        }
+    }
+    let ersterLot = null;
+    for (const z of kandidaten) {
+        const l = z.getCellValueAsString(F_VK_LOT);
+        if (!l) continue;
+        if (vkIndex.byLot.has(l)) return { vkLot: l, vkRecord: vkIndex.byLot.get(l) };
+        if (!ersterLot) ersterLot = l;
+    }
+    if (oid && vkIndex.byOrderId.has(oid)) {
+        const vk = vkIndex.byOrderId.get(oid);
+        return { vkLot: vk.getCellValueAsString('VK_Lot'), vkRecord: vk };
+    }
+    return { vkLot: ersterLot, vkRecord: null };
+}
+
+/**
+ * Wie findeVkZuOrder, aber zusätzlich frisch aus Verkauf_2026 nach VK_OrderId –
+ * die Automation kann während eines langen Clearing-Laufs einen VK angelegt haben.
+ */
+async function findeVorhandenenVk(orderId, zeilen, tblVerkauf) {
+    const imCache = findeVkZuOrder(orderId, zeilen).vkRecord;
+    if (imCache) return imCache;
+
+    const oid = echteOrderId(orderId);
+    if (!oid) return null;
+    const frisch = await tblVerkauf.selectRecordsAsync({ fields: VK_FELDER });
+    const treffer = frisch.records.find(r => r.getCellValueAsString('VK_OrderId') === oid);
+    if (treffer) merkeVk(treffer);
+    return treffer || null;
+}
+
+async function handleVorhandenerVk(orderId, zeilen, vkRecord, tblImport, tblVerkauf) {
+    const vkLot = vkRecord.getCellValueAsString('VK_Lot');
+    output.markdown(`## ⚠️ Für diese Bestellung gibt es schon einen VK: ${vkLot || '(ohne Lot)'}`);
+    output.text(`Status: ${vkRecord.getCellValueAsString('VK_Status') || '-'} | Datum: ${vkRecord.getCellValueAsString('VK_Datum') || '-'} | Preis: ${(vkRecord.getCellValue('VK_Preis') || 0).toFixed(2)} €`);
+    output.text('Ein neuer VK würde den Verkauf doppelt erfassen. Normalerweise nur verknüpfen.');
+    zeigeZeilenTabelle(zeilen);
+
+    const aktion = await input.buttonsAsync('Aktion:', [
+        { label: `🔗 Mit ${vkLot || 'VK'} verknüpfen (erledigt)`, value: 'verknuepfen', variant: 'primary' },
+        { label: '➕ Trotzdem neuen VK anlegen', value: 'neu' },
+        { label: '⏭️ Weiter', value: 'weiter' },
+        { label: '🛑 Abbrechen', value: 'stop', variant: 'danger' }
+    ]);
+    if (aktion === 'stop') return 'stop';
+    if (aktion === 'weiter') return 'weiter';
+    if (aktion === 'neu') {
+        const sicher = await input.buttonsAsync(`Wirklich einen ZWEITEN VK zu ${vkLot || 'diesem VK'} anlegen?`, [
+            { label: '❌ Nein, zurück', value: false, variant: 'primary' },
+            { label: '⚠️ Ja, zweiter VK', value: true, variant: 'danger' }
+        ]);
+        if (!sicher) return 'weiter';
+        if (echteOrderId(orderId)) zweiterVkBestaetigt.add(orderId);
+        return 'neu';
+    }
+
+    if (!vkLot) { output.text('❌ VK hat noch keinen Lot (Automation-Repair läuft) – bitte später erneut versuchen'); return 'weiter'; }
+    await setzeProcessedMitVkLot(tblImport, zeilen, 'true', vkLot);
+    const oid = echteOrderId(orderId);
+    if (oid && !vkRecord.getCellValueAsString('VK_OrderId'))
+        await tblVerkauf.updateRecordAsync(vkRecord.id, { 'VK_OrderId': oid });
+    output.markdown(`### ✅ ${zeilen.length} Zeile(n) mit ${vkLot} verknüpft – kein neuer VK`);
+    return 'vkErstellt'; // Fall ist erledigt – Aufrufer behandeln das wie eine erfolgreiche Anlage
 }
 
 function sucheArtikel(artikelRecords, suchbegriff) {
@@ -1756,13 +1859,13 @@ async function erfasseSammelArtikel(artikelRecords, gesamtPreis) {
 }
 
 // ============================================================
-// VK ERSTELLEN (MULTI-PLATTFORM) - V2.10.21 mit Partner-Cache
+// VK ERSTELLEN (MULTI-PLATTFORM) - V2.11.0 mit Partner-Cache + Doppel-Prüfung
 // ============================================================
 
 async function erstelleVkAusMehreren(zeilen, erfassteArtikel, gesamtPreis, tblImport, tblArtikel, tblVerkauf, tblPartner, partnerRecords, partnerCache, verkaufRecords) {
     const ersteZeile = zeilen.find(z => z.getCellValueAsString('PIMP_RowType') === 'Bestellung') || zeilen[0];
     const transactionDate = ersteZeile.getCellValueAsString('PIMP_TransactionDate');
-	const orderId = ersteZeile.getCellValueAsString('PIMP_OrderId') || '';
+    const orderId = ersteZeile.getCellValueAsString('PIMP_OrderId') || '';
     const buyerUser = ersteZeile.getCellValueAsString('PIMP_BuyerUser') || '';
     const buyerName = ersteZeile.getCellValueAsString('PIMP_BuyerName') || '';
 
@@ -1818,8 +1921,18 @@ async function erstelleVkAusMehreren(zeilen, erfassteArtikel, gesamtPreis, tblIm
     for (const bz of zeilen.filter(z => z.getCellValueAsString('PIMP_RowType') === 'Bestellung'))
         plattformKosten += Math.abs(parseFloat(bz.getCellValue('PIMP_FeeSum') || 0));
 
+    // V2.11.0: Letzte Prüfung direkt vor der Anlage (die Eingaben oben können Minuten dauern)
+    const oid = echteOrderId(orderId);
+    if (oid && !zweiterVkBestaetigt.has(oid)) {
+        const vorhanden = await findeVorhandenenVk(oid, zeilen, tblVerkauf);
+        if (vorhanden) {
+            const r = await handleVorhandenerVk(oid, zeilen, vorhanden, tblImport, tblVerkauf);
+            if (r !== 'neu') return r;
+        }
+    }
+
     const vkRecord = await tblVerkauf.createRecordAsync({
-        'VK_OrderId': orderId || undefined,          // ← NEU
+        'VK_OrderId': orderId || undefined,
         'VK_Datum': transactionDate ? new Date(transactionDate) : new Date(),
         'VK_Plattform': { name: plattformInfo.vkPlattform },
         'VK_Status': { name: 'versendet' },
@@ -1832,6 +1945,14 @@ async function erstelleVkAusMehreren(zeilen, erfassteArtikel, gesamtPreis, tblIm
         'VK_Plattform_Kosten': plattformKosten
     });
 
+    // Lot sofort setzen (wie in der Automation), damit ein Abbruch keinen VK ohne Lot hinterlässt
+    const neuerRecord = await tblVerkauf.selectRecordAsync(vkRecord, { fields: ['VK_ID', 'VK_Datum'] });
+    const vkId = neuerRecord.getCellValue('VK_ID');
+    const vkJahr = new Date(transactionDate || Date.now()).getFullYear().toString().slice(-2);
+    const vkLot = `VK${vkJahr}/${String(vkId).padStart(3, '0')}`;
+    await tblVerkauf.updateRecordAsync(vkRecord, { 'VK_Lot': vkLot });
+    merkeVk(await tblVerkauf.selectRecordAsync(vkRecord, { fields: VK_FELDER }));
+
     for (const a of erfassteArtikel) {
         await tblArtikel.updateRecordAsync(a.artikelRecord.id, {
             'ITEM_Status': { name: 'verkauft' },
@@ -1839,12 +1960,6 @@ async function erstelleVkAusMehreren(zeilen, erfassteArtikel, gesamtPreis, tblIm
             'ITEM_VK_Preis': a.einzelpreis
         });
     }
-
-    const neuerRecord = await tblVerkauf.selectRecordAsync(vkRecord, { fields: ['VK_ID', 'VK_Datum'] });
-    const vkId = neuerRecord.getCellValue('VK_ID');
-    const vkJahr = new Date(transactionDate || Date.now()).getFullYear().toString().slice(-2);
-   const vkLot = `VK${vkJahr}/${String(vkId).padStart(3, '0')}`;
-    await tblVerkauf.updateRecordAsync(vkRecord, { 'VK_Lot': vkLot });
 
     await setzeProcessedMitVkLot(tblImport, zeilen, 'true', vkLot);
     if (versandZeilen.length) await setzeProcessedMitVkLot(tblImport, versandZeilen, 'true', vkLot);
