@@ -1,5 +1,6 @@
 /**
- * PIMP-Automation V2.1 - Replay Dealers
+ * PIMP-Automation V2.2 - Replay Dealers
+ * V2.2: Titel-Abgleich robuster (Akzente wie é, Bindestriche, Teilwörter) → weniger unnötiges Clearing
  * Läuft als Airtable-Automation (z.B. alle 15 Minuten)
  * Verarbeitet automatisch: eBay + Shopify Bestellungen → VK
  *
@@ -78,14 +79,26 @@ function splitName(fullName) {
         : { vorname: parts[0], nachname: parts.slice(1).join(' ') };
 }
 
+/**
+ * Titel-Ähnlichkeit 0..1 (Anteil gemeinsamer Wörter, bezogen auf den kürzeren Titel).
+ * - Akzente werden aufgelöst (Pokémon → pokemon, Pokéball → pokeball) statt gelöscht.
+ * - Bindestriche/Satzzeichen trennen Wörter (Top-Zustand → top zustand).
+ * - Teilwort-Treffer zählen (pokeball ↔ pokeballs, gameboy ↔ game boy).
+ */
 function matchScore(text1, text2) {
     if (!text1 || !text2) return 0;
-    const norm = s => s.toLowerCase().replace(/[^a-z0-9äöüß\s]/g, '').split(/\s+/).filter(w => w.length > 2);
+    const norm = s => s.toLowerCase()
+        .replace(/ß/g, 'ss')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .split(' ').filter(w => w.length > 2);
     const w1 = norm(text1), w2 = norm(text2);
     if (!w1.length || !w2.length) return 0;
+    const joined1 = w1.join(''), joined2 = w2.join('');
+    const passt = (w, liste, joined) => liste.includes(w) || (w.length >= 4 && joined.includes(w));
     return Math.max(
-        w1.filter(w => w2.includes(w)).length / w1.length,
-        w2.filter(w => w1.includes(w)).length / w2.length
+        w1.filter(w => passt(w, w2, joined2)).length / w1.length,
+        w2.filter(w => passt(w, w1, joined1)).length / w2.length
     );
 }
 
